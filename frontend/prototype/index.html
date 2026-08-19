@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>KaryawanKu — Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+      colors: {
+        primary: { DEFAULT: 'hsl(175 77% 26%)', hover: 'hsl(175 77% 21%)', on: 'hsl(0 0% 100%)', container: 'hsl(175 52% 91%)', oncontainer: 'hsl(175 80% 13%)' },
+        surface: { DEFAULT: 'hsl(180 20% 99%)', c1: 'hsl(180 22% 97%)', c2: 'hsl(180 20% 95%)', c3: 'hsl(180 18% 92%)', c4: 'hsl(180 16% 89%)' },
+        onsurface: { DEFAULT: 'hsl(195 18% 12%)', variant: 'hsl(195 10% 40%)' },
+        outline: { DEFAULT: 'hsl(190 10% 70%)', variant: 'hsl(190 14% 88%)' }
+      }
+    }
+  }
+}
+</script>
+<style type="text/tailwindcss">
+  @layer base { html { font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; } }
+  /* Custom scrollbar styling for the iframe wrapper */
+  .frame-wrap::-webkit-scrollbar { width: 8px; height: 8px; }
+  .frame-wrap::-webkit-scrollbar-thumb { background: hsl(190 10% 70%); border-radius: 4px; }
+  .frame-wrap::-webkit-scrollbar-track { background: hsl(180 22% 97%); }
+</style>
+</head>
+<body class="h-full bg-surface text-onsurface antialiased">
+
+<div class="h-screen flex flex-col">
+
+  <!-- Top bar -->
+  <header class="bg-surface-c1 border-b border-outline-variant px-4 sm:px-6 h-16 flex items-center gap-3 shrink-0">
+    <div class="w-10 h-10 rounded-full bg-primary text-primary-on font-semibold flex items-center justify-center shrink-0">K</div>
+    <div class="flex-1 min-w-0">
+      <h1 class="text-base font-semibold truncate">KaryawanKu — Prototype</h1>
+      <p class="text-xs text-onsurface-variant truncate">7 halaman · Bahasa Indonesia · IDR formatting · M3 design system</p>
+    </div>
+    <a href="https://github.com/arkinara/karyawanku/tree/main/frontend/prototype" target="_blank" rel="noopener" class="hidden sm:inline-flex h-9 px-3 rounded-full border border-outline-variant text-xs font-medium hover:bg-surface-c2 items-center gap-1.5">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+      GitHub
+    </a>
+  </header>
+
+  <!-- Page tabs -->
+  <nav class="bg-surface border-b border-outline-variant px-4 sm:px-6 shrink-0">
+    <div id="tabs" class="flex gap-1 overflow-x-auto py-2 -mx-1 px-1">
+      <!-- populated by JS -->
+    </div>
+  </nav>
+
+  <!-- Viewport controls -->
+  <div class="bg-surface-c1 border-b border-outline-variant px-4 sm:px-6 py-2 flex items-center gap-3 shrink-0 flex-wrap">
+    <span class="text-xs font-medium text-onsurface-variant">Viewport:</span>
+    <div id="viewport-btns" class="flex gap-1 bg-surface-c2 rounded-full p-1">
+      <button data-vp="375" class="vp-btn h-7 px-3 rounded-full text-xs font-medium">📱 Mobile</button>
+      <button data-vp="768" class="vp-btn h-7 px-3 rounded-full text-xs font-medium">Tablet</button>
+      <button data-vp="1440" class="vp-btn h-7 px-3 rounded-full text-xs font-medium">🖥️ Desktop</button>
+      <button data-vp="100" class="vp-btn h-7 px-3 rounded-full text-xs font-medium">Full</button>
+    </div>
+    <span class="text-xs text-onsurface-variant ml-auto hidden sm:inline">
+      <span id="current-page-title">—</span>
+    </span>
+  </div>
+
+  <!-- Frame -->
+  <main class="flex-1 bg-surface-c3 overflow-auto p-4 sm:p-6 frame-wrap">
+    <div id="frame-container" class="mx-auto bg-surface rounded-xl shadow-e1 border border-outline-variant overflow-hidden transition-all duration-300" style="width:1440px; max-width:100%;">
+      <iframe id="proto-frame" src="03-quick-dashboard-owner.html" class="w-full border-0 block bg-surface" style="height: calc(100vh - 200px); min-height: 600px;"></iframe>
+    </div>
+  </main>
+
+</div>
+
+<script>
+  const pages = [
+    { id: '01', file: '01-onboarding-wizard.html',      title: 'Onboarding Wizard',      role: 'Owner',     desc: '3 langkah setup bisnis + komponen gaji default' },
+    { id: '02', file: '02-auth-sign-in.html',           title: 'Sign In',                role: 'All',       desc: 'Kartu login tengah, Bahasa Indonesia' },
+    { id: '03', file: '03-quick-dashboard-owner.html',  title: 'Dashboard — Owner',      role: 'Owner',     desc: 'Metrik tim, cuti pending, kehadiran hari ini' },
+    { id: '04', file: '04-quick-dashboard-employee.html', title: 'Dashboard — Karyawan', role: 'Employee',  desc: 'Check-in widget, jadwal sendiri, aksi cepat' },
+    { id: '05', file: '05-employee-directory.html',     title: 'Daftar Karyawan',        role: 'Owner',     desc: 'Search, filter, tabel 6 karyawan' },
+    { id: '06', file: '06-payroll-run.html',            title: 'Payroll Run',            role: 'Owner',     desc: 'Approval + breakdown 5 karyawan + ekspor CSV' },
+    { id: '07', file: '07-payslip-detail.html',         title: 'Slip Gaji',              role: 'Employee',  desc: 'Pendapatan, potongan, take-home pay, unduh PDF' }
+  ];
+
+  const tabsEl = document.getElementById('tabs');
+  const frame = document.getElementById('proto-frame');
+  const container = document.getElementById('frame-container');
+  const titleEl = document.getElementById('current-page-title');
+
+  function renderTabs() {
+    tabsEl.innerHTML = pages.map((p, i) => `
+      <button data-idx="${i}" class="tab-btn shrink-0 px-3 sm:px-4 h-9 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 ${i===0 ? 'bg-primary text-primary-on' : 'text-onsurface hover:bg-surface-c2'}">
+        <span class="opacity-70">${p.id}</span>
+        <span>${p.title}</span>
+      </button>
+    `).join('');
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => loadPage(parseInt(btn.dataset.idx)));
+    });
+  }
+
+  function loadPage(idx) {
+    const p = pages[idx];
+    frame.src = p.file;
+    titleEl.textContent = `${p.id} · ${p.title} — ${p.desc}`;
+    document.querySelectorAll('.tab-btn').forEach((b, i) => {
+      if (i === idx) {
+        b.className = 'tab-btn shrink-0 px-3 sm:px-4 h-9 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 bg-primary text-primary-on';
+      } else {
+        b.className = 'tab-btn shrink-0 px-3 sm:px-4 h-9 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 text-onsurface hover:bg-surface-c2';
+      }
+    });
+  }
+
+  // Viewport switcher
+  document.querySelectorAll('.vp-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const w = btn.dataset.vp;
+      const activeClass = 'bg-primary text-primary-on';
+      const inactiveClass = 'text-onsurface hover:bg-surface-c2';
+      document.querySelectorAll('.vp-btn').forEach(b => {
+        b.className = b.className.replace(activeClass, '').replace(inactiveClass, '');
+        b.className += ' ' + inactiveClass;
+      });
+      btn.classList.remove(inactiveClass);
+      btn.classList.add(activeClass);
+      if (w === '100') {
+        container.style.width = '100%';
+      } else {
+        container.style.width = w + 'px';
+      }
+    });
+  });
+  // Default: Desktop active
+  document.querySelector('.vp-btn[data-vp="1440"]').classList.remove('text-onsurface', 'hover:bg-surface-c2');
+  document.querySelector('.vp-btn[data-vp="1440"]').classList.add('bg-primary', 'text-primary-on');
+
+  renderTabs();
+  loadPage(0);
+</script>
+
+</body>
+</html>
