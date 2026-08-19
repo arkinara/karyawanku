@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Onboarding · KaryawanKu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+      colors: {
+        primary: { DEFAULT: 'hsl(175 77% 26%)', hover: 'hsl(175 77% 21%)', press: 'hsl(175 77% 16%)', on: 'hsl(0 0% 100%)', container: 'hsl(175 52% 91%)', oncontainer: 'hsl(175 80% 13%)' },
+        surface: { DEFAULT: 'hsl(180 20% 99%)', c1: 'hsl(180 22% 97%)', c2: 'hsl(180 20% 95%)', c3: 'hsl(180 18% 92%)', c4: 'hsl(180 16% 89%)' },
+        onsurface: { DEFAULT: 'hsl(195 18% 12%)', variant: 'hsl(195 10% 40%)' },
+        outline: { DEFAULT: 'hsl(190 10% 70%)', variant: 'hsl(190 14% 88%)' },
+        success: { DEFAULT: 'hsl(160 84% 30%)', container: 'hsl(160 60% 93%)', on: 'hsl(160 90% 16%)' },
+        warning: { DEFAULT: 'hsl(38 92% 42%)', container: 'hsl(45 93% 92%)', on: 'hsl(30 85% 20%)' },
+        danger: { DEFAULT: 'hsl(347 77% 46%)', container: 'hsl(350 90% 95%)', on: 'hsl(347 80% 22%)' },
+        info: { DEFAULT: 'hsl(217 91% 50%)', container: 'hsl(214 95% 94%)', on: 'hsl(224 76% 25%)' }
+      },
+      borderRadius: { xs: '4px', sm: '8px', md: '12px', lg: '16px', xl: '20px', '2xl': '28px' },
+      boxShadow: {
+        e1: '0 1px 2px 0 hsl(190 20% 10% / 0.06), 0 1px 3px 1px hsl(190 20% 10% / 0.05)',
+        e2: '0 1px 2px 0 hsl(190 20% 10% / 0.08), 0 2px 6px 2px hsl(190 20% 10% / 0.06)',
+        e3: '0 4px 8px 3px hsl(190 20% 10% / 0.08), 0 1px 3px 0 hsl(190 20% 10% / 0.10)'
+      }
+    }
+  }
+}
+</script>
+<style>
+  html, body { -webkit-font-smoothing: antialiased; }
+  .touch { min-height: 48px; }
+  .focus-ring:focus-visible { outline: 2px solid hsl(175 77% 26%); outline-offset: 2px; }
+  input[type="radio"]:checked + .radio-card { border-color: hsl(175 77% 26%); background: hsl(175 52% 91%); }
+</style>
+</head>
+<body class="h-full bg-surface-c1 font-sans text-onsurface">
+
+<div class="mx-auto flex min-h-full w-full max-w-3xl flex-col px-4 py-6 sm:px-6 sm:py-10">
+
+  <!-- Brand -->
+  <div class="mb-6 flex items-center gap-2">
+    <div class="grid h-9 w-9 place-items-center rounded-md bg-primary text-primary-on font-bold">K</div>
+    <span class="text-lg font-semibold tracking-tight">KaryawanKu</span>
+  </div>
+
+  <!-- Stepper -->
+  <nav aria-label="Langkah onboarding" class="mb-6 rounded-lg border border-outline-variant bg-surface p-4 shadow-e1 sm:p-5">
+    <ol class="flex items-center gap-2 sm:gap-4">
+      <li class="flex flex-1 items-center gap-2 sm:gap-3" data-stepitem="1">
+        <span class="step-dot grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-semibold">1</span>
+        <span class="step-label hidden text-sm font-medium sm:block">Profil Usaha</span>
+        <span class="h-px flex-1 bg-outline-variant"></span>
+      </li>
+      <li class="flex flex-1 items-center gap-2 sm:gap-3" data-stepitem="2">
+        <span class="step-dot grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-semibold">2</span>
+        <span class="step-label hidden text-sm font-medium sm:block">Komponen Gaji</span>
+        <span class="h-px flex-1 bg-outline-variant"></span>
+      </li>
+      <li class="flex items-center gap-2 sm:gap-3" data-stepitem="3">
+        <span class="step-dot grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-semibold">3</span>
+        <span class="step-label hidden text-sm font-medium sm:block">Konfirmasi</span>
+      </li>
+    </ol>
+    <p class="mt-3 text-xs text-onsurface-variant sm:hidden">Langkah <span id="stepNowMobile">1</span> dari 3 &middot; <span id="stepNameMobile">Profil Usaha</span></p>
+  </nav>
+
+  <!-- Card -->
+  <main class="flex-1 rounded-xl border border-outline-variant bg-surface p-5 shadow-e1 sm:p-8">
+
+    <!-- STEP 1 -->
+    <section data-step="1">
+      <h1 class="text-xl font-semibold tracking-tight sm:text-2xl">Ceritakan tentang usaha Anda</h1>
+      <p class="mt-1 text-sm text-onsurface-variant">Informasi ini dipakai untuk slip gaji dan laporan.</p>
+
+      <div class="mt-6 space-y-5">
+        <div>
+          <label for="namaUsaha" class="mb-1.5 block text-sm font-medium">Nama usaha</label>
+          <input id="namaUsaha" type="text" value="Warung Kopi Nusantara"
+            class="touch focus-ring w-full rounded-md border border-outline bg-surface px-4 text-[15px] outline-none placeholder:text-onsurface-variant/70" />
+        </div>
+
+        <div>
+          <span class="mb-1.5 block text-sm font-medium">Jenis usaha</span>
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label class="cursor-pointer">
+              <input type="radio" name="jenisUsaha" class="peer sr-only" checked />
+              <div class="radio-card touch flex items-center gap-3 rounded-md border-2 border-outline-variant bg-surface-c1 px-4 py-3">
+                <span class="text-xl">&#127858;</span>
+                <span>
+                  <span class="block text-sm font-medium">F&amp;B</span>
+                  <span class="block text-xs text-onsurface-variant">Restoran, kafe, katering</span>
+                </span>
+              </div>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" name="jenisUsaha" class="peer sr-only" />
+              <div class="radio-card touch flex items-center gap-3 rounded-md border-2 border-outline-variant bg-surface-c1 px-4 py-3">
+                <span class="text-xl">&#128188;</span>
+                <span>
+                  <span class="block text-sm font-medium">Jasa</span>
+                  <span class="block text-xs text-onsurface-variant">Salon, bengkel, laundry</span>
+                </span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <div>
+            <label for="jumlahKaryawan" class="mb-1.5 block text-sm font-medium">Perkiraan jumlah karyawan</label>
+            <select id="jumlahKaryawan" class="touch focus-ring w-full rounded-md border border-outline bg-surface px-4 text-[15px] outline-none">
+              <option>1 &ndash; 5 orang</option>
+              <option selected>6 &ndash; 20 orang</option>
+              <option>21 &ndash; 50 orang</option>
+              <option>Lebih dari 50 orang</option>
+            </select>
+          </div>
+          <div>
+            <label for="kotaUsaha" class="mb-1.5 block text-sm font-medium">Kota</label>
+            <input id="kotaUsaha" type="text" value="Jakarta Selatan"
+              class="touch focus-ring w-full rounded-md border border-outline bg-surface px-4 text-[15px] outline-none" />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 2 -->
+    <section data-step="2" hidden>
+      <h1 class="text-xl font-semibold tracking-tight sm:text-2xl">Komponen gaji standar</h1>
+      <p class="mt-1 text-sm text-onsurface-variant">Nilai ini jadi default saat menambah karyawan baru. Bisa diubah per orang nanti.</p>
+
+      <div class="mt-6 space-y-4">
+        <div class="rounded-md border border-outline-variant bg-surface-c1 p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-sm font-medium">Gaji Pokok</p>
+              <p class="text-xs text-onsurface-variant">Komponen wajib, dasar perhitungan</p>
+            </div>
+            <span class="rounded-full bg-primary-container px-2.5 py-1 text-xs font-medium text-primary-oncontainer">Wajib</span>
+          </div>
+          <div class="mt-3 flex items-center rounded-md border border-outline bg-surface">
+            <span class="px-3 text-sm text-onsurface-variant">Rp</span>
+            <input type="text" value="4.500.000" class="touch focus-ring w-full rounded-r-md bg-transparent pr-4 text-[15px] font-medium outline-none" />
+          </div>
+        </div>
+
+        <div class="rounded-md border border-outline-variant bg-surface-c1 p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-sm font-medium">Tunjangan Transport</p>
+              <p class="text-xs text-onsurface-variant">Dibayar per bulan, menambah pendapatan</p>
+            </div>
+            <span class="rounded-full bg-success-container px-2.5 py-1 text-xs font-medium text-success-on">Pendapatan</span>
+          </div>
+          <div class="mt-3 flex items-center rounded-md border border-outline bg-surface">
+            <span class="px-3 text-sm text-onsurface-variant">Rp</span>
+            <input type="text" value="500.000" class="touch focus-ring w-full rounded-r-md bg-transparent pr-4 text-[15px] font-medium outline-none" />
+          </div>
+        </div>
+
+        <div class="rounded-md border border-outline-variant bg-surface-c1 p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-sm font-medium">Potongan BPJS</p>
+              <p class="text-xs text-onsurface-variant">BPJS Kesehatan 1% + BPJS Ketenagakerjaan 2%</p>
+            </div>
+            <span class="rounded-full bg-danger-container px-2.5 py-1 text-xs font-medium text-danger-on">Potongan</span>
+          </div>
+          <div class="mt-3 grid grid-cols-2 gap-3">
+            <label class="block">
+              <span class="mb-1 block text-xs text-onsurface-variant">BPJS Kesehatan</span>
+              <div class="flex items-center rounded-md border border-outline bg-surface">
+                <input type="text" value="1" class="touch focus-ring w-full rounded-l-md bg-transparent px-4 text-[15px] font-medium outline-none" />
+                <span class="px-3 text-sm text-onsurface-variant">%</span>
+              </div>
+            </label>
+            <label class="block">
+              <span class="mb-1 block text-xs text-onsurface-variant">BPJS TK</span>
+              <div class="flex items-center rounded-md border border-outline bg-surface">
+                <input type="text" value="2" class="touch focus-ring w-full rounded-l-md bg-transparent px-4 text-[15px] font-medium outline-none" />
+                <span class="px-3 text-sm text-onsurface-variant">%</span>
+              </div>
+            </label>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 3 -->
+    <section data-step="3" hidden>
+      <h1 class="text-xl font-semibold tracking-tight sm:text-2xl">Periksa kembali</h1>
+      <p class="mt-1 text-sm text-onsurface-variant">Pastikan semua sudah benar sebelum kita mulai.</p>
+
+      <div class="mt-6 space-y-4">
+        <div class="rounded-md border border-outline-variant bg-surface-c1">
+          <div class="flex items-center justify-between border-b border-outline-variant px-4 py-3">
+            <h2 class="text-sm font-semibold">Profil Usaha</h2>
+            <button type="button" data-goto="1" class="focus-ring rounded-sm px-2 py-1 text-sm font-medium text-primary hover:bg-primary-container">Ubah</button>
+          </div>
+          <dl class="divide-y divide-outline-variant text-sm">
+            <div class="flex justify-between gap-4 px-4 py-3"><dt class="text-onsurface-variant">Nama usaha</dt><dd class="font-medium">Warung Kopi Nusantara</dd></div>
+            <div class="flex justify-between gap-4 px-4 py-3"><dt class="text-onsurface-variant">Jenis usaha</dt><dd class="font-medium">F&amp;B</dd></div>
+            <div class="flex justify-between gap-4 px-4 py-3"><dt class="text-onsurface-variant">Jumlah karyawan</dt><dd class="font-medium">6 &ndash; 20 orang</dd></div>
+            <div class="flex justify-between gap-4 px-4 py-3"><dt class="text-onsurface-variant">Kota</dt><dd class="font-medium">Jakarta Selatan</dd></div>
+          </dl>
+        </div>
+
+        <div class="rounded-md border border-outline-variant bg-surface-c1">
+          <div class="flex items-center justify-between border-b border-outline-variant px-4 py-3">
+            <h2 class="text-sm font-semibold">Komponen Gaji Default</h2>
+            <button type="button" data-goto="2" class="focus-ring rounded-sm px-2 py-1 text-sm font-medium text-primary hover:bg-primary-container">Ubah</button>
+          </div>
+          <dl class="divide-y divide-outline-variant text-sm">
+            <div class="flex justify-between gap-4 px-4 py-3"><dt class="text-onsurface-variant">Gaji Pokok</dt><dd class="font-medium tabular-nums">Rp 4.500.000</dd></div>
+            <div class="flex justify-between gap-4 px-4 py-3"><dt class="text-onsurface-variant">Tunjangan Transport</dt><dd class="font-medium tabular-nums text-success">+ Rp 500.000</dd></div>
+            <div class="flex justify-between gap-4 px-4 py-3"><dt class="text-onsurface-variant">BPJS Kesehatan (1%)</dt><dd class="font-medium tabular-nums text-danger">&minus; Rp 45.000</dd></div>
+            <div class="flex justify-between gap-4 px-4 py-3"><dt class="text-onsurface-variant">BPJS TK (2%)</dt><dd class="font-medium tabular-nums text-danger">&minus; Rp 90.000</dd></div>
+            <div class="flex justify-between gap-4 bg-primary-container px-4 py-3 text-primary-oncontainer"><dt class="font-semibold">Estimasi Take-Home Pay</dt><dd class="font-bold tabular-nums">Rp 4.865.000</dd></div>
+          </dl>
+        </div>
+
+        <p class="text-xs text-onsurface-variant">Semua nilai masih bisa diubah kapan saja di menu Pengaturan.</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- Actions -->
+  <div class="sticky bottom-0 mt-5 flex items-center justify-between gap-3 rounded-lg border border-outline-variant bg-surface/95 p-3 shadow-e2 backdrop-blur sm:p-4">
+    <button id="btnBack" type="button"
+      class="touch focus-ring rounded-full border border-outline px-6 text-[15px] font-medium text-onsurface hover:bg-surface-c2 disabled:pointer-events-none disabled:opacity-40">
+      Kembali
+    </button>
+    <button id="btnNext" type="button"
+      class="touch focus-ring rounded-full bg-primary px-8 text-[15px] font-semibold text-primary-on shadow-e1 hover:bg-primary-hover active:bg-primary-press">
+      Lanjut
+    </button>
+  </div>
+</div>
+
+<script>
+  var step = 1;
+  var names = { 1: 'Profil Usaha', 2: 'Komponen Gaji', 3: 'Konfirmasi' };
+
+  function render() {
+    document.querySelectorAll('[data-step]').forEach(function (s) {
+      s.hidden = Number(s.dataset.step) !== step;
+    });
+    document.querySelectorAll('[data-stepitem]').forEach(function (li) {
+      var n = Number(li.dataset.stepitem);
+      var dot = li.querySelector('.step-dot');
+      var label = li.querySelector('.step-label');
+      dot.className = 'step-dot grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-semibold ' +
+        (n < step ? 'bg-primary text-primary-on'
+          : n === step ? 'bg-primary text-primary-on ring-4 ring-primary-container'
+          : 'bg-surface-c3 text-onsurface-variant');
+      dot.textContent = n < step ? '✓' : String(n);
+      label.className = 'step-label hidden text-sm font-medium sm:block ' + (n <= step ? 'text-onsurface' : 'text-onsurface-variant');
+    });
+    document.getElementById('stepNowMobile').textContent = step;
+    document.getElementById('stepNameMobile').textContent = names[step];
+    document.getElementById('btnBack').disabled = step === 1;
+    document.getElementById('btnNext').textContent = step === 3 ? 'Selesai & Mulai' : 'Lanjut';
+  }
+
+  document.getElementById('btnNext').addEventListener('click', function () {
+    if (step < 3) { step++; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  });
+  document.getElementById('btnBack').addEventListener('click', function () {
+    if (step > 1) { step--; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  });
+  document.querySelectorAll('[data-goto]').forEach(function (b) {
+    b.addEventListener('click', function () { step = Number(b.dataset.goto); render(); });
+  });
+  render();
+</script>
+</body>
+</html>

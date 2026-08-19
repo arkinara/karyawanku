@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Payroll Run · KaryawanKu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+      colors: {
+        primary: { DEFAULT: 'hsl(175 77% 26%)', hover: 'hsl(175 77% 21%)', press: 'hsl(175 77% 16%)', on: 'hsl(0 0% 100%)', container: 'hsl(175 52% 91%)', oncontainer: 'hsl(175 80% 13%)' },
+        surface: { DEFAULT: 'hsl(180 20% 99%)', c1: 'hsl(180 22% 97%)', c2: 'hsl(180 20% 95%)', c3: 'hsl(180 18% 92%)', c4: 'hsl(180 16% 89%)' },
+        onsurface: { DEFAULT: 'hsl(195 18% 12%)', variant: 'hsl(195 10% 40%)' },
+        outline: { DEFAULT: 'hsl(190 10% 70%)', variant: 'hsl(190 14% 88%)' },
+        success: { DEFAULT: 'hsl(160 84% 30%)', container: 'hsl(160 60% 93%)', on: 'hsl(160 90% 16%)' },
+        warning: { DEFAULT: 'hsl(38 92% 42%)', container: 'hsl(45 93% 92%)', on: 'hsl(30 85% 20%)' },
+        danger: { DEFAULT: 'hsl(347 77% 46%)', container: 'hsl(350 90% 95%)', on: 'hsl(347 80% 22%)' },
+        info: { DEFAULT: 'hsl(217 91% 50%)', container: 'hsl(214 95% 94%)', on: 'hsl(224 76% 25%)' }
+      },
+      borderRadius: { xs: '4px', sm: '8px', md: '12px', lg: '16px', xl: '20px', '2xl': '28px' },
+      boxShadow: {
+        e1: '0 1px 2px 0 hsl(190 20% 10% / 0.06), 0 1px 3px 1px hsl(190 20% 10% / 0.05)',
+        e2: '0 1px 2px 0 hsl(190 20% 10% / 0.08), 0 2px 6px 2px hsl(190 20% 10% / 0.06)',
+        e3: '0 4px 8px 3px hsl(190 20% 10% / 0.08), 0 1px 3px 0 hsl(190 20% 10% / 0.10)'
+      }
+    }
+  }
+}
+</script>
+<style>
+  html, body { -webkit-font-smoothing: antialiased; }
+  .touch { min-height: 48px; }
+  .focus-ring:focus-visible { outline: 2px solid hsl(175 77% 26%); outline-offset: 2px; }
+  .nav-item { min-height: 48px; }
+</style>
+</head>
+<body class="h-full bg-surface-c1 font-sans text-onsurface">
+
+<div class="flex min-h-full">
+
+  <!-- Nav rail -->
+  <aside class="fixed inset-y-0 left-0 z-30 hidden w-[248px] shrink-0 flex-col border-r border-outline-variant bg-surface lg:flex">
+    <div class="flex h-16 items-center gap-2 px-5">
+      <div class="grid h-9 w-9 place-items-center rounded-md bg-primary font-bold text-primary-on">K</div>
+      <span class="text-lg font-semibold tracking-tight">KaryawanKu</span>
+    </div>
+
+    <nav aria-label="Navigasi utama" class="flex-1 space-y-1 px-3 py-2">
+      <a href="03-quick-dashboard-owner.html"
+        class="nav-item focus-ring flex items-center gap-3 rounded-md px-3 text-[15px] font-medium text-onsurface-variant hover:bg-surface-c2 hover:text-onsurface">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        Dashboard
+      </a>
+      <a href="05-employee-directory.html"
+        class="nav-item focus-ring flex items-center gap-3 rounded-md px-3 text-[15px] font-medium text-onsurface-variant hover:bg-surface-c2 hover:text-onsurface">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Karyawan
+      </a>
+      <a href="#"
+        class="nav-item focus-ring flex items-center gap-3 rounded-md px-3 text-[15px] font-medium text-onsurface-variant hover:bg-surface-c2 hover:text-onsurface">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        Absensi
+      </a>
+      <a href="#"
+        class="nav-item focus-ring flex items-center justify-between gap-3 rounded-md px-3 text-[15px] font-medium text-onsurface-variant hover:bg-surface-c2 hover:text-onsurface">
+        <span class="flex items-center gap-3">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/></svg>
+          Cuti
+        </span>
+        <span class="rounded-full bg-warning-container px-2 py-0.5 text-xs font-semibold text-warning-on">2</span>
+      </a>
+      <a href="#"
+        class="nav-item focus-ring flex items-center gap-3 rounded-md px-3 text-[15px] font-medium text-onsurface-variant hover:bg-surface-c2 hover:text-onsurface">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M3 8h18M3 16h18"/></svg>
+        Shift
+      </a>
+      <a href="#" aria-current="page"
+        class="nav-item focus-ring flex items-center gap-3 rounded-md bg-primary-container px-3 text-[15px] font-semibold text-primary-oncontainer">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>
+        Payroll
+      </a>
+
+      <div class="my-2 h-px bg-outline-variant"></div>
+
+      <a href="#"
+        class="nav-item focus-ring flex items-center gap-3 rounded-md px-3 text-[15px] font-medium text-onsurface-variant hover:bg-surface-c2 hover:text-onsurface">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-2.9-1.2l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15H4.5a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.2-2.9l-.06-.06A2 2 0 1 1 8.56 5.2l.06.06a1.7 1.7 0 0 0 1.88.34h.08A1.7 1.7 0 0 0 11.6 4.1V4a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 2.9 1.2l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0 1.2 2.9h.09a2 2 0 1 1 0 4H19.4Z"/></svg>
+        Pengaturan
+      </a>
+    </nav>
+
+    <div class="border-t border-outline-variant p-3">
+      <div class="flex items-center gap-3 rounded-md px-2 py-2">
+        <div class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary-container text-sm font-semibold text-primary-oncontainer">WK</div>
+        <div class="min-w-0">
+          <p class="truncate text-sm font-medium">Warung Kopi Nusantara</p>
+          <p class="truncate text-xs text-onsurface-variant">Paket Gratis &middot; 12 karyawan</p>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="flex min-w-0 flex-1 flex-col lg:pl-[248px]">
+
+    <!-- AppBar -->
+    <header class="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-outline-variant bg-surface/95 px-4 backdrop-blur sm:px-6 lg:px-8">
+      <button type="button" aria-label="Buka menu"
+        class="focus-ring -ml-1 grid h-12 w-12 shrink-0 place-items-center rounded-md text-onsurface-variant hover:bg-surface-c2 lg:hidden">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+      </button>
+
+      <p class="min-w-0 flex-1 truncate text-[15px] font-semibold">Payroll Run</p>
+
+      <div class="flex shrink-0 items-center gap-2 sm:gap-3">
+        <label for="bulan" class="sr-only">Pilih bulan</label>
+        <div class="relative">
+          <select id="bulan"
+            class="touch focus-ring appearance-none rounded-full border border-outline bg-surface pl-4 pr-10 text-[15px] font-medium text-onsurface hover:bg-surface-c2">
+            <option selected>Agustus 2026</option>
+            <option>Juli 2026</option>
+            <option>Juni 2026</option>
+            <option>Mei 2026</option>
+          </select>
+          <svg class="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-onsurface-variant" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
+
+        <button type="button"
+          class="touch focus-ring hidden items-center gap-2 rounded-full border border-outline bg-surface px-5 text-[15px] font-medium hover:bg-surface-c2 sm:inline-flex">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+          Ekspor CSV
+        </button>
+        <button type="button" aria-label="Ekspor CSV"
+          class="touch focus-ring grid w-12 place-items-center rounded-full border border-outline bg-surface text-onsurface-variant hover:bg-surface-c2 sm:hidden">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+      <div class="mx-auto max-w-[1200px]">
+
+        <!-- Page title -->
+        <div class="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 class="text-xl font-semibold tracking-tight sm:text-2xl">Payroll Agustus 2026</h1>
+            <p class="mt-1 text-sm text-onsurface-variant">Periode 1 &ndash; 31 Agustus 2026 &middot; jadwal bayar 25 Agustus 2026</p>
+          </div>
+        </div>
+
+        <!-- Status banner -->
+        <div role="status" class="mt-5 flex items-start gap-3 rounded-lg border border-warning/40 bg-warning-container p-4 shadow-e1 sm:p-5">
+          <span class="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-warning text-white">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/></svg>
+          </span>
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-2">
+              <p class="text-[15px] font-semibold text-warning-on">Draft &mdash; Belum disetujui</p>
+              <span class="rounded-full bg-surface px-2.5 py-0.5 text-xs font-semibold text-warning-on">Draft</span>
+            </div>
+            <p class="mt-1 text-sm text-warning-on/80">Disetujui terakhir 28 Juli 2026.</p>
+          </div>
+        </div>
+
+        <!-- Summary row -->
+        <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+
+          <div class="rounded-lg border border-outline-variant bg-surface p-5 shadow-e1">
+            <div class="flex items-start justify-between gap-3">
+              <p class="text-sm font-medium text-onsurface-variant">Total Karyawan</p>
+              <span class="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-primary-container text-primary-oncontainer">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>
+              </span>
+            </div>
+            <p class="mt-3 text-3xl font-bold tabular-nums tracking-tight">12</p>
+            <p class="mt-1 text-xs text-onsurface-variant">Semua karyawan aktif dihitung</p>
+          </div>
+
+          <div class="rounded-lg border border-outline-variant bg-surface p-5 shadow-e1">
+            <div class="flex items-start justify-between gap-3">
+              <p class="text-sm font-medium text-onsurface-variant">Total Gaji</p>
+              <span class="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-info-container text-info-on">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>
+              </span>
+            </div>
+            <p class="mt-3 text-2xl font-bold tabular-nums tracking-tight sm:text-3xl">Rp 28.500.000</p>
+            <p class="mt-1 text-xs text-onsurface-variant">Gaji pokok + tunjangan</p>
+          </div>
+
+          <div class="rounded-lg border border-outline-variant bg-surface p-5 shadow-e1">
+            <div class="flex items-start justify-between gap-3">
+              <p class="text-sm font-medium text-onsurface-variant">Total Potongan</p>
+              <span class="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-danger-container text-danger-on">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/></svg>
+              </span>
+            </div>
+            <p class="mt-3 text-2xl font-bold tabular-nums tracking-tight text-danger sm:text-3xl">Rp 4.200.000</p>
+            <p class="mt-1 text-xs text-onsurface-variant">BPJS, PPh 21, keterlambatan</p>
+          </div>
+
+          <div class="rounded-lg border border-outline-variant bg-surface p-5 shadow-e1">
+            <div class="flex items-start justify-between gap-3">
+              <p class="text-sm font-medium text-onsurface-variant">Take-Home</p>
+              <span class="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-success-container text-success-on">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+              </span>
+            </div>
+            <p class="mt-3 text-2xl font-bold tabular-nums tracking-tight text-success sm:text-3xl">Rp 24.300.000</p>
+            <p class="mt-1 text-xs text-onsurface-variant">Total yang akan dibayarkan</p>
+          </div>
+        </div>
+
+        <!-- Breakdown table -->
+        <section class="mt-4 rounded-lg border border-outline-variant bg-surface shadow-e1">
+          <div class="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant px-5 py-4">
+            <div>
+              <h2 class="text-base font-semibold">Rincian per Karyawan</h2>
+              <p class="mt-0.5 text-xs text-onsurface-variant">Menampilkan 5 dari 12 karyawan</p>
+            </div>
+            <a href="#" class="focus-ring rounded-sm px-2 py-1 text-sm font-medium text-primary hover:bg-primary-container">Lihat semua</a>
+          </div>
+
+          <!-- Desktop table -->
+          <div class="hidden overflow-x-auto md:block">
+            <table class="w-full min-w-[760px] border-collapse text-sm">
+              <caption class="sr-only">Rincian gaji karyawan periode Agustus 2026</caption>
+              <thead>
+                <tr class="bg-surface-c1 text-left">
+                  <th scope="col" class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-onsurface-variant">Nama</th>
+                  <th scope="col" class="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-onsurface-variant">Gaji Pokok</th>
+                  <th scope="col" class="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-onsurface-variant">Tunjangan</th>
+                  <th scope="col" class="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-onsurface-variant">Potongan</th>
+                  <th scope="col" class="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-onsurface-variant">Take-Home Pay</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-outline-variant">
+                <tr class="hover:bg-surface-c1">
+                  <th scope="row" class="px-5 py-4 text-left font-normal">
+                    <span class="flex items-center gap-3">
+                      <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary-container text-xs font-semibold text-primary-oncontainer">BS</span>
+                      <span class="min-w-0">
+                        <span class="block truncate text-sm font-medium">Budi Santoso</span>
+                        <span class="block text-xs text-onsurface-variant">Barista</span>
+                      </span>
+                    </span>
+                  </th>
+                  <td class="px-5 py-4 text-right tabular-nums">Rp 3.500.000</td>
+                  <td class="px-5 py-4 text-right tabular-nums">Rp 800.000</td>
+                  <td class="px-5 py-4 text-right tabular-nums text-danger">&minus; Rp 350.000</td>
+                  <td class="px-5 py-4 text-right font-semibold tabular-nums">Rp 3.950.000</td>
+                </tr>
+                <tr class="hover:bg-surface-c1">
+                  <th scope="row" class="px-5 py-4 text-left font-normal">
+                    <span class="flex items-center gap-3">
+                      <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary-container text-xs font-semibold text-primary-oncontainer">SN</span>
+                      <span class="min-w-0">
+                        <span class="block truncate text-sm font-medium">Siti Nurhaliza</span>
+                        <span class="block text-xs text-onsurface-variant">Kasir</span>
+                      </span>
+                    </span>
+                  </th>
+                  <td class="px-5 py-4 text-right tabular-nums">Rp 3.200.000</td>
+                  <td class="px-5 py-4 text-right tabular-nums">Rp 750.000</td>
+                  <td class="px-5 py-4 text-right tabular-nums text-danger">&minus; Rp 320.000</td>
+                  <td class="px-5 py-4 text-right font-semibold tabular-nums">Rp 3.630.000</td>
+                </tr>
+                <tr class="hover:bg-surface-c1">
+                  <th scope="row" class="px-5 py-4 text-left font-normal">
+                    <span class="flex items-center gap-3">
+                      <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary-container text-xs font-semibold text-primary-oncontainer">AF</span>
+                      <span class="min-w-0">
+                        <span class="block truncate text-sm font-medium">Ahmad Fauzi</span>
+                        <span class="block text-xs text-onsurface-variant">Pramusaji</span>
+                      </span>
+                    </span>
+                  </th>
+                  <td class="px-5 py-4 text-right tabular-nums">Rp 2.800.000</td>
+                  <td class="px-5 py-4 text-right tabular-nums">Rp 600.000</td>
+                  <td class="px-5 py-4 text-right tabular-nums text-danger">&minus; Rp 280.000</td>
+                  <td class="px-5 py-4 text-right font-semibold tabular-nums">Rp 3.120.000</td>
+                </tr>
+                <tr class="hover:bg-surface-c1">
+                  <th scope="row" class="px-5 py-4 text-left font-normal">
+                    <span class="flex items-center gap-3">
+                      <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary-container text-xs font-semibold text-primary-oncontainer">DL</span>
+                      <span class="min-w-0">
+                        <span class="block truncate text-sm font-medium">Dewi Lestari</span>
+                        <span class="block text-xs text-onsurface-variant">Pramusaji</span>
+                      </span>
+                    </span>
+                  </th>
+                  <td class="px-5 py-4 text-right tabular-nums">Rp 2.500.000</td>
+                  <td class="px-5 py-4 text-right tabular-nums">Rp 500.000</td>
+                  <td class="px-5 py-4 text-right tabular-nums text-danger">&minus; Rp 250.000</td>
+                  <td class="px-5 py-4 text-right font-semibold tabular-nums">Rp 2.750.000</td>
+                </tr>
+                <tr class="hover:bg-surface-c1">
+                  <th scope="row" class="px-5 py-4 text-left font-normal">
+                    <span class="flex items-center gap-3">
+                      <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary-container text-xs font-semibold text-primary-oncontainer">RH</span>
+                      <span class="min-w-0">
+                        <span class="block truncate text-sm font-medium">Rudi Hermawan</span>
+                        <span class="block text-xs text-onsurface-variant">Barista</span>
+                      </span>
+                    </span>
+                  </th>
+                  <td class="px-5 py-4 text-right tabular-nums">Rp 3.000.000</td>
+                  <td class="px-5 py-4 text-right tabular-nums">Rp 700.000</td>
+                  <td class="px-5 py-4 text-right tabular-nums text-danger">&minus; Rp 300.000</td>
+                  <td class="px-5 py-4 text-right font-semibold tabular-nums">Rp 3.400.000</td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr class="border-t-2 border-outline-variant bg-surface-c1">
+                  <th scope="row" class="px-5 py-4 text-left text-sm font-semibold">Subtotal 5 karyawan</th>
+                  <td class="px-5 py-4 text-right text-sm font-semibold tabular-nums">Rp 15.000.000</td>
+                  <td class="px-5 py-4 text-right text-sm font-semibold tabular-nums">Rp 3.350.000</td>
+                  <td class="px-5 py-4 text-right text-sm font-semibold tabular-nums text-danger">&minus; Rp 1.500.000</td>
+                  <td class="px-5 py-4 text-right text-sm font-bold tabular-nums">Rp 16.850.000</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <!-- Mobile cards -->
+          <ul class="divide-y divide-outline-variant md:hidden">
+            <li class="p-5">
+              <div class="flex items-center gap-3">
+                <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary-container text-sm font-semibold text-primary-oncontainer">BS</span>
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-sm font-semibold">Budi Santoso</p>
+                  <p class="text-xs text-onsurface-variant">Barista</p>
+                </div>
+              </div>
+              <dl class="mt-3 space-y-1.5 text-sm">
+                <div class="flex justify-between gap-3"><dt class="text-onsurface-variant">Gaji Pokok</dt><dd class="tabular-nums">Rp 3.500.000</dd></div>
+                <div class="flex justify-between gap-3"><dt class="text-onsurface-variant">Tunjangan</dt><dd class="tabular-nums">Rp 800.000</dd></div>
+                <div class="flex justify-between gap-3"><dt class="text-onsurface-variant">Potongan</dt><dd class="tabular-nums text-danger">&minus; Rp 350.000</dd></div>
+                <div class="flex justify-between gap-3 border-t border-outline-variant pt-1.5"><dt class="font-medium">Take-Home Pay</dt><dd class="font-semibold tabular-nums">Rp 3.950.000</dd></div>
+              </dl>
+            </li>
+            <li class="p-5">
+              <div class="flex items-center gap-3">
+                <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary-container text-sm font-semibold text-primary-oncontainer">SN</span>
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-sm font-semibold">Siti Nurhaliza</p>
+                  <p class="text-xs text-onsurface-variant">Kasir</p>
+                </div>
+              </div>
+              <dl class="mt-3 space-y-1.5 text-sm">
+                <div class="flex justify-between gap-3"><dt class="text-onsurface-variant">Gaji Pokok</dt><dd class="tabular-nums">Rp 3.200.000</dd></div>
+                <div class="flex justify-between gap-3"><dt class="text-onsurface-variant">Tunjangan</dt><dd class="tabular-nums">Rp 750.000</dd></div>
+                <div class="flex justify-between gap-3"><dt class="text-onsurface-variant">Potongan</dt><dd class="tabular-nums text-danger">&minus; Rp 320.000</dd></div>
+                <div class="flex justify-between gap-3 border-t border-outline-variant pt-1.5"><dt class="font-medium">Take-Home Pay</dt><dd class="font-semibold tabular-nums">Rp 3.630.000</dd></div>
+              </dl>
+            </li>
+            <li class="p-5">
+              <div class="flex items-center gap-3">
+                <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary-container text-sm font-semibold text-primary-oncontainer">AF</span>
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-sm font-semibold">Ahmad Fauzi</p>
+                  <p class="text-xs text-onsurface-variant">Pramusaji</p>
+                </div>
+              </div>
+              <dl class="mt-3 space-y-1.5 text-sm">
+                <div class="flex justify-between gap-3"><dt class="text-onsurface-variant">Gaji Pokok</dt><dd class="tabular-nums">Rp 2.800.000</dd></div>
+                <div class="flex justify-between gap-3"><dt class="text-onsurface-variant">Tunjangan</dt><dd class="tabular-nums">Rp 600.000</dd></div>
+                <div class="flex justify-between gap-3"><dt class="text-onsurface-variant">Potongan</dt><dd class="tabular-nums text-danger">&minus; Rp 280.000</dd></div>
+                <div class="flex justify-between gap-3 border-t border-outline-variant pt-1.5"><dt class="font-medium">Take-Home Pay</dt><dd class="font-semibold tabular-nums">Rp 3.120.000</dd></div>
+              </dl>
+            </li>
+            <li class="p-5">
+              <div class="flex items-center gap-3">
+                <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary-container text-sm font-semibold text-primary-oncontainer">DL</span>
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-sm font-semibold">Dewi Lestari</p>
+                  <p class="text-xs text-onsurface-variant">Pramusaji</p>
+                </div>
+              </div>
+              <dl class="mt-3 space-y-1.5 text-sm">
+                <div class="flex justify-between gap-3"><dt class="text-onsurface-variant">Gaji Pokok</dt><dd class="tabular-nums">Rp 2.500.000</dd></div>
+                <div class="flex justify-between gap-3"><dt class="text-onsurface-variant">Tunjangan</dt><dd class="tabular-nums">Rp 500.000</dd></div>
+                <div class="flex justify-between gap-3"><dt class="text-onsurface-variant">Potongan</dt><dd class="tabular-nums text-danger">&minus; Rp 250.000</dd></div>
+                <div class="flex justify-between gap-3 border-t border-outline-variant pt-1.5"><dt class="font-medium">Take-Home Pay</dt><dd class="font-semibold tabular-nums">Rp 2.750.000</dd></div>
+              </dl>
+            </li>
+            <li class="p-5">
+              <div class="flex items-center gap-3">
+                <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary-container text-sm font-semibold text-primary-oncontainer">RH</span>
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-sm font-semibold">Rudi Hermawan</p>
+                  <p class="text-xs text-onsurface-variant">Barista</p>
+                </div>
+              </div>
+              <dl class="mt-3 space-y-1.5 text-sm">
+                <div class="flex justify-between gap-3"><dt class="text-onsurface-variant">Gaji Pokok</dt><dd class="tabular-nums">Rp 3.000.000</dd></div>
+                <div class="flex justify-between gap-3"><dt class="text-onsurface-variant">Tunjangan</dt><dd class="tabular-nums">Rp 700.000</dd></div>
+                <div class="flex justify-between gap-3"><dt class="text-onsurface-variant">Potongan</dt><dd class="tabular-nums text-danger">&minus; Rp 300.000</dd></div>
+                <div class="flex justify-between gap-3 border-t border-outline-variant pt-1.5"><dt class="font-medium">Take-Home Pay</dt><dd class="font-semibold tabular-nums">Rp 3.400.000</dd></div>
+              </dl>
+            </li>
+            <li class="flex items-center justify-between gap-3 bg-surface-c1 p-5">
+              <p class="text-sm font-semibold">Subtotal 5 karyawan</p>
+              <p class="text-base font-bold tabular-nums">Rp 16.850.000</p>
+            </li>
+          </ul>
+        </section>
+
+        <!-- Actions -->
+        <div class="mt-4 flex flex-col gap-3 rounded-lg border border-outline-variant bg-surface p-5 shadow-e1 sm:flex-row sm:items-center sm:justify-between">
+          <p class="text-sm text-onsurface-variant">
+            Setelah disetujui, slip gaji dikirim ke <span class="font-medium text-onsurface">12 karyawan</span> dan data tidak dapat diubah.
+          </p>
+          <div class="flex flex-col-reverse gap-3 sm:flex-row sm:shrink-0">
+            <button type="button"
+              class="touch focus-ring rounded-full border border-outline bg-surface px-6 text-[15px] font-medium hover:bg-surface-c2">
+              Batal
+            </button>
+            <button type="button"
+              class="touch focus-ring rounded-full bg-primary px-6 text-[15px] font-semibold text-primary-on shadow-e1 hover:bg-primary-hover active:bg-primary-press">
+              Setujui Payroll
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+</body>
+</html>

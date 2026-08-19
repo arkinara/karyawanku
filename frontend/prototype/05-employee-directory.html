@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Daftar Karyawan · KaryawanKu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+      colors: {
+        primary: { DEFAULT: 'hsl(175 77% 26%)', hover: 'hsl(175 77% 21%)', press: 'hsl(175 77% 16%)', on: 'hsl(0 0% 100%)', container: 'hsl(175 52% 91%)', oncontainer: 'hsl(175 80% 13%)' },
+        surface: { DEFAULT: 'hsl(180 20% 99%)', c1: 'hsl(180 22% 97%)', c2: 'hsl(180 20% 95%)', c3: 'hsl(180 18% 92%)', c4: 'hsl(180 16% 89%)' },
+        onsurface: { DEFAULT: 'hsl(195 18% 12%)', variant: 'hsl(195 10% 40%)' },
+        outline: { DEFAULT: 'hsl(190 10% 70%)', variant: 'hsl(190 14% 88%)' },
+        success: { DEFAULT: 'hsl(160 84% 30%)', container: 'hsl(160 60% 93%)', on: 'hsl(160 90% 16%)' },
+        warning: { DEFAULT: 'hsl(38 92% 42%)', container: 'hsl(45 93% 92%)', on: 'hsl(30 85% 20%)' },
+        danger: { DEFAULT: 'hsl(347 77% 46%)', container: 'hsl(350 90% 95%)', on: 'hsl(347 80% 22%)' },
+        info: { DEFAULT: 'hsl(217 91% 50%)', container: 'hsl(214 95% 94%)', on: 'hsl(224 76% 25%)' }
+      },
+      borderRadius: { xs: '4px', sm: '8px', md: '12px', lg: '16px', xl: '20px', '2xl': '28px' },
+      boxShadow: {
+        e1: '0 1px 2px 0 hsl(190 20% 10% / 0.06), 0 1px 3px 1px hsl(190 20% 10% / 0.05)',
+        e2: '0 1px 2px 0 hsl(190 20% 10% / 0.08), 0 2px 6px 2px hsl(190 20% 10% / 0.06)',
+        e3: '0 4px 8px 3px hsl(190 20% 10% / 0.08), 0 1px 3px 0 hsl(190 20% 10% / 0.10)'
+      }
+    }
+  }
+}
+</script>
+<style>
+  html, body { -webkit-font-smoothing: antialiased; }
+  .touch { min-height: 48px; }
+  .focus-ring:focus-visible { outline: 2px solid hsl(175 77% 26%); outline-offset: 2px; }
+  .nav-item { min-height: 48px; }
+</style>
+</head>
+<body class="h-full bg-surface-c1 font-sans text-onsurface">
+
+<div class="flex min-h-full">
+
+  <!-- Nav rail -->
+  <aside class="fixed inset-y-0 left-0 z-30 hidden w-[248px] shrink-0 flex-col border-r border-outline-variant bg-surface lg:flex">
+    <div class="flex h-16 items-center gap-2 px-5">
+      <div class="grid h-9 w-9 place-items-center rounded-md bg-primary font-bold text-primary-on">K</div>
+      <span class="text-lg font-semibold tracking-tight">KaryawanKu</span>
+    </div>
+
+    <nav aria-label="Navigasi utama" class="flex-1 space-y-1 px-3 py-2">
+      <a href="03-quick-dashboard-owner.html"
+        class="nav-item focus-ring flex items-center gap-3 rounded-md px-3 text-[15px] font-medium text-onsurface-variant hover:bg-surface-c2 hover:text-onsurface">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        Dashboard
+      </a>
+      <a href="05-employee-directory.html" aria-current="page"
+        class="nav-item focus-ring flex items-center gap-3 rounded-md bg-primary-container px-3 text-[15px] font-semibold text-primary-oncontainer">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Karyawan
+      </a>
+      <a href="#"
+        class="nav-item focus-ring flex items-center gap-3 rounded-md px-3 text-[15px] font-medium text-onsurface-variant hover:bg-surface-c2 hover:text-onsurface">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        Absensi
+      </a>
+      <a href="#"
+        class="nav-item focus-ring flex items-center justify-between gap-3 rounded-md px-3 text-[15px] font-medium text-onsurface-variant hover:bg-surface-c2 hover:text-onsurface">
+        <span class="flex items-center gap-3">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/></svg>
+          Cuti
+        </span>
+        <span class="rounded-full bg-warning-container px-2 py-0.5 text-xs font-semibold text-warning-on">2</span>
+      </a>
+      <a href="#"
+        class="nav-item focus-ring flex items-center gap-3 rounded-md px-3 text-[15px] font-medium text-onsurface-variant hover:bg-surface-c2 hover:text-onsurface">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M3 8h18M3 16h18"/></svg>
+        Shift
+      </a>
+      <a href="06-payroll-run.html"
+        class="nav-item focus-ring flex items-center gap-3 rounded-md px-3 text-[15px] font-medium text-onsurface-variant hover:bg-surface-c2 hover:text-onsurface">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>
+        Payroll
+      </a>
+
+      <div class="my-2 h-px bg-outline-variant"></div>
+
+      <a href="#"
+        class="nav-item focus-ring flex items-center gap-3 rounded-md px-3 text-[15px] font-medium text-onsurface-variant hover:bg-surface-c2 hover:text-onsurface">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-2.9-1.2l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15H4.5a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.2-2.9l-.06-.06A2 2 0 1 1 8.56 5.2l.06.06a1.7 1.7 0 0 0 1.88.34h.08A1.7 1.7 0 0 0 11.6 4.1V4a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 2.9 1.2l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0 1.2 2.9h.09a2 2 0 1 1 0 4H19.4Z"/></svg>
+        Pengaturan
+      </a>
+    </nav>
+
+    <div class="border-t border-outline-variant p-3">
+      <div class="flex items-center gap-3 rounded-md px-2 py-2">
+        <div class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary-container text-sm font-semibold text-primary-oncontainer">WK</div>
+        <div class="min-w-0">
+          <p class="truncate text-sm font-medium">Warung Kopi Nusantara</p>
+          <p class="truncate text-xs text-onsurface-variant">Paket Gratis &middot; 12 karyawan</p>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="flex min-w-0 flex-1 flex-col lg:pl-[248px]">
+
+    <!-- AppBar -->
+    <header class="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-outline-variant bg-surface/95 px-4 backdrop-blur sm:px-6 lg:px-8">
+      <button type="button" aria-label="Buka menu"
+        class="focus-ring -ml-1 grid h-12 w-12 shrink-0 place-items-center rounded-md text-onsurface-variant hover:bg-surface-c2 lg:hidden">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+      </button>
+
+      <p class="min-w-0 flex-1 truncate text-[15px] font-semibold">Daftar Karyawan</p>
+
+      <button type="button"
+        class="touch focus-ring inline-flex shrink-0 items-center gap-2 rounded-full bg-primary px-5 text-[15px] font-semibold text-primary-on shadow-e1 hover:bg-primary-hover active:bg-primary-press">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        <span class="hidden sm:inline">Tambah Karyawan</span>
+        <span class="sm:hidden">Tambah</span>
+      </button>
+    </header>
+
+    <main class="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+      <div class="mx-auto max-w-[1200px]">
+
+        <!-- Page title -->
+        <div class="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 class="text-xl font-semibold tracking-tight sm:text-2xl">Daftar Karyawan</h1>
+            <p class="mt-1 text-sm text-onsurface-variant">12 karyawan terdaftar &middot; 11 aktif &middot; 1 nonaktif</p>
+          </div>
+        </div>
+
+        <!-- Search + filter -->
+        <div class="mt-5 space-y-3">
+          <div class="relative">
+            <span class="pointer-events-none absolute inset-y-0 left-4 grid place-items-center text-onsurface-variant" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg>
+            </span>
+            <label for="cari" class="sr-only">Cari karyawan</label>
+            <input id="cari" type="search" placeholder="Cari nama, jabatan, atau NIK&hellip;"
+              class="touch focus-ring w-full rounded-full border border-outline-variant bg-surface pl-12 pr-4 text-[15px] placeholder:text-onsurface-variant" />
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div role="tablist" aria-label="Filter status" class="inline-flex rounded-full border border-outline-variant bg-surface p-1 shadow-e1">
+              <button role="tab" aria-selected="true" type="button"
+                class="focus-ring min-h-[40px] rounded-full bg-primary px-5 text-sm font-semibold text-primary-on">Semua <span class="ml-1 tabular-nums opacity-80">12</span></button>
+              <button role="tab" aria-selected="false" type="button"
+                class="focus-ring min-h-[40px] rounded-full px-5 text-sm font-medium text-onsurface-variant hover:bg-surface-c2 hover:text-onsurface">Aktif <span class="ml-1 tabular-nums">11</span></button>
+              <button role="tab" aria-selected="false" type="button"
+                class="focus-ring min-h-[40px] rounded-full px-5 text-sm font-medium text-onsurface-variant hover:bg-surface-c2 hover:text-onsurface">Nonaktif <span class="ml-1 tabular-nums">1</span></button>
+            </div>
+
+            <button type="button"
+              class="touch focus-ring inline-flex items-center gap-2 rounded-full border border-outline bg-surface px-5 text-[15px] font-medium hover:bg-surface-c2">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4 2v-8Z"/></svg>
+              Filter
+            </button>
+          </div>
+        </div>
+
+        <!-- Table (desktop) -->
+        <section class="mt-4 overflow-hidden rounded-lg border border-outline-variant bg-surface shadow-e1">
+          <div class="hidden md:block">
+            <table class="w-full border-collapse text-left">
+              <caption class="sr-only">Daftar karyawan Warung Kopi Nusantara</caption>
+              <thead>
+                <tr class="border-b border-outline-variant bg-surface-c1">
+                  <th scope="col" class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-onsurface-variant">Nama</th>
+                  <th scope="col" class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-onsurface-variant">Jenis Kontrak</th>
+                  <th scope="col" class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-onsurface-variant">Status</th>
+                  <th scope="col" class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-onsurface-variant">Tanggal Masuk</th>
+                  <th scope="col" class="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-onsurface-variant">Aksi</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-outline-variant">
+
+                <tr class="hover:bg-surface-c1">
+                  <th scope="row" class="px-5 py-4 font-normal">
+                    <span class="flex items-center gap-3">
+                      <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary-container text-sm font-semibold text-primary-oncontainer">BS</span>
+                      <span class="min-w-0">
+                        <span class="block truncate text-sm font-semibold">Budi Santoso</span>
+                        <span class="block truncate text-xs text-onsurface-variant">Kepala Barista &middot; KRY-001</span>
+                      </span>
+                    </span>
+                  </th>
+                  <td class="px-5 py-4"><span class="inline-flex rounded-full bg-info-container px-2.5 py-1 text-xs font-medium text-info-on">PKWTT</span></td>
+                  <td class="px-5 py-4"><span class="inline-flex items-center gap-1.5 rounded-full bg-success-container px-2.5 py-1 text-xs font-semibold text-success-on"><span class="h-1.5 w-1.5 rounded-full bg-success"></span>Aktif</span></td>
+                  <td class="px-5 py-4 text-sm tabular-nums text-onsurface-variant">12 Jan 2023</td>
+                  <td class="px-5 py-4 text-right">
+                    <a href="#" class="focus-ring inline-flex min-h-[40px] items-center rounded-full px-3 text-sm font-medium text-primary hover:bg-primary-container">Detail</a>
+                  </td>
+                </tr>
+
+                <tr class="hover:bg-surface-c1">
+                  <th scope="row" class="px-5 py-4 font-normal">
+                    <span class="flex items-center gap-3">
+                      <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary-container text-sm font-semibold text-primary-oncontainer">SN</span>
+                      <span class="min-w-0">
+                        <span class="block truncate text-sm font-semibold">Siti Nurhaliza</span>
+                        <span class="block truncate text-xs text-onsurface-variant">Kasir &middot; KRY-002</span>
+                      </span>
+                    </span>
+                  </th>
+                  <td class="px-5 py-4"><span class="inline-flex rounded-full bg-info-container px-2.5 py-1 text-xs font-medium text-info-on">PKWTT</span></td>
+                  <td class="px-5 py-4"><span class="inline-flex items-center gap-1.5 rounded-full bg-success-container px-2.5 py-1 text-xs font-semibold text-success-on"><span class="h-1.5 w-1.5 rounded-full bg-success"></span>Aktif</span></td>
+                  <td class="px-5 py-4 text-sm tabular-nums text-onsurface-variant">03 Mar 2023</td>
+                  <td class="px-5 py-4 text-right">
+                    <a href="#" class="focus-ring inline-flex min-h-[40px] items-center rounded-full px-3 text-sm font-medium text-primary hover:bg-primary-container">Detail</a>
+                  </td>
+                </tr>
+
+                <tr class="hover:bg-surface-c1">
+                  <th scope="row" class="px-5 py-4 font-normal">
+                    <span class="flex items-center gap-3">
+                      <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary-container text-sm font-semibold text-primary-oncontainer">AF</span>
+                      <span class="min-w-0">
+                        <span class="block truncate text-sm font-semibold">Ahmad Fauzi</span>
+                        <span class="block truncate text-xs text-onsurface-variant">Barista &middot; KRY-003</span>
+                      </span>
+                    </span>
+                  </th>
+                  <td class="px-5 py-4"><span class="inline-flex rounded-full bg-warning-container px-2.5 py-1 text-xs font-medium text-warning-on">PKWT</span></td>
+                  <td class="px-5 py-4"><span class="inline-flex items-center gap-1.5 rounded-full bg-success-container px-2.5 py-1 text-xs font-semibold text-success-on"><span class="h-1.5 w-1.5 rounded-full bg-success"></span>Aktif</span></td>
+                  <td class="px-5 py-4 text-sm tabular-nums text-onsurface-variant">17 Jul 2024</td>
+                  <td class="px-5 py-4 text-right">
+                    <a href="#" class="focus-ring inline-flex min-h-[40px] items-center rounded-full px-3 text-sm font-medium text-primary hover:bg-primary-container">Detail</a>
+                  </td>
+                </tr>
+
+                <tr class="hover:bg-surface-c1">
+                  <th scope="row" class="px-5 py-4 font-normal">
+                    <span class="flex items-center gap-3">
+                      <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary-container text-sm font-semibold text-primary-oncontainer">DL</span>
+                      <span class="min-w-0">
+                        <span class="block truncate text-sm font-semibold">Dewi Lestari</span>
+                        <span class="block truncate text-xs text-onsurface-variant">Pramusaji &middot; KRY-004</span>
+                      </span>
+                    </span>
+                  </th>
+                  <td class="px-5 py-4"><span class="inline-flex rounded-full bg-surface-c3 px-2.5 py-1 text-xs font-medium text-onsurface-variant">Harian</span></td>
+                  <td class="px-5 py-4"><span class="inline-flex items-center gap-1.5 rounded-full bg-success-container px-2.5 py-1 text-xs font-semibold text-success-on"><span class="h-1.5 w-1.5 rounded-full bg-success"></span>Aktif</span></td>
+                  <td class="px-5 py-4 text-sm tabular-nums text-onsurface-variant">02 Feb 2026</td>
+                  <td class="px-5 py-4 text-right">
+                    <a href="#" class="focus-ring inline-flex min-h-[40px] items-center rounded-full px-3 text-sm font-medium text-primary hover:bg-primary-container">Detail</a>
+                  </td>
+                </tr>
+
+                <tr class="hover:bg-surface-c1">
+                  <th scope="row" class="px-5 py-4 font-normal">
+                    <span class="flex items-center gap-3">
+                      <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-surface-c3 text-sm font-semibold text-onsurface-variant">RH</span>
+                      <span class="min-w-0">
+                        <span class="block truncate text-sm font-semibold text-onsurface-variant">Rudi Hermawan</span>
+                        <span class="block truncate text-xs text-onsurface-variant">Kasir &middot; KRY-005</span>
+                      </span>
+                    </span>
+                  </th>
+                  <td class="px-5 py-4"><span class="inline-flex rounded-full bg-info-container px-2.5 py-1 text-xs font-medium text-info-on">PKWTT</span></td>
+                  <td class="px-5 py-4"><span class="inline-flex items-center gap-1.5 rounded-full bg-surface-c3 px-2.5 py-1 text-xs font-semibold text-onsurface-variant"><span class="h-1.5 w-1.5 rounded-full bg-outline"></span>Nonaktif</span></td>
+                  <td class="px-5 py-4 text-sm tabular-nums text-onsurface-variant">08 Sep 2022</td>
+                  <td class="px-5 py-4 text-right">
+                    <a href="#" class="focus-ring inline-flex min-h-[40px] items-center rounded-full px-3 text-sm font-medium text-primary hover:bg-primary-container">Detail</a>
+                  </td>
+                </tr>
+
+                <tr class="hover:bg-surface-c1">
+                  <th scope="row" class="px-5 py-4 font-normal">
+                    <span class="flex items-center gap-3">
+                      <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary-container text-sm font-semibold text-primary-oncontainer">MS</span>
+                      <span class="min-w-0">
+                        <span class="block truncate text-sm font-semibold">Maya Sari</span>
+                        <span class="block truncate text-xs text-onsurface-variant">Admin &middot; KRY-006</span>
+                      </span>
+                    </span>
+                  </th>
+                  <td class="px-5 py-4"><span class="inline-flex rounded-full bg-warning-container px-2.5 py-1 text-xs font-medium text-warning-on">PKWT</span></td>
+                  <td class="px-5 py-4"><span class="inline-flex items-center gap-1.5 rounded-full bg-success-container px-2.5 py-1 text-xs font-semibold text-success-on"><span class="h-1.5 w-1.5 rounded-full bg-success"></span>Aktif</span></td>
+                  <td class="px-5 py-4 text-sm tabular-nums text-onsurface-variant">21 Nov 2025</td>
+                  <td class="px-5 py-4 text-right">
+                    <a href="#" class="focus-ring inline-flex min-h-[40px] items-center rounded-full px-3 text-sm font-medium text-primary hover:bg-primary-container">Detail</a>
+                  </td>
+                </tr>
+
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Stacked cards (mobile) -->
+          <ul class="divide-y divide-outline-variant md:hidden">
+            <li>
+              <a href="#" class="focus-ring flex items-start gap-3 p-4 hover:bg-surface-c1">
+                <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary-container text-sm font-semibold text-primary-oncontainer">BS</span>
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate text-[15px] font-semibold">Budi Santoso</span>
+                  <span class="mt-0.5 block truncate text-xs text-onsurface-variant">Kepala Barista &middot; KRY-001</span>
+                  <span class="mt-2 flex flex-wrap items-center gap-2">
+                    <span class="inline-flex rounded-full bg-info-container px-2.5 py-1 text-xs font-medium text-info-on">PKWTT</span>
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-success-container px-2.5 py-1 text-xs font-semibold text-success-on"><span class="h-1.5 w-1.5 rounded-full bg-success"></span>Aktif</span>
+                  </span>
+                  <span class="mt-2 block text-xs tabular-nums text-onsurface-variant">Masuk 12 Jan 2023</span>
+                </span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mt-1 shrink-0 text-onsurface-variant" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+              </a>
+            </li>
+
+            <li>
+              <a href="#" class="focus-ring flex items-start gap-3 p-4 hover:bg-surface-c1">
+                <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary-container text-sm font-semibold text-primary-oncontainer">SN</span>
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate text-[15px] font-semibold">Siti Nurhaliza</span>
+                  <span class="mt-0.5 block truncate text-xs text-onsurface-variant">Kasir &middot; KRY-002</span>
+                  <span class="mt-2 flex flex-wrap items-center gap-2">
+                    <span class="inline-flex rounded-full bg-info-container px-2.5 py-1 text-xs font-medium text-info-on">PKWTT</span>
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-success-container px-2.5 py-1 text-xs font-semibold text-success-on"><span class="h-1.5 w-1.5 rounded-full bg-success"></span>Aktif</span>
+                  </span>
+                  <span class="mt-2 block text-xs tabular-nums text-onsurface-variant">Masuk 03 Mar 2023</span>
+                </span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mt-1 shrink-0 text-onsurface-variant" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+              </a>
+            </li>
+
+            <li>
+              <a href="#" class="focus-ring flex items-start gap-3 p-4 hover:bg-surface-c1">
+                <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary-container text-sm font-semibold text-primary-oncontainer">AF</span>
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate text-[15px] font-semibold">Ahmad Fauzi</span>
+                  <span class="mt-0.5 block truncate text-xs text-onsurface-variant">Barista &middot; KRY-003</span>
+                  <span class="mt-2 flex flex-wrap items-center gap-2">
+                    <span class="inline-flex rounded-full bg-warning-container px-2.5 py-1 text-xs font-medium text-warning-on">PKWT</span>
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-success-container px-2.5 py-1 text-xs font-semibold text-success-on"><span class="h-1.5 w-1.5 rounded-full bg-success"></span>Aktif</span>
+                  </span>
+                  <span class="mt-2 block text-xs tabular-nums text-onsurface-variant">Masuk 17 Jul 2024</span>
+                </span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mt-1 shrink-0 text-onsurface-variant" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+              </a>
+            </li>
+
+            <li>
+              <a href="#" class="focus-ring flex items-start gap-3 p-4 hover:bg-surface-c1">
+                <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary-container text-sm font-semibold text-primary-oncontainer">DL</span>
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate text-[15px] font-semibold">Dewi Lestari</span>
+                  <span class="mt-0.5 block truncate text-xs text-onsurface-variant">Pramusaji &middot; KRY-004</span>
+                  <span class="mt-2 flex flex-wrap items-center gap-2">
+                    <span class="inline-flex rounded-full bg-surface-c3 px-2.5 py-1 text-xs font-medium text-onsurface-variant">Harian</span>
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-success-container px-2.5 py-1 text-xs font-semibold text-success-on"><span class="h-1.5 w-1.5 rounded-full bg-success"></span>Aktif</span>
+                  </span>
+                  <span class="mt-2 block text-xs tabular-nums text-onsurface-variant">Masuk 02 Feb 2026</span>
+                </span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mt-1 shrink-0 text-onsurface-variant" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+              </a>
+            </li>
+
+            <li>
+              <a href="#" class="focus-ring flex items-start gap-3 p-4 hover:bg-surface-c1">
+                <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-surface-c3 text-sm font-semibold text-onsurface-variant">RH</span>
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate text-[15px] font-semibold text-onsurface-variant">Rudi Hermawan</span>
+                  <span class="mt-0.5 block truncate text-xs text-onsurface-variant">Kasir &middot; KRY-005</span>
+                  <span class="mt-2 flex flex-wrap items-center gap-2">
+                    <span class="inline-flex rounded-full bg-info-container px-2.5 py-1 text-xs font-medium text-info-on">PKWTT</span>
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-surface-c3 px-2.5 py-1 text-xs font-semibold text-onsurface-variant"><span class="h-1.5 w-1.5 rounded-full bg-outline"></span>Nonaktif</span>
+                  </span>
+                  <span class="mt-2 block text-xs tabular-nums text-onsurface-variant">Masuk 08 Sep 2022</span>
+                </span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mt-1 shrink-0 text-onsurface-variant" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+              </a>
+            </li>
+
+            <li>
+              <a href="#" class="focus-ring flex items-start gap-3 p-4 hover:bg-surface-c1">
+                <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary-container text-sm font-semibold text-primary-oncontainer">MS</span>
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate text-[15px] font-semibold">Maya Sari</span>
+                  <span class="mt-0.5 block truncate text-xs text-onsurface-variant">Admin &middot; KRY-006</span>
+                  <span class="mt-2 flex flex-wrap items-center gap-2">
+                    <span class="inline-flex rounded-full bg-warning-container px-2.5 py-1 text-xs font-medium text-warning-on">PKWT</span>
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-success-container px-2.5 py-1 text-xs font-semibold text-success-on"><span class="h-1.5 w-1.5 rounded-full bg-success"></span>Aktif</span>
+                  </span>
+                  <span class="mt-2 block text-xs tabular-nums text-onsurface-variant">Masuk 21 Nov 2025</span>
+                </span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mt-1 shrink-0 text-onsurface-variant" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+              </a>
+            </li>
+          </ul>
+
+          <!-- Pagination -->
+          <div class="flex flex-wrap items-center justify-between gap-4 border-t border-outline-variant bg-surface-c1 px-4 py-3 sm:px-5">
+            <div class="flex items-center gap-2">
+              <label for="per-halaman" class="text-sm text-onsurface-variant">Baris per halaman</label>
+              <select id="per-halaman"
+                class="focus-ring min-h-[40px] rounded-md border border-outline-variant bg-surface px-3 text-sm font-medium">
+                <option>6</option>
+                <option selected>10</option>
+                <option>25</option>
+                <option>50</option>
+              </select>
+            </div>
+
+            <nav aria-label="Paginasi" class="flex items-center gap-1">
+              <button type="button" aria-label="Halaman sebelumnya" disabled
+                class="focus-ring grid h-11 w-11 place-items-center rounded-md text-onsurface-variant hover:bg-surface-c2 disabled:opacity-40 disabled:hover:bg-transparent">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+              </button>
+              <a href="#" aria-current="page" class="focus-ring grid h-11 min-w-[44px] place-items-center rounded-md bg-primary px-2 text-sm font-semibold tabular-nums text-primary-on">1</a>
+              <a href="#" class="focus-ring grid h-11 min-w-[44px] place-items-center rounded-md px-2 text-sm font-medium tabular-nums text-onsurface-variant hover:bg-surface-c2 hover:text-onsurface">2</a>
+              <a href="#" class="focus-ring grid h-11 min-w-[44px] place-items-center rounded-md px-2 text-sm font-medium tabular-nums text-onsurface-variant hover:bg-surface-c2 hover:text-onsurface">3</a>
+              <span class="grid h-11 min-w-[32px] place-items-center text-sm text-onsurface-variant" aria-hidden="true">&hellip;</span>
+              <a href="#" class="focus-ring grid h-11 min-w-[44px] place-items-center rounded-md px-2 text-sm font-medium tabular-nums text-onsurface-variant hover:bg-surface-c2 hover:text-onsurface">8</a>
+              <button type="button" aria-label="Halaman berikutnya"
+                class="focus-ring grid h-11 w-11 place-items-center rounded-md text-onsurface-variant hover:bg-surface-c2">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+              </button>
+            </nav>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+</div>
+
+</body>
+</html>

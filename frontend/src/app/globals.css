@@ -1,0 +1,194 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/**
+ * KaryawanKu — Material Design 3 color tokens.
+ *
+ * Seed: deep teal #0F766E = hsl(175 77% 26%) -> primary (light).
+ * Neutrals are warm-gray tinted with the primary hue (180) so surfaces read
+ * as one family instead of dead gray. Dark mode inverts the same tonal ramp.
+ *
+ * Values are bare `H S% L%` triplets on purpose: Tailwind wraps them as
+ * `hsl(var(--token) / <alpha>)`, which keeps opacity modifiers working.
+ */
+
+@layer base {
+  :root {
+    /* --- Accent roles --- */
+    --primary: 175 77% 26%;
+    --on-primary: 0 0% 100%;
+    --primary-container: 170 50% 85%;
+    --on-primary-container: 175 77% 8%;
+    --primary-fixed: 170 50% 85%;
+
+    --secondary: 175 20% 32%;
+    --on-secondary: 0 0% 100%;
+    --secondary-container: 175 30% 88%;
+    --on-secondary-container: 176 30% 10%;
+
+    --tertiary: 345 45% 40%;
+    --on-tertiary: 0 0% 100%;
+    --tertiary-container: 345 60% 91%;
+    --on-tertiary-container: 345 50% 13%;
+
+    --error: 0 75% 42%;
+    --on-error: 0 0% 100%;
+    --error-container: 0 90% 92%;
+    --on-error-container: 0 80% 14%;
+
+    /* --- Surface roles (M3 tonal elevation) --- */
+    --surface: 180 25% 98%;
+    --surface-dim: 180 14% 88%;
+    --surface-bright: 180 25% 98%;
+    --surface-container-lowest: 0 0% 100%;
+    --surface-container-low: 180 22% 96%;
+    --surface-container: 180 20% 94%;
+    --surface-container-high: 180 18% 92%;
+    --surface-container-highest: 180 16% 90%;
+    --surface-variant: 180 16% 90%;
+    --on-surface: 180 12% 8%;
+    --on-surface-variant: 180 8% 32%;
+
+    --outline: 180 6% 47%;
+    --outline-variant: 180 12% 82%;
+
+    --inverse-surface: 180 8% 14%;
+    --inverse-on-surface: 180 20% 95%;
+    --inverse-primary: 171 45% 70%;
+
+    --scrim: 0 0% 0%;
+    --shadow: 180 12% 8%;
+
+    /* --- Semantic status roles (Bahasa: Hadir / Menunggu / Ditolak) --- */
+    --success: 161 94% 30%;
+    --on-success: 0 0% 100%;
+    --success-container: 161 60% 90%;
+    --on-success-container: 161 90% 12%;
+
+    --warning: 32 95% 44%;
+    --on-warning: 0 0% 100%;
+    --warning-container: 38 92% 90%;
+    --on-warning-container: 28 90% 14%;
+
+    --danger: 347 77% 50%;
+    --danger-foreground: 0 0% 100%;
+    --danger-container: 347 85% 93%;
+    --on-danger-container: 347 80% 16%;
+
+    --info: 221 83% 53%;
+    --on-info: 0 0% 100%;
+    --info-container: 219 90% 93%;
+    --on-info-container: 224 76% 18%;
+
+    /* --- Fluent 2 state-layer opacities --- */
+    --state-hover: 0.08;
+    --state-focus: 0.10;
+    --state-pressed: 0.12;
+    --state-dragged: 0.16;
+    --state-disabled-content: 0.38;
+    --state-disabled-container: 0.12;
+  }
+
+  .dark {
+    --primary: 171 45% 70%;
+    --on-primary: 175 72% 13%;
+    --primary-container: 175 74% 20%;
+    --on-primary-container: 170 50% 85%;
+    --primary-fixed: 170 50% 85%;
+
+    --secondary: 175 22% 76%;
+    --on-secondary: 176 25% 16%;
+    --secondary-container: 176 22% 24%;
+    --on-secondary-container: 175 30% 88%;
+
+    --tertiary: 345 55% 82%;
+    --on-tertiary: 345 45% 20%;
+    --tertiary-container: 345 40% 30%;
+    --on-tertiary-container: 345 60% 91%;
+
+    --error: 0 90% 82%;
+    --on-error: 0 80% 20%;
+    --error-container: 0 65% 30%;
+    --on-error-container: 0 90% 92%;
+
+    --surface: 180 14% 6%;
+    --surface-dim: 180 14% 6%;
+    --surface-bright: 180 8% 24%;
+    --surface-container-lowest: 180 16% 4%;
+    --surface-container-low: 180 12% 10%;
+    --surface-container: 180 11% 12%;
+    --surface-container-high: 180 10% 17%;
+    --surface-container-highest: 180 9% 22%;
+    --surface-variant: 180 8% 30%;
+    --on-surface: 180 14% 90%;
+    --on-surface-variant: 180 10% 80%;
+
+    --outline: 180 6% 58%;
+    --outline-variant: 180 8% 30%;
+
+    --inverse-surface: 180 14% 90%;
+    --inverse-on-surface: 180 8% 14%;
+    --inverse-primary: 175 77% 26%;
+
+    --scrim: 0 0% 0%;
+    --shadow: 0 0% 0%;
+
+    --success: 161 60% 62%;
+    --on-success: 161 90% 12%;
+    --success-container: 161 70% 20%;
+    --on-success-container: 161 60% 88%;
+
+    --warning: 38 90% 62%;
+    --on-warning: 28 90% 12%;
+    --warning-container: 30 80% 22%;
+    --on-warning-container: 38 92% 88%;
+
+    --danger: 347 80% 72%;
+    --danger-foreground: 347 80% 14%;
+    --danger-container: 347 60% 28%;
+    --on-danger-container: 347 85% 92%;
+
+    --info: 219 85% 72%;
+    --on-info: 224 76% 14%;
+    --info-container: 222 60% 28%;
+    --on-info-container: 219 90% 92%;
+  }
+
+  * {
+    border-color: hsl(var(--outline-variant));
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background-color: hsl(var(--surface));
+    color: hsl(var(--on-surface));
+    font-family: var(--font-inter), Inter, system-ui, sans-serif;
+    font-feature-settings: 'cv11', 'ss01';
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* One consistent focus treatment everywhere — a11y baseline, not per-component. */
+  :focus-visible {
+    outline: 2px solid hsl(var(--primary));
+    outline-offset: 2px;
+  }
+
+  /* Indonesian numerals/currency line up in tables when tabular. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
