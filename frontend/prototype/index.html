@@ -74,6 +74,17 @@ tailwind.config = {
     <div id="frame-container" class="mx-auto bg-surface rounded-xl shadow-e1 border border-outline-variant overflow-hidden transition-all duration-300" style="width:1440px; max-width:100%;">
       <iframe id="proto-frame" src="03-quick-dashboard-owner.html" class="w-full border-0 block bg-surface" style="height: calc(100vh - 200px); min-height: 600px;"></iframe>
     </div>
+    <!-- Page description card shown below iframe on large screens for context -->
+    <div id="page-info" class="mx-auto mt-4 max-w-3xl bg-surface rounded-xl border border-outline-variant p-4">
+      <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-full bg-primary-container text-primary-oncontainer font-semibold flex items-center justify-center shrink-0" id="info-icon">01</div>
+        <div class="flex-1 min-w-0">
+          <h3 class="text-base font-semibold" id="info-title">—</h3>
+          <p class="text-sm text-onsurface-variant mt-0.5" id="info-desc">—</p>
+          <p class="text-xs text-onsurface-variant mt-1">Role: <span class="font-medium" id="info-role">—</span></p>
+        </div>
+      </div>
+    </div>
   </main>
 
 </div>
@@ -110,6 +121,10 @@ tailwind.config = {
     const p = pages[idx];
     frame.src = p.file;
     titleEl.textContent = `${p.id} · ${p.title} — ${p.desc}`;
+    document.getElementById('info-icon').textContent = p.id;
+    document.getElementById('info-title').textContent = p.title;
+    document.getElementById('info-desc').textContent = p.desc;
+    document.getElementById('info-role').textContent = p.role;
     document.querySelectorAll('.tab-btn').forEach((b, i) => {
       if (i === idx) {
         b.className = 'tab-btn shrink-0 px-3 sm:px-4 h-9 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 bg-primary text-primary-on';
