@@ -7,6 +7,16 @@ The ProMax prototype is the design reference. This spec captures everything Dev 
 
 ---
 
+## 0. Locked decisions (2026-08-19)
+
+| Decision | Choice | Rationale |
+|---|---|---|
+| **Token source of truth** | ProMax (deep teal HSL triplets) — replace v1 M3 names | ProMax is the reference; v1 `globals.css` had different `--primary-container` hue + non-stripant format. One source. |
+| **Role model** | 2 roles only: `owner` + `employee` | Manager deferred — Owner covers HR admin; Employee covers everyone else. Matches ProMax NAV map. |
+| **Dark mode** | Both modes, system preference fallback | Toggle in app bar (sun/moon icon). `<html class="dark">`, Tailwind `darkMode: 'class'`. |
+
+---
+
 ## 1. File layout (ProMax)
 
 ```
@@ -145,7 +155,11 @@ The shell (`kk.js`) reads these attributes and builds:
 - Slip Gaji (Payslip)
 - (secondary) Pengaturan
 
-**Pages 01 (Onboarding) and 02 (Sign-in) use NO shell** — they are auth/standalone layouts:
+**Manager role is deferred** (not in ProMax NAV map, not in ticket scope).
+
+**Bottom-nav cap: 5 primary items** — owner rail has 5 primary + 1 secondary, employee rail has 5 primary. Secondary items (`settings`) show in rail "Akun" group + mobile drawer but NOT in bottom nav (mobile bottom nav slices `primary.slice(0, 5)`).
+
+Pages 01 (Onboarding) and 02 (Sign-in) use NO shell — they are auth/standalone layouts:
 - 01: centered card `max-w-2xl`, 3-step wizard with stepper
 - 02: desktop split `lg:grid-cols-[1fr_520px]` — left brand panel (primary bg, decorative), right sign-in card
 
