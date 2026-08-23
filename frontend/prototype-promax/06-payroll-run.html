@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light dark" />
+<title>Payroll Agustus 2026 · KaryawanKu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/kk.css" />
+<script>(function(){var q=new URLSearchParams(location.search).get('theme');var m=q;if(!m){try{m=localStorage.getItem('kk-theme')}catch(e){}}if(!m)m=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';if(m==='dark')document.documentElement.classList.add('dark')})();</script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="assets/kk-tailwind.js"></script>
+<style>
+  /* The approve bar follows the user down the long table */
+  .approve-bar {
+    position: sticky; bottom: 0; z-index: var(--z-raised);
+    display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+    margin-top: 12px; padding: 14px 16px;
+    border: 1px solid hsl(var(--outline-variant));
+    border-radius: var(--r-lg);
+    background: hsl(var(--surface) / .93);
+    backdrop-filter: blur(12px);
+    box-shadow: var(--e3);
+  }
+  @media (max-width: 1023px) { .approve-bar { bottom: calc(var(--bottomnav-h) + 8px); } }
+  tr[data-flag="true"] th { box-shadow: inset 3px 0 0 hsl(var(--warning)); }
+</style>
+</head>
+<body class="min-h-dvh"
+      data-kk-shell="owner" data-kk-nav="payroll"
+      data-kk-title="Payroll"
+      data-kk-subtitle="Periode Agustus 2026">
+
+<main id="main" class="page" data-kk-main>
+  <div class="page-inner">
+
+    <div class="page-head">
+      <div>
+        <h1 class="t-h1">Payroll Agustus 2026</h1>
+        <p class="t-body-sm t-muted mt-1">Periode 1 – 31 Agustus 2026 · jadwal transfer 25 Agustus 2026</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <button type="button" class="btn btn-outline" id="btnCsv">
+          <span data-icon="download"></span> Ekspor CSV
+        </button>
+        <button type="button" class="btn btn-outline" onclick="window.print()">
+          <span data-icon="printer"></span> Cetak
+        </button>
+      </div>
+    </div>
+
+    <!-- Status -->
+    <div class="banner banner-warning reveal" id="statusDraft">
+      <span class="icon-tile icon-tile-warning" data-icon="alert"></span>
+      <div class="min-w-0 flex-1">
+        <div class="flex flex-wrap items-center gap-2">
+          <p class="t-label">Draft — belum disetujui</p>
+          <span class="chip chip-warning">Draft</span>
+        </div>
+        <p class="t-caption mt-0.5">Absensi 1–19 Agustus sudah masuk. Sisa periode diperkirakan dari jadwal shift. Payroll terakhir disetujui 28 Juli 2026.</p>
+      </div>
+    </div>
+
+    <div class="banner banner-success reveal" id="statusApproved" hidden>
+      <span class="icon-tile icon-tile-success" data-icon="checkCircle"></span>
+      <div class="min-w-0 flex-1">
+        <div class="flex flex-wrap items-center gap-2">
+          <p class="t-label">Disetujui — slip gaji terkirim</p>
+          <span class="chip chip-success">Disetujui</span>
+        </div>
+        <p class="t-caption mt-0.5">11 slip gaji dikirim ke karyawan. Transfer dijadwalkan 25 Agustus 2026.</p>
+      </div>
+    </div>
+
+    <!-- Needs review before approving -->
+    <div class="banner banner-info reveal mt-3" id="flagBanner">
+      <span class="icon-tile icon-tile-info" data-icon="info"></span>
+      <div class="min-w-0 flex-1">
+        <p class="t-label"><span id="flagCount">2</span> baris perlu diperiksa</p>
+        <p class="t-caption mt-0.5">Ada potongan keterlambatan dan lembur yang belum dikonfirmasi supervisor.</p>
+      </div>
+      <button type="button" class="btn btn-tonal btn-sm no-print" id="flagJump">Lihat</button>
+    </div>
+
+    <!-- Summary -->
+    <div class="metric-grid mt-3">
+      <div class="card card-pad reveal">
+        <div class="flex items-start justify-between gap-3">
+          <p class="t-label t-muted">Karyawan dibayar</p>
+          <span class="icon-tile icon-tile-primary" data-icon="users"></span>
+        </div>
+        <p class="metric-value mt-3" id="mCount">11</p>
+        <p class="t-caption mt-1">1 nonaktif tidak dihitung</p>
+      </div>
+      <div class="card card-pad reveal">
+        <div class="flex items-start justify-between gap-3">
+          <p class="t-label t-muted">Total pendapatan</p>
+          <span class="icon-tile icon-tile-info" data-icon="wallet"></span>
+        </div>
+        <p class="metric-value num mt-3" id="mGross">—</p>
+        <p class="t-caption mt-1">Pokok + tunjangan + lembur</p>
+      </div>
+      <div class="card card-pad reveal">
+        <div class="flex items-start justify-between gap-3">
+          <p class="t-label t-muted">Total potongan</p>
+          <span class="icon-tile icon-tile-danger" data-icon="x"></span>
+        </div>
+        <p class="metric-value num mt-3" id="mCut" style="color:hsl(var(--danger))">—</p>
+        <p class="t-caption mt-1">BPJS, PPh 21, keterlambatan</p>
+      </div>
+      <div class="card card-pad reveal">
+        <div class="flex items-start justify-between gap-3">
+          <p class="t-label t-muted">Total take-home</p>
+          <span class="icon-tile icon-tile-success" data-icon="checkCircle"></span>
+        </div>
+        <p class="metric-value num mt-3" id="mNet" style="color:hsl(var(--success))">—</p>
+        <p class="t-caption mt-1">Yang akan ditransfer</p>
+      </div>
+    </div>
+
+    <!-- Cost composition -->
+    <section class="card card-pad reveal mt-3" aria-labelledby="h-comp">
+      <div class="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 class="t-h2" id="h-comp">Komposisi biaya</h2>
+          <p class="t-caption mt-0.5">Bagian dari total pendapatan sebelum potongan</p>
+        </div>
+        <p class="t-caption num" id="compTotal"></p>
+      </div>
+      <div class="meter mt-3" style="height:12px" id="compBar" role="img" aria-labelledby="compDesc"></div>
+      <p class="sr-only" id="compDesc"></p>
+      <div class="legend" id="compLegend"></div>
+    </section>
+
+    <!-- Breakdown -->
+    <section class="card mt-3" style="overflow:hidden" aria-labelledby="h-rows">
+      <div class="card-head">
+        <div>
+          <h2 class="t-h2" id="h-rows">Rincian per karyawan</h2>
+          <p class="t-caption mt-0.5">11 karyawan aktif · klik kolom untuk mengurutkan</p>
+        </div>
+        <label class="check" style="min-height:auto">
+          <input type="checkbox" id="onlyFlags" />
+          <span class="t-body-sm">Hanya yang perlu diperiksa</span>
+        </label>
+      </div>
+
+      <div class="table-wrap hidden md:block" style="max-height:min(58vh,600px);overflow-y:auto">
+        <table class="kk" id="tbl" style="min-width:860px">
+          <caption class="sr-only">Rincian gaji per karyawan, periode Agustus 2026</caption>
+          <thead>
+            <tr>
+              <th scope="col" data-col="name" aria-sort="ascending"><button type="button" class="th-sort" data-sort="name">Nama<span class="arrow" data-arrow></span></button></th>
+              <th scope="col" class="num-cell" data-col="days"><button type="button" class="th-sort" data-sort="days">Hari<span class="arrow" data-arrow></span></button></th>
+              <th scope="col" class="num-cell" data-col="pokok"><button type="button" class="th-sort" data-sort="pokok">Gaji pokok<span class="arrow" data-arrow></span></button></th>
+              <th scope="col" class="num-cell" data-col="tunjangan">Tunjangan</th>
+              <th scope="col" class="num-cell" data-col="lembur">Lembur</th>
+              <th scope="col" class="num-cell" data-col="potongan"><button type="button" class="th-sort" data-sort="potongan">Potongan<span class="arrow" data-arrow></span></button></th>
+              <th scope="col" class="num-cell" data-col="net"><button type="button" class="th-sort" data-sort="net">Take-home<span class="arrow" data-arrow></span></button></th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+          <tfoot id="tfoot"></tfoot>
+        </table>
+      </div>
+
+      <ul class="md:hidden" id="cards" style="list-style:none;margin:0;padding:0"></ul>
+    </section>
+
+    <!-- Approve -->
+    <div class="approve-bar no-print" id="approveBar">
+      <div class="min-w-0 flex-1">
+        <p class="t-label">Total transfer <span class="num" id="barNet">—</span></p>
+        <p class="t-caption mt-0.5">Setelah disetujui, 11 slip gaji terkirim dan angka tidak bisa diubah lagi.</p>
+      </div>
+      <div class="flex gap-2">
+        <button type="button" class="btn btn-outline" id="btnCancel">Simpan draft</button>
+        <button type="button" class="btn btn-filled" id="btnApprove">Setujui payroll</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="assets/kk.js"></script>
+<script>
+(function () {
+  document.querySelectorAll('[data-icon]').forEach(function (el) { el.innerHTML = KK.icon(el.dataset.icon, 18); });
+  document.querySelectorAll('[data-arrow]').forEach(function (el) { el.innerHTML = KK.icon('arrowUp', 13); });
+
+  /* ---------- data: one source for the table, totals and chart ---------- */
+  var ROWS = [
+    { name: 'Tari Wulandari', role: 'Supervisor',     days: 22, pokok: 3600000, tunjangan: 450000, lembur: 0,      potongan: 153000, note: '' },
+    { name: 'Budi Santoso',   role: 'Kepala Barista', days: 22, pokok: 3400000, tunjangan: 400000, lembur: 0,      potongan: 102000, note: '' },
+    { name: 'Maya Sari',      role: 'Admin',          days: 22, pokok: 2600000, tunjangan: 350000, lembur: 0,      potongan: 78000,  note: '' },
+    { name: 'Siti Nurhaliza', role: 'Kasir',          days: 22, pokok: 2400000, tunjangan: 350000, lembur: 150000, potongan: 72000,  note: 'Lembur 4 jam belum dikonfirmasi supervisor' },
+    { name: 'Agus Setiawan',  role: 'Barista',        days: 21, pokok: 2100000, tunjangan: 300000, lembur: 120000, potongan: 98000,  note: 'Potongan keterlambatan 35.000 (2 kejadian)' },
+    { name: 'Ahmad Fauzi',    role: 'Barista',        days: 22, pokok: 2000000, tunjangan: 300000, lembur: 100000, potongan: 60000,  note: '' },
+    { name: 'Bayu Prasetyo',  role: 'Barista',        days: 22, pokok: 2000000, tunjangan: 300000, lembur: 130000, potongan: 60000,  note: '' },
+    { name: 'Dewi Lestari',   role: 'Pramusaji',      days: 20, pokok: 1800000, tunjangan: 250000, lembur: 0,      potongan: 54000,  note: '' },
+    { name: 'Rizky Hidayat',  role: 'Kasir',          days: 21, pokok: 1800000, tunjangan: 250000, lembur: 0,      potongan: 74000,  note: '' },
+    { name: 'Nadia Puspita',  role: 'Pramusaji',      days: 20, pokok: 1700000, tunjangan: 250000, lembur: 0,      potongan: 51000,  note: '' },
+    { name: 'Joko Susilo',    role: 'Kurir',          days: 21, pokok: 1600000, tunjangan: 300000, lembur: 0,      potongan: 48000,  note: '' },
+  ];
+  ROWS.forEach(function (r) { r.net = r.pokok + r.tunjangan + r.lembur - r.potongan; });
+
+  function rp(n) { return 'Rp ' + new Intl.NumberFormat('id-ID').format(n); }
+  function mono(n) { return n.split(' ').slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase(); }
+  function sum(k) { return ROWS.reduce(function (a, r) { return a + r[k]; }, 0); }
+
+  var T = {
+    pokok: sum('pokok'), tunjangan: sum('tunjangan'), lembur: sum('lembur'),
+    potongan: sum('potongan'), net: sum('net'), days: sum('days'),
+  };
+  T.gross = T.pokok + T.tunjangan + T.lembur;
+
+  /* ---------- headline numbers ----------------------------------------- */
+  document.getElementById('mCount').textContent = ROWS.length;
+  document.getElementById('mGross').textContent = rp(T.gross);
+  document.getElementById('mCut').textContent = '− ' + rp(T.potongan);
+  document.getElementById('mNet').textContent = rp(T.net);
+  document.getElementById('barNet').textContent = rp(T.net);
+
+  /* ---------- composition --------------------------------------------- */
+  var PARTS = [
+    { label: 'Gaji pokok', value: T.pokok, color: 'hsl(var(--primary))' },
+    { label: 'Tunjangan', value: T.tunjangan, color: 'hsl(var(--info))' },
+    { label: 'Lembur', value: T.lembur, color: 'hsl(var(--accent))' },
+  ];
+  document.getElementById('compBar').innerHTML = PARTS.map(function (p) {
+    return '<span style="width:' + (p.value / T.gross * 100).toFixed(2) + '%;background:' + p.color + '"></span>';
+  }).join('');
+  document.getElementById('compLegend').innerHTML = PARTS.map(function (p) {
+    return '<span class="item"><span class="swatch" style="background:' + p.color + '"></span>' +
+      p.label + ' <span class="num" style="font-weight:650;color:hsl(var(--on-surface));margin-left:4px">' + rp(p.value) + '</span> · ' +
+      (p.value / T.gross * 100).toFixed(1) + '%</span>';
+  }).join('');
+  document.getElementById('compTotal').textContent = 'Total ' + rp(T.gross);
+  document.getElementById('compDesc').textContent = PARTS.map(function (p) {
+    return p.label + ' ' + rp(p.value) + ', ' + (p.value / T.gross * 100).toFixed(1) + ' persen';
+  }).join('. ');
+
+  /* ---------- table ---------------------------------------------------- */
+  var sort = { key: 'pokok', dir: 'desc' };
+  var onlyFlags = false;
+
+  function view() {
+    var list = ROWS.filter(function (r) { return !onlyFlags || r.note; });
+    var dir = sort.dir === 'asc' ? 1 : -1;
+    return list.slice().sort(function (a, b) {
+      var av = a[sort.key], bv = b[sort.key];
+      if (typeof av === 'string') { av = av.toLowerCase(); bv = bv.toLowerCase(); }
+      return av < bv ? -dir : av > bv ? dir : 0;
+    });
+  }
+
+  function rowHTML(r) {
+    return '<tr' + (r.note ? ' data-flag="true"' : '') + '>' +
+      '<th scope="row">' +
+        '<span style="display:flex;align-items:center;gap:10px">' +
+          '<span class="avatar avatar-sm">' + mono(r.name) + '</span>' +
+          '<span style="min-width:0">' +
+            '<span class="t-label block truncate">' + r.name + '</span>' +
+            '<span class="t-caption block truncate">' + r.role + (r.note ? ' · perlu diperiksa' : '') + '</span>' +
+          '</span>' +
+        '</span>' +
+      '</th>' +
+      '<td class="num-cell t-muted">' + r.days + '</td>' +
+      '<td class="num-cell">' + rp(r.pokok) + '</td>' +
+      '<td class="num-cell">' + rp(r.tunjangan) + '</td>' +
+      '<td class="num-cell' + (r.lembur ? '' : ' t-muted') + '">' + (r.lembur ? rp(r.lembur) : '—') + '</td>' +
+      '<td class="num-cell" style="color:hsl(var(--danger))">− ' + rp(r.potongan) + '</td>' +
+      '<td class="num-cell" style="font-weight:650">' + rp(r.net) + '</td>' +
+    '</tr>';
+  }
+
+  function footHTML(list) {
+    var f = ['pokok', 'tunjangan', 'lembur', 'potongan', 'net'].reduce(function (o, k) {
+      o[k] = list.reduce(function (a, r) { return a + r[k]; }, 0); return o;
+    }, {});
+    var days = list.reduce(function (a, r) { return a + r.days; }, 0);
+    return '<tr>' +
+      '<th scope="row">Total ' + list.length + ' karyawan</th>' +
+      '<td class="num-cell">' + days + '</td>' +
+      '<td class="num-cell">' + rp(f.pokok) + '</td>' +
+      '<td class="num-cell">' + rp(f.tunjangan) + '</td>' +
+      '<td class="num-cell">' + rp(f.lembur) + '</td>' +
+      '<td class="num-cell" style="color:hsl(var(--danger))">− ' + rp(f.potongan) + '</td>' +
+      '<td class="num-cell" style="font-weight:700">' + rp(f.net) + '</td>' +
+    '</tr>';
+  }
+
+  function cardHTML(r) {
+    return '<li style="padding:14px 16px;border-bottom:1px solid hsl(var(--outline-variant))' +
+      (r.note ? ';box-shadow:inset 3px 0 0 hsl(var(--warning))' : '') + '">' +
+      '<div style="display:flex;align-items:center;gap:10px">' +
+        '<span class="avatar">' + mono(r.name) + '</span>' +
+        '<div style="min-width:0;flex:1">' +
+          '<p class="t-h3 truncate">' + r.name + '</p>' +
+          '<p class="t-caption">' + r.role + ' · ' + r.days + ' hari kerja</p>' +
+        '</div>' +
+        (r.note ? '<span class="chip chip-warning">Periksa</span>' : '') +
+      '</div>' +
+      '<dl style="margin-top:10px;font-size:13.5px">' +
+        line('Gaji pokok', rp(r.pokok)) +
+        line('Tunjangan', rp(r.tunjangan)) +
+        (r.lembur ? line('Lembur', rp(r.lembur)) : '') +
+        line('Potongan', '− ' + rp(r.potongan), 'hsl(var(--danger))') +
+        '<div style="display:flex;justify-content:space-between;gap:12px;padding-top:8px;margin-top:6px;border-top:1px solid hsl(var(--outline-variant))">' +
+          '<dt style="font-weight:600">Take-home</dt><dd class="num" style="font-weight:700">' + rp(r.net) + '</dd></div>' +
+      '</dl>' +
+      (r.note ? '<p class="t-caption mt-2" style="color:hsl(var(--warning))">' + r.note + '</p>' : '') +
+    '</li>';
+  }
+
+  function line(k, v, color) {
+    return '<div style="display:flex;justify-content:space-between;gap:12px;padding:3px 0">' +
+      '<dt class="t-muted">' + k + '</dt>' +
+      '<dd class="num"' + (color ? ' style="color:' + color + '"' : '') + '>' + v + '</dd></div>';
+  }
+
+  function paint() {
+    var list = view();
+    document.getElementById('tbody').innerHTML = list.map(rowHTML).join('');
+    document.getElementById('tfoot').innerHTML = footHTML(list);
+    document.getElementById('cards').innerHTML = list.map(cardHTML).join('');
+    document.querySelectorAll('th[data-col]').forEach(function (th) {
+      if (th.dataset.col === sort.key) th.setAttribute('aria-sort', sort.dir === 'asc' ? 'ascending' : 'descending');
+      else th.removeAttribute('aria-sort');
+    });
+    document.getElementById('flagCount').textContent = ROWS.filter(function (r) { return r.note; }).length;
+  }
+
+  document.querySelectorAll('[data-sort]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var k = btn.dataset.sort;
+      sort = { key: k, dir: sort.key === k && sort.dir === 'desc' ? 'asc' : 'desc' };
+      paint();
+      KK.announce('Diurutkan berdasarkan ' + btn.textContent.trim() + ', ' + (sort.dir === 'asc' ? 'naik' : 'turun'));
+    });
+  });
+
+  document.getElementById('onlyFlags').addEventListener('change', function () {
+    onlyFlags = this.checked;
+    paint();
+    KK.announce(onlyFlags ? 'Menampilkan hanya baris yang perlu diperiksa' : 'Menampilkan semua karyawan');
+  });
+
+  document.getElementById('flagJump').addEventListener('click', function () {
+    var cb = document.getElementById('onlyFlags');
+    cb.checked = true;
+    cb.dispatchEvent(new Event('change'));
+    document.getElementById('h-rows').scrollIntoView({ block: 'center' });
+  });
+
+  /* ---------- export --------------------------------------------------- */
+  document.getElementById('btnCsv').addEventListener('click', function () {
+    var btn = this;
+    btn.setAttribute('aria-busy', 'true');
+    setTimeout(function () {
+      btn.removeAttribute('aria-busy');
+      KK.toast('payroll-agustus-2026.csv siap diunduh (' + ROWS.length + ' baris).', { tone: 'success' });
+    }, 900);
+  });
+
+  document.getElementById('btnCancel').addEventListener('click', function () {
+    KK.toast('Draft disimpan. Bisa dilanjutkan kapan saja.', { tone: 'info' });
+  });
+
+  /* ---------- approve: irreversible, so it always confirms ------------- */
+  document.getElementById('btnApprove').addEventListener('click', function () {
+    var btn = this;
+    var flags = ROWS.filter(function (r) { return r.note; }).length;
+    KK.confirm({
+      title: 'Setujui payroll Agustus 2026?',
+      body: 'Total ' + rp(T.net) + ' untuk ' + ROWS.length + ' karyawan. ' +
+        (flags ? flags + ' baris masih ditandai perlu diperiksa. ' : '') +
+        'Slip gaji langsung terkirim dan angka tidak bisa diubah setelah ini.',
+      confirm: 'Setujui & kirim slip',
+      cancel: 'Periksa lagi',
+    }).then(function (ok) {
+      if (!ok) return;
+      btn.setAttribute('aria-busy', 'true');
+      setTimeout(function () {
+        btn.removeAttribute('aria-busy');
+        document.getElementById('statusDraft').hidden = true;
+        document.getElementById('statusApproved').hidden = false;
+        document.getElementById('flagBanner').hidden = true;
+        btn.innerHTML = KK.icon('check', 18) + '<span>Disetujui</span>';
+        btn.disabled = true;
+        document.getElementById('btnCancel').disabled = true;
+        KK.toast('Payroll disetujui. ' + ROWS.length + ' slip gaji terkirim.', { tone: 'success' });
+        KK.announce('Payroll Agustus 2026 disetujui');
+      }, 1400);
+    });
+  });
+
+  paint();
+})();
+</script>
+</body>
+</html>

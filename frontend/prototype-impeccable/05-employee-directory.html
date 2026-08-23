@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#16244c" />
+<title>Daftar Karyawan · KaryawanKu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/kk.css" />
+</head>
+<body>
+<!--
+THESIS: The roster is a kain panjang — one cap stamp per person, repeated down the cloth, with each person's attendance carried as isen fill density rather than a number nobody reads. Refuses the generic avatar-circle data table.
+OWN-WORLD: Kerokan-pale cool ground #edf0f5; indigo #16244c owns whole regions (rail, head band, table heads, dyed rows); soga, merah, kunyit, daun carry data roles; tumpal triangle bands edge every region; square 2-4px corners, never pills; Archivo at two widths, no monospace anywhere.
+STORY: The owner finds a person in seconds, sees who is active and who shows up, and adds someone new.
+FIRST VIEWPORT: Indigo kain band with the roster count as figures on the cloth; beneath it the search field and status filters, then the woven register — twelve rows led by their stamps, attendance density in its own column.
+FORM: Cap & Kain — grounded candidate 5 of 7; seed key d2443f8d.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
+-->
+
+<div class="scrim" aria-hidden="true"></div>
+
+<div class="shell">
+
+  <aside class="rail" id="rail">
+    <div class="rail__head">
+      <a href="03-quick-dashboard-owner.html" class="brand">
+        <span class="brand__cap" aria-hidden="true">
+          <svg viewBox="0 0 36 36">
+            <g fill="none" stroke="#f6f8fd" stroke-width="1" opacity=".45"><path d="M0 18h36M18 0v36"/><rect x="7" y="7" width="22" height="22"/></g>
+            <path d="M12.5 10v16M12.5 18l7.5-8M12.5 18l8 8" fill="none" stroke="#f6f8fd" stroke-width="2.5" stroke-linecap="round"/>
+            <g fill="#f6f8fd" opacity=".55"><circle cx="3.6" cy="3.6" r="1.1"/><circle cx="32.4" cy="3.6" r="1.1"/><circle cx="3.6" cy="32.4" r="1.1"/><circle cx="32.4" cy="32.4" r="1.1"/></g>
+          </svg>
+        </span>
+        <span class="brand__name">KaryawanKu</span>
+      </a>
+      <button class="iconbtn only-mobile" data-drawer-close type="button" aria-label="Tutup navigasi"
+              style="margin-left:auto;color:var(--nila-on-2)">
+        <span class="ico ico-x" aria-hidden="true"></span>
+      </button>
+    </div>
+
+    <nav class="rail__nav" aria-label="Navigasi utama">
+      <a class="rail-item" href="03-quick-dashboard-owner.html"><span class="ico ico-panel" aria-hidden="true"></span>Dashboard</a>
+      <a class="rail-item" href="05-employee-directory.html" aria-current="page"><span class="ico ico-users" aria-hidden="true"></span>Karyawan</a>
+      <a class="rail-item" href="#"><span class="ico ico-clock" aria-hidden="true"></span>Absensi</a>
+      <a class="rail-item" href="#"><span class="ico ico-cal" aria-hidden="true"></span>Cuti<span class="rail-item__count">2</span></a>
+      <a class="rail-item" href="#"><span class="ico ico-bands" aria-hidden="true"></span>Shift</a>
+      <a class="rail-item" href="06-payroll-run.html"><span class="ico ico-money" aria-hidden="true"></span>Payroll</a>
+      <div class="rail__sep" role="presentation"></div>
+      <a class="rail-item" href="#"><span class="ico ico-gear" aria-hidden="true"></span>Pengaturan</a>
+    </nav>
+
+    <div class="rail__foot">
+      <div class="flex ai-c g-3">
+        <span class="cap cap--nila cap--sm" aria-hidden="true">WK</span>
+        <span class="grow">
+          <span class="trunc" style="display:block;font-size:var(--t-sm);font-weight:600">Warung Kopi Nusantara</span>
+          <span class="trunc" style="display:block;font-size:var(--t-xs);color:var(--nila-on-2)">Paket Gratis · 12 karyawan</span>
+        </span>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main pagepad">
+
+    <header class="topbar">
+      <button class="iconbtn only-mobile" data-drawer-open type="button" aria-label="Buka navigasi">
+        <span class="ico ico-menu ico--lg" aria-hidden="true"></span>
+      </button>
+      <p class="topbar__title">Karyawan</p>
+      <button class="btn btn--cap btn--sm none" type="button">
+        <span class="ico ico-plus ico--sm" aria-hidden="true"></span>Tambah karyawan
+      </button>
+    </header>
+
+    <section class="kain tenun" aria-labelledby="judul">
+      <div class="kain__inner">
+        <svg class="kain__motif" viewBox="0 0 200 200" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <path d="M0 100h200M100 0v200"/>
+          <rect x="26" y="26" width="148" height="148"/>
+          <rect x="47.7" y="47.7" width="104.6" height="104.6" transform="rotate(45 100 100)"/>
+          <circle cx="100" cy="100" r="34"/><circle cx="100" cy="100" r="16"/>
+          <path d="M0 0l26 26M200 0l-26 26M0 200l26-26M200 200l-26-26"/>
+          <g fill="currentColor" stroke="none"><circle cx="100" cy="100" r="4"/><circle cx="30" cy="30" r="2.8"/><circle cx="170" cy="30" r="2.8"/><circle cx="30" cy="170" r="2.8"/><circle cx="170" cy="170" r="2.8"/></g>
+        </svg>
+
+        <h1 class="disp kain__title" id="judul">Daftar Karyawan</h1>
+        <p class="kain__meta" id="hasil" aria-live="polite">12 karyawan terdaftar · 11 aktif · 1 nonaktif</p>
+
+        <div class="figs">
+          <div class="fig">
+            <p class="fig__num num">12</p>
+            <p class="lab lab--on-nila fig__lab">Terdaftar</p>
+            <p class="fig__note">Termasuk 1 nonaktif</p>
+          </div>
+          <div class="fig">
+            <p class="fig__num num">7</p>
+            <p class="lab lab--on-nila fig__lab">PKWTT</p>
+            <p class="fig__note">Kontrak tetap</p>
+          </div>
+          <div class="fig">
+            <p class="fig__num num">4</p>
+            <p class="lab lab--on-nila fig__lab">PKWT</p>
+            <p class="fig__note">Kontrak waktu tertentu</p>
+          </div>
+          <div class="fig">
+            <p class="fig__num num">1</p>
+            <p class="lab lab--on-nila fig__lab">Harian</p>
+            <p class="fig__note">Dibayar per hari kerja</p>
+          </div>
+        </div>
+      </div>
+    </section>
+    <div class="kain__edge" aria-hidden="true"></div>
+
+    <main class="wrap section">
+
+      <div class="flex col g-3">
+        <div class="rel">
+          <label class="sr" for="cari">Cari karyawan</label>
+          <span class="ico ico-search" aria-hidden="true"
+                style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--tinta-2)"></span>
+          <input class="input" id="cari" type="search" placeholder="Cari nama, jabatan, atau NIK…" style="padding-left:44px" />
+        </div>
+
+        <div class="flex wrapf ai-c jc-b g-3">
+          <div class="flex g-2" role="group" aria-label="Filter status karyawan">
+            <button class="btn btn--sm btn--cap" aria-pressed="true" data-status-tab="semua" type="button">Semua <span class="cnt">12</span></button>
+            <button class="btn btn--sm btn--garis" aria-pressed="false" data-status-tab="aktif" type="button">Aktif <span class="cnt">11</span></button>
+            <button class="btn btn--sm btn--garis" aria-pressed="false" data-status-tab="nonaktif" type="button">Nonaktif <span class="cnt">1</span></button>
+          </div>
+          <button class="btn btn--garis btn--sm none" type="button">
+            <span class="ico ico-filter ico--sm" aria-hidden="true"></span>Filter lanjutan
+          </button>
+        </div>
+      </div>
+
+      <section class="panel mt-4">
+        <div class="panel__head">
+          <div>
+            <h2>Register Karyawan</h2>
+            <p class="panel__sub">Menampilkan 6 dari 12 karyawan · kepadatan isen = kehadiran 30 hari terakhir, di bawah 90% dicelup kunyit</p>
+          </div>
+        </div>
+
+        <!-- Desktop: the woven register -->
+        <div class="tblwrap md:show" id="tabelKaryawan">
+          <table class="tbl" style="min-width:880px">
+            <caption class="sr">Daftar karyawan Warung Kopi Nusantara</caption>
+            <thead>
+              <tr>
+                <th scope="col">Nama</th>
+                <th scope="col">Kontrak</th>
+                <th scope="col">Status</th>
+                <th scope="col">Kehadiran 30 hari</th>
+                <th scope="col">Tanggal masuk</th>
+                <th scope="col" class="r">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr data-emp="budi santoso kepala barista kry-001" data-status="aktif">
+                <th scope="row"><span class="tbl__name"><span class="cap cap--sm" aria-hidden="true">BS</span><span><b>Budi Santoso</b><span>Kepala Barista · KRY-001</span></span></span></th>
+                <td><span class="tag tag--nila">PKWTT</span></td>
+                <td><span class="tag tag--daun"><span class="tag__dot"></span>Aktif</span></td>
+                <td>
+                  <span class="isen"><span class="isen__track"><span class="isen__fill" style="width:97%"></span></span><span class="isen__val num">97%</span></span>
+                </td>
+                <td class="num muted">12 Jan 2023</td>
+                <td class="r"><a class="link" href="#">Detail</a></td>
+              </tr>
+              <tr data-emp="siti nurhaliza kasir kry-002" data-status="aktif">
+                <th scope="row"><span class="tbl__name"><span class="cap cap--sm" aria-hidden="true">SN</span><span><b>Siti Nurhaliza</b><span>Kasir · KRY-002</span></span></span></th>
+                <td><span class="tag tag--nila">PKWTT</span></td>
+                <td><span class="tag tag--daun"><span class="tag__dot"></span>Aktif</span></td>
+                <td>
+                  <span class="isen"><span class="isen__track"><span class="isen__fill" style="width:94%"></span></span><span class="isen__val num">94%</span></span>
+                </td>
+                <td class="num muted">03 Mar 2023</td>
+                <td class="r"><a class="link" href="07-payslip-detail.html">Detail</a></td>
+              </tr>
+              <tr data-emp="ahmad fauzi barista kry-003" data-status="aktif">
+                <th scope="row"><span class="tbl__name"><span class="cap cap--sm" aria-hidden="true">AF</span><span><b>Ahmad Fauzi</b><span>Barista · KRY-003</span></span></span></th>
+                <td><span class="tag tag--kunyit">PKWT</span></td>
+                <td><span class="tag tag--daun"><span class="tag__dot"></span>Aktif</span></td>
+                <td>
+                  <span class="isen"><span class="isen__track"><span class="isen__fill isen__fill--kunyit" style="width:88%"></span></span><span class="isen__val num">88%</span></span>
+                </td>
+                <td class="num muted">17 Jul 2024</td>
+                <td class="r"><a class="link" href="#">Detail</a></td>
+              </tr>
+              <tr data-emp="dewi lestari pramusaji kry-004" data-status="aktif">
+                <th scope="row"><span class="tbl__name"><span class="cap cap--sm" aria-hidden="true">DL</span><span><b>Dewi Lestari</b><span>Pramusaji · KRY-004</span></span></span></th>
+                <td><span class="tag tag--soga">Harian</span></td>
+                <td><span class="tag tag--daun"><span class="tag__dot"></span>Aktif</span></td>
+                <td>
+                  <span class="isen"><span class="isen__track"><span class="isen__fill" style="width:91%"></span></span><span class="isen__val num">91%</span></span>
+                </td>
+                <td class="num muted">02 Feb 2026</td>
+                <td class="r"><a class="link" href="#">Detail</a></td>
+              </tr>
+              <tr data-emp="rudi hermawan kasir kry-005" data-status="nonaktif">
+                <th scope="row"><span class="tbl__name"><span class="cap cap--mati cap--sm" aria-hidden="true">RH</span><span><b class="muted">Rudi Hermawan</b><span>Kasir · KRY-005</span></span></span></th>
+                <td><span class="tag tag--nila">PKWTT</span></td>
+                <td><span class="tag tag--mati"><span class="tag__dot"></span>Nonaktif</span></td>
+                <td class="muted-2 t-xs">Tidak dihitung</td>
+                <td class="num muted">08 Sep 2022</td>
+                <td class="r"><a class="link" href="#">Detail</a></td>
+              </tr>
+              <tr data-emp="maya sari admin kry-006" data-status="aktif">
+                <th scope="row"><span class="tbl__name"><span class="cap cap--sm" aria-hidden="true">MS</span><span><b>Maya Sari</b><span>Admin · KRY-006</span></span></span></th>
+                <td><span class="tag tag--kunyit">PKWT</span></td>
+                <td><span class="tag tag--daun"><span class="tag__dot"></span>Aktif</span></td>
+                <td>
+                  <span class="isen"><span class="isen__track"><span class="isen__fill" style="width:92%"></span></span><span class="isen__val num">92%</span></span>
+                </td>
+                <td class="num muted">21 Nov 2025</td>
+                <td class="r"><a class="link" href="#">Detail</a></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Narrow: one stub per person -->
+        <ul class="rows md:hide" id="listKaryawan">
+          <li data-emp="budi santoso kepala barista kry-001" data-status="aktif">
+            <a href="#" class="flex ai-s g-3" style="text-decoration:none;color:inherit">
+              <span class="cap" aria-hidden="true">BS</span>
+              <span class="grow">
+                <span class="trunc" style="display:block;font-weight:650">Budi Santoso</span>
+                <span class="t-xs muted" style="display:block">Kepala Barista · KRY-001</span>
+                <span class="flex wrapf g-2 mt-2"><span class="tag tag--nila">PKWTT</span><span class="tag tag--daun"><span class="tag__dot"></span>Aktif</span></span>
+                <span class="isen mt-3" style="max-width:190px"><span class="isen__track"><span class="isen__fill" style="width:97%"></span></span><span class="isen__val num">97%</span></span>
+                <span class="t-xs muted mt-2" style="display:block">Masuk 12 Jan 2023</span>
+              </span>
+              <span class="ico ico-right none" aria-hidden="true" style="color:var(--tinta-3)"></span>
+            </a>
+          </li>
+          <li data-emp="siti nurhaliza kasir kry-002" data-status="aktif">
+            <a href="07-payslip-detail.html" class="flex ai-s g-3" style="text-decoration:none;color:inherit">
+              <span class="cap" aria-hidden="true">SN</span>
+              <span class="grow">
+                <span class="trunc" style="display:block;font-weight:650">Siti Nurhaliza</span>
+                <span class="t-xs muted" style="display:block">Kasir · KRY-002</span>
+                <span class="flex wrapf g-2 mt-2"><span class="tag tag--nila">PKWTT</span><span class="tag tag--daun"><span class="tag__dot"></span>Aktif</span></span>
+                <span class="isen mt-3" style="max-width:190px"><span class="isen__track"><span class="isen__fill" style="width:94%"></span></span><span class="isen__val num">94%</span></span>
+                <span class="t-xs muted mt-2" style="display:block">Masuk 03 Mar 2023</span>
+              </span>
+              <span class="ico ico-right none" aria-hidden="true" style="color:var(--tinta-3)"></span>
+            </a>
+          </li>
+          <li data-emp="ahmad fauzi barista kry-003" data-status="aktif">
+            <a href="#" class="flex ai-s g-3" style="text-decoration:none;color:inherit">
+              <span class="cap" aria-hidden="true">AF</span>
+              <span class="grow">
+                <span class="trunc" style="display:block;font-weight:650">Ahmad Fauzi</span>
+                <span class="t-xs muted" style="display:block">Barista · KRY-003</span>
+                <span class="flex wrapf g-2 mt-2"><span class="tag tag--kunyit">PKWT</span><span class="tag tag--daun"><span class="tag__dot"></span>Aktif</span></span>
+                <span class="isen mt-3" style="max-width:190px"><span class="isen__track"><span class="isen__fill isen__fill--kunyit" style="width:88%"></span></span><span class="isen__val num">88%</span></span>
+                <span class="t-xs muted mt-2" style="display:block">Masuk 17 Jul 2024</span>
+              </span>
+              <span class="ico ico-right none" aria-hidden="true" style="color:var(--tinta-3)"></span>
+            </a>
+          </li>
+          <li data-emp="dewi lestari pramusaji kry-004" data-status="aktif">
+            <a href="#" class="flex ai-s g-3" style="text-decoration:none;color:inherit">
+              <span class="cap" aria-hidden="true">DL</span>
+              <span class="grow">
+                <span class="trunc" style="display:block;font-weight:650">Dewi Lestari</span>
+                <span class="t-xs muted" style="display:block">Pramusaji · KRY-004</span>
+                <span class="flex wrapf g-2 mt-2"><span class="tag tag--soga">Harian</span><span class="tag tag--daun"><span class="tag__dot"></span>Aktif</span></span>
+                <span class="isen mt-3" style="max-width:190px"><span class="isen__track"><span class="isen__fill" style="width:91%"></span></span><span class="isen__val num">91%</span></span>
+                <span class="t-xs muted mt-2" style="display:block">Masuk 02 Feb 2026</span>
+              </span>
+              <span class="ico ico-right none" aria-hidden="true" style="color:var(--tinta-3)"></span>
+            </a>
+          </li>
+          <li data-emp="rudi hermawan kasir kry-005" data-status="nonaktif">
+            <a href="#" class="flex ai-s g-3" style="text-decoration:none;color:inherit">
+              <span class="cap cap--mati" aria-hidden="true">RH</span>
+              <span class="grow">
+                <span class="trunc muted" style="display:block;font-weight:650">Rudi Hermawan</span>
+                <span class="t-xs muted" style="display:block">Kasir · KRY-005</span>
+                <span class="flex wrapf g-2 mt-2"><span class="tag tag--nila">PKWTT</span><span class="tag tag--mati"><span class="tag__dot"></span>Nonaktif</span></span>
+                <span class="t-xs muted-2 mt-3" style="display:block">Kehadiran tidak dihitung</span>
+                <span class="t-xs muted mt-2" style="display:block">Masuk 08 Sep 2022</span>
+              </span>
+              <span class="ico ico-right none" aria-hidden="true" style="color:var(--tinta-3)"></span>
+            </a>
+          </li>
+          <li data-emp="maya sari admin kry-006" data-status="aktif">
+            <a href="#" class="flex ai-s g-3" style="text-decoration:none;color:inherit">
+              <span class="cap" aria-hidden="true">MS</span>
+              <span class="grow">
+                <span class="trunc" style="display:block;font-weight:650">Maya Sari</span>
+                <span class="t-xs muted" style="display:block">Admin · KRY-006</span>
+                <span class="flex wrapf g-2 mt-2"><span class="tag tag--kunyit">PKWT</span><span class="tag tag--daun"><span class="tag__dot"></span>Aktif</span></span>
+                <span class="isen mt-3" style="max-width:190px"><span class="isen__track"><span class="isen__fill" style="width:92%"></span></span><span class="isen__val num">92%</span></span>
+                <span class="t-xs muted mt-2" style="display:block">Masuk 21 Nov 2025</span>
+              </span>
+              <span class="ico ico-right none" aria-hidden="true" style="color:var(--tinta-3)"></span>
+            </a>
+          </li>
+        </ul>
+
+        <!-- real empty state, reachable by typing a name that is not here -->
+        <div class="empty" id="kosong" hidden>
+          <div class="empty__cap"><span class="ico ico-search" aria-hidden="true"></span></div>
+          <h3>Tidak ada karyawan yang cocok</h3>
+          <p>Tidak ada hasil untuk <strong id="kosongTerm">filter ini</strong>. Periksa ejaan nama, atau tambahkan orang ini sebagai karyawan baru.</p>
+          <div class="flex wrapf jc-c g-3 mt-4">
+            <button class="btn btn--garis" type="button" id="bersihkan">Bersihkan pencarian</button>
+            <button class="btn btn--cap" type="button"><span class="ico ico-plus ico--sm" aria-hidden="true"></span>Tambah karyawan</button>
+          </div>
+        </div>
+
+        <div class="panel__foot flex wrapf ai-c jc-b g-3" id="pager">
+          <div class="flex ai-c g-2">
+            <label class="t-sm muted" for="perhal">Baris per halaman</label>
+            <select class="select" id="perhal" style="width:auto">
+              <option>6</option><option selected>10</option><option>25</option><option>50</option>
+            </select>
+          </div>
+          <nav class="flex ai-c g-1" aria-label="Paginasi">
+            <button class="iconbtn" type="button" aria-label="Halaman sebelumnya" disabled style="width:44px;height:44px">
+              <span class="ico ico-left ico--sm" aria-hidden="true"></span>
+            </button>
+            <a class="btn btn--cap btn--sm num" href="#" aria-current="page" style="min-width:44px;padding:0 12px">1</a>
+            <a class="btn btn--garis btn--sm num" href="#" style="min-width:44px;padding:0 12px">2</a>
+            <button class="iconbtn" type="button" aria-label="Halaman berikutnya" style="width:44px;height:44px">
+              <span class="ico ico-right ico--sm" aria-hidden="true"></span>
+            </button>
+          </nav>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<nav class="bottomnav only-mobile" aria-label="Navigasi utama">
+  <a class="bottomnav__item" href="03-quick-dashboard-owner.html"><span class="ico ico-panel" aria-hidden="true"></span>Dashboard</a>
+  <a class="bottomnav__item" href="05-employee-directory.html" aria-current="page"><span class="ico ico-users" aria-hidden="true"></span>Karyawan</a>
+  <a class="bottomnav__item" href="#"><span class="ico ico-clock" aria-hidden="true"></span>Absensi</a>
+  <a class="bottomnav__item bottomnav__item--dot" href="#"><span class="ico ico-cal" aria-hidden="true"></span>Cuti</a>
+  <a class="bottomnav__item" href="06-payroll-run.html"><span class="ico ico-money" aria-hidden="true"></span>Payroll</a>
+</nav>
+
+<script src="assets/kk.js"></script>
+</body>
+</html>

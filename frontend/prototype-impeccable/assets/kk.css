@@ -1,0 +1,1126 @@
+/* ==========================================================================
+   KaryawanKu — "Cap & Kain"
+   Design world: Javanese batik cap (copper stamp) + kain panjang cloth layout.
+   Structural grammar, never ornament:
+     cap      = the repeat module (one employee, one stamp, one row)
+     kain     = the indigo cloth band that carries a page's head + figures
+     tumpal   = the triangle border band that edges a region
+     klowong  = the un-dyed outline = draft / not yet committed
+     tercap   = stamped and dyed = approved and locked
+     isen     = fill density = magnitude
+     selvedge = the woven cloth edge = the navigation rail
+   Plain CSS on purpose: no build step, opens from file://, one deterministic
+   cascade. Section 21 explains why the Tailwind CDN was dropped.
+   ========================================================================== */
+
+/* ---------- 1 · Tokens ---------------------------------------------------- */
+
+:root {
+  color-scheme: light;
+
+  /* Ground — kerokan: undyed cotton scraped pale over indigo. Cool, never cream.
+     The use scene decides this: a warung counter at 08:00, open shopfront,
+     tropical glare, mid-range Android. Light, high luminance, high contrast. */
+  --kain:        #edf0f5;
+  --kain-2:      #e2e7f0;
+  --kain-3:      #d6dceb;
+  --kapas:       #fafbfd;
+
+  /* Indigo (nila) — the region owner. Rails, head bands, table heads,
+     primary actions, the dyed state. Not an accent; it holds whole fields. */
+  --nila:        #16244c;
+  --nila-2:      #1e3268;
+  --nila-3:      #0d1732;
+  --nila-wash:   #dde3f2;
+  --nila-line:   #b9c4e0;
+  --nila-teks:   #2a3d74;
+  --nila-on:     #f6f8fd;
+  --nila-on-2:   #a9b6d8;
+
+  /* Soga — the brown second dye. Warm secondary data, seals, issued marks. */
+  --soga:        #8a5a2b;
+  --soga-wash:   #efe4d4;
+  --soga-teks:   #6e4520;
+
+  /* Merah cabe — deductions, negatives, destructive. */
+  --merah:       #b5301c;
+  --merah-wash:  #f8e0db;
+  --merah-teks:  #93250f;
+
+  /* Kunyit — needs your decision. Pending, late, draft. */
+  --kunyit:      #c08a12;
+  --kunyit-wash: #f7eccf;
+  --kunyit-teks: #8a5f06;
+
+  /* Daun — present, on time, done. */
+  --daun:        #1f6b45;
+  --daun-wash:   #ddeee3;
+  --daun-teks:   #175435;
+
+  /* Hairlines and on-cloth inks for each data role */
+  --kunyit-line: #e2c785;
+  --kunyit-line-2: #d8b055;
+  --kunyit-ink: #241800;
+  --soga-line: #d8c3a4;
+  --merah-line: #e0b3a9;
+  --merah-field: #fffafa;
+  --daun-line: #a8cdb8;
+  --nila-on-press: #e6ebf7;
+  --kunyit-on-nila: #f0cf7e;
+  --daun-on-nila: #9ed6b5;
+  --merah-on-nila: #f3b3a6;
+  --soga-on-nila: #e0b884;
+
+  /* Ink + rules */
+  --tinta:       #131a2b;
+  --tinta-2:     #4a5570;
+  --tinta-3:     #606a85;
+  --garis:       #c7cfdf;
+  --garis-2:     #dee4ef;
+
+  /* Type — one family, two widths. Archivo carries display at wdth 118 and
+     data at normal width with real tabular figures. No monospace anywhere:
+     tracked small caps do the label work instead. */
+  --font: "Archivo", "Segoe UI", system-ui, -apple-system, sans-serif;
+
+  --t-4xs: 0.5625rem; /* 9  · date-cap abbreviation */
+  --t-3xs: 0.625rem;  /* 10 · register caption plate */
+  --t-2xs: 0.6875rem; /* 11 · tracked labels */
+  --t-xs:  0.75rem;   /* 12 */
+  --t-sm:  0.8125rem; /* 13 */
+  --t-base:0.9375rem; /* 15 · body floor */
+  --t-md:  1rem;      /* 16 */
+  --t-lg:  1.125rem;  /* 18 */
+  --t-xl:  1.375rem;  /* 22 */
+
+  /* money figures step through their own three sizes rather than the ramp */
+  --t-money-s: 1.0625rem; /* 17 */
+  --t-money-m: 1.25rem;   /* 20 */
+  --t-2xl: 1.75rem;   /* 28 */
+  --t-3xl: 2.125rem;  /* 34 */
+  --t-4xl: 2.75rem;   /* 44 · kain figures */
+
+  --track-lab: 0.09em;
+
+  /* Stamped world: square corners, small radii only. No pills. */
+  --r-1: 2px;
+  --r-2: 4px;
+
+  --e1: 0 1px 2px rgb(19 26 43 / 0.055), 0 2px 6px rgb(19 26 43 / 0.05);
+  --e2: 0 1px 2px rgb(19 26 43 / 0.07),  0 4px 12px rgb(19 26 43 / 0.07);
+  --e3: 0 2px 4px rgb(19 26 43 / 0.08),  0 10px 28px rgb(19 26 43 / 0.10);
+
+  --tap: 48px;
+  --rail-w: 244px;
+
+  --dur: 180ms;
+  --ease: cubic-bezier(0.16, 0.84, 0.28, 1);
+}
+
+/* ---------- 2 · Base ----------------------------------------------------- */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { font-family: var(--font); -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--kain);
+  color: var(--tinta);
+  font-size: var(--t-base);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  font-variant-numeric: tabular-nums;
+}
+
+h1, h2, h3 { margin: 0; line-height: 1.16; letter-spacing: -0.018em; }
+h1 { font-size: var(--t-2xl); font-weight: 700; }
+h2 { font-size: var(--t-lg); font-weight: 650; letter-spacing: -0.012em; }
+h3 { font-size: var(--t-base); font-weight: 650; }
+p  { margin: 0; }
+
+/* Display voice: Archivo at expanded width. Stamped, wide, carved. */
+.disp {
+  font-family: var(--font);
+  font-variation-settings: "wdth" 118;
+  font-weight: 800;
+  letter-spacing: -0.026em;
+  line-height: 1.02;
+}
+
+/* Tracked small caps replace the monospace micro-label. */
+.lab {
+  font-size: var(--t-2xs);
+  font-weight: 650;
+  letter-spacing: var(--track-lab);
+  text-transform: uppercase;
+  color: var(--tinta-2);
+  font-variation-settings: "wdth" 108;
+}
+.lab--on-nila { color: var(--nila-on-2); }
+
+.num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+
+a { color: var(--nila-teks); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+
+:focus-visible {
+  outline: 2px solid var(--nila);
+  outline-offset: 2px;
+  border-radius: var(--r-1);
+}
+.on-nila :focus-visible,
+.kain :focus-visible,
+.drench :focus-visible,
+.capfield :focus-visible { outline-color: var(--kunyit); }
+
+.sr {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* ---------- 3 · Batik primitives ----------------------------------------- */
+
+/* tumpal — the triangle border band that edges a cloth region. */
+.tumpal {
+  height: 9px;
+  background-repeat: repeat-x;
+  background-position: top center;
+  background-size: 22px 9px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='9' viewBox='0 0 22 9'%3E%3Cpath d='M0 0h22L11 9z' fill='%2316244c'/%3E%3C/svg%3E");
+  flex: none;
+}
+.tumpal--kunyit {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='9' viewBox='0 0 22 9'%3E%3Cpath d='M0 0h22L11 9z' fill='%23c08a12'/%3E%3C/svg%3E");
+}
+
+/* cap field — the copper stamp repeat, at cloth scale. Used where a whole
+   region is dyed: sign-in panel, drenched take-home block. */
+.capfield {
+  background-color: var(--nila);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='112' height='112' viewBox='0 0 112 112'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='0.14' stroke-width='1.4'%3E%3Cpath d='M0 56h112M56 0v112'/%3E%3Crect x='28' y='28' width='56' height='56'/%3E%3Crect x='38.5' y='38.5' width='35' height='35' transform='rotate(45 56 56)'/%3E%3Ccircle cx='56' cy='56' r='11'/%3E%3Cpath d='M0 0l28 28M112 0L84 28M0 112l28-28M112 112L84 84'/%3E%3C/g%3E%3Cg fill='%23ffffff' fill-opacity='0.2'%3E%3Ccircle cx='56' cy='56' r='2.6'/%3E%3Ccircle cx='14' cy='14' r='1.7'/%3E%3Ccircle cx='98' cy='14' r='1.7'/%3E%3Ccircle cx='14' cy='98' r='1.7'/%3E%3Ccircle cx='98' cy='98' r='1.7'/%3E%3Ccircle cx='56' cy='14' r='1.4'/%3E%3Ccircle cx='56' cy='98' r='1.4'/%3E%3Ccircle cx='14' cy='56' r='1.4'/%3E%3Ccircle cx='98' cy='56' r='1.4'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 112px 112px;
+}
+
+/* the woven cloth of a dyed band: fine warp threads, 45° */
+.tenun {
+  background-image:
+    repeating-linear-gradient(45deg, rgb(255 255 255 / 0.035) 0 1px, transparent 1px 4px);
+}
+
+
+/* ---------- 4 · Cap (the repeat module: avatar, marker, seal) ------------- */
+
+.cap {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  background: var(--nila-wash);
+  color: var(--nila);
+  border: 1px solid var(--nila-line);
+  border-radius: var(--r-1);
+  font-weight: 700;
+  font-size: var(--t-xs);
+  letter-spacing: 0.01em;
+  width: 40px; height: 40px;
+  overflow: hidden;
+}
+/* the carved corners of the copper stamp */
+.cap::before {
+  content: "";
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(135deg, currentColor 0 5px, transparent 5px),
+    linear-gradient(225deg, currentColor 0 5px, transparent 5px),
+    linear-gradient(45deg,  currentColor 0 5px, transparent 5px),
+    linear-gradient(315deg, currentColor 0 5px, transparent 5px);
+  background-position: top left, top right, bottom left, bottom right;
+  background-size: 50% 50%;
+  background-repeat: no-repeat;
+  opacity: 0.22;
+  pointer-events: none;
+}
+.cap--sm { width: 32px; height: 32px; font-size: var(--t-2xs); }
+.cap--lg { width: 52px; height: 52px; font-size: var(--t-base); }
+.cap--nila  { background: var(--nila); color: var(--nila-on); border-color: var(--nila-3); }
+.cap--nila::before { opacity: 0.3; }
+.cap--mati  { background: var(--kain-3); color: var(--tinta-3); border-color: var(--garis); }
+.cap--kunyit{ background: var(--kunyit-wash); color: var(--kunyit-teks); border-color: var(--kunyit-line); }
+
+/* brand lockup: the K carved into a cap */
+.brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+.brand__cap {
+  width: 36px; height: 36px; border-radius: var(--r-1); flex: none;
+  background: var(--nila); border: 1px solid var(--nila-3);
+  display: grid; place-items: center; position: relative; overflow: hidden;
+}
+.brand__cap svg { width: 36px; height: 36px; display: block; }
+.brand__name {
+  font-size: var(--t-lg); font-weight: 750; letter-spacing: -0.02em;
+  font-variation-settings: "wdth" 112;
+}
+.on-nila .brand__cap { background: rgb(255 255 255 / 0.1); border-color: rgb(255 255 255 / 0.28); }
+
+/* ---------- 5 · Icons (CSS masks, one canting stroke: 1.75, round caps) --- */
+
+.ico {
+  display: inline-block; flex: none;
+  width: 20px; height: 20px;
+  background-color: currentColor;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  -webkit-mask-position: center;  mask-position: center;
+  -webkit-mask-size: contain;     mask-size: contain;
+}
+.ico--sm { width: 16px; height: 16px; }
+.ico--lg { width: 22px; height: 22px; }
+
+.ico-panel   { -webkit-mask-image: var(--i-panel);   mask-image: var(--i-panel); }
+.ico-users   { -webkit-mask-image: var(--i-users);   mask-image: var(--i-users); }
+.ico-clock   { -webkit-mask-image: var(--i-clock);   mask-image: var(--i-clock); }
+.ico-cal     { -webkit-mask-image: var(--i-cal);     mask-image: var(--i-cal); }
+.ico-bands   { -webkit-mask-image: var(--i-bands);   mask-image: var(--i-bands); }
+.ico-money   { -webkit-mask-image: var(--i-money);   mask-image: var(--i-money); }
+.ico-gear    { -webkit-mask-image: var(--i-gear);    mask-image: var(--i-gear); }
+.ico-bell    { -webkit-mask-image: var(--i-bell);    mask-image: var(--i-bell); }
+.ico-menu    { -webkit-mask-image: var(--i-menu);    mask-image: var(--i-menu); }
+.ico-search  { -webkit-mask-image: var(--i-search);  mask-image: var(--i-search); }
+.ico-filter  { -webkit-mask-image: var(--i-filter);  mask-image: var(--i-filter); }
+.ico-down    { -webkit-mask-image: var(--i-down);    mask-image: var(--i-down); }
+.ico-plus    { -webkit-mask-image: var(--i-plus);    mask-image: var(--i-plus); }
+.ico-check   { -webkit-mask-image: var(--i-check);   mask-image: var(--i-check); }
+.ico-x       { -webkit-mask-image: var(--i-x);       mask-image: var(--i-x); }
+.ico-eye     { -webkit-mask-image: var(--i-eye);     mask-image: var(--i-eye); }
+.ico-eye-off { -webkit-mask-image: var(--i-eyeoff);  mask-image: var(--i-eyeoff); }
+.ico-left    { -webkit-mask-image: var(--i-left);    mask-image: var(--i-left); }
+.ico-right   { -webkit-mask-image: var(--i-right);   mask-image: var(--i-right); }
+.ico-back    { -webkit-mask-image: var(--i-back);    mask-image: var(--i-back); }
+.ico-doc     { -webkit-mask-image: var(--i-doc);     mask-image: var(--i-doc); }
+.ico-stamp   { -webkit-mask-image: var(--i-stamp);   mask-image: var(--i-stamp); }
+.ico-more    { -webkit-mask-image: var(--i-more);    mask-image: var(--i-more); }
+.ico-pin     { -webkit-mask-image: var(--i-pin);     mask-image: var(--i-pin); }
+.ico-alert   { -webkit-mask-image: var(--i-alert);   mask-image: var(--i-alert); }
+.ico-food    { -webkit-mask-image: var(--i-food);    mask-image: var(--i-food); }
+.ico-service { -webkit-mask-image: var(--i-service); mask-image: var(--i-service); }
+.ico-lock    { -webkit-mask-image: var(--i-lock);    mask-image: var(--i-lock); }
+
+:root {
+  --i-panel:   url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3.5' y='3.5' width='7' height='9'/%3E%3Crect x='13.5' y='3.5' width='7' height='5'/%3E%3Crect x='13.5' y='11.5' width='7' height='9'/%3E%3Crect x='3.5' y='15.5' width='7' height='5'/%3E%3C/svg%3E");
+  --i-users:   url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 20.5V19a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1.5'/%3E%3Ccircle cx='9' cy='7.5' r='3.6'/%3E%3Cpath d='M16.8 4.3a3.6 3.6 0 0 1 0 6.4M21 20.5V19a3.8 3.8 0 0 0-2.7-3.6'/%3E%3C/svg%3E");
+  --i-clock:   url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='8.5'/%3E%3Cpath d='M12 7.2V12l3.4 2.1'/%3E%3C/svg%3E");
+  --i-cal:     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3.5' y='5' width='17' height='15.5'/%3E%3Cpath d='M8 3v4M16 3v4M3.5 10.5h17'/%3E%3C/svg%3E");
+  --i-bands:   url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 6.5h17M3.5 12h11M3.5 17.5h17M17.5 12h3'/%3E%3C/svg%3E");
+  --i-money:   url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2.5' y='6' width='19' height='12'/%3E%3Ccircle cx='12' cy='12' r='2.6'/%3E%3Cpath d='M6 12h.01M18 12h.01'/%3E%3C/svg%3E");
+  --i-gear:    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 7.5h8M16.5 7.5h4M3.5 16.5h4M12.5 16.5h8'/%3E%3Ccircle cx='14' cy='7.5' r='2.5'/%3E%3Ccircle cx='10' cy='16.5' r='2.5'/%3E%3C/svg%3E");
+  --i-bell:    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 9a6 6 0 1 0-12 0c0 6-2.4 7.5-2.4 7.5h16.8S18 15 18 9'/%3E%3Cpath d='M10.2 19.8a2.1 2.1 0 0 0 3.6 0'/%3E%3C/svg%3E");
+  --i-menu:    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.75' stroke-linecap='round'%3E%3Cpath d='M3.5 7h17M3.5 12h17M3.5 17h17'/%3E%3C/svg%3E");
+  --i-search:  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='10.5' cy='10.5' r='6.5'/%3E%3Cpath d='M15.4 15.4L20.5 20.5'/%3E%3C/svg%3E");
+  --i-filter:  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.75' stroke-linecap='round'%3E%3Cpath d='M4 6.5h16M7 12h10M10 17.5h4'/%3E%3C/svg%3E");
+  --i-down:    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 4v10.5M7.6 10.6L12 15l4.4-4.4M4.5 20h15'/%3E%3C/svg%3E");
+  --i-plus:    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.75' stroke-linecap='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E");
+  --i-check:   url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.5 12.6l4.9 4.9L19.5 7.4'/%3E%3C/svg%3E");
+  --i-x:       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.9' stroke-linecap='round'%3E%3Cpath d='M6.2 6.2l11.6 11.6M17.8 6.2L6.2 17.8'/%3E%3C/svg%3E");
+  --i-eye:     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.5 12S6.1 5.5 12 5.5 21.5 12 21.5 12S17.9 18.5 12 18.5 2.5 12 2.5 12Z'/%3E%3Ccircle cx='12' cy='12' r='2.9'/%3E%3C/svg%3E");
+  --i-eyeoff:  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 4l16 16M9.6 5.9A9.6 9.6 0 0 1 12 5.5c5.9 0 9.5 6.5 9.5 6.5a17 17 0 0 1-2.6 3.5M6.2 8.1A17.4 17.4 0 0 0 2.5 12S6.1 18.5 12 18.5c1 0 1.9-.2 2.7-.5'/%3E%3Cpath d='M10.1 10.2a2.9 2.9 0 0 0 3.9 3.9'/%3E%3C/svg%3E");
+  --i-left:    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14.5 5.5L8 12l6.5 6.5'/%3E%3C/svg%3E");
+  --i-right:   url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.5 5.5L16 12l-6.5 6.5'/%3E%3C/svg%3E");
+  --i-back:    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 5.5L3.5 12 10 18.5M3.5 12h17'/%3E%3C/svg%3E");
+  --i-doc:     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 3h8l4.5 4.5V21H6z'/%3E%3Cpath d='M14 3v4.5h4.5M9 12.5h6M9 16.5h6'/%3E%3C/svg%3E");
+  --i-stamp:   url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20.5h16M5.5 17h13v-2.5a2 2 0 0 0-2-2h-9a2 2 0 0 0-2 2z'/%3E%3Cpath d='M9.5 12.5V6.2A2.2 2.2 0 0 1 11.7 4h.6a2.2 2.2 0 0 1 2.2 2.2v6.3'/%3E%3C/svg%3E");
+  --i-more:    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23000'%3E%3Ccircle cx='12' cy='5.5' r='1.7'/%3E%3Ccircle cx='12' cy='12' r='1.7'/%3E%3Ccircle cx='12' cy='18.5' r='1.7'/%3E%3C/svg%3E");
+  --i-pin:     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11Z'/%3E%3Ccircle cx='12' cy='10' r='2.6'/%3E%3C/svg%3E");
+  --i-alert:   url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3.5L2.8 20.5h18.4z'/%3E%3Cpath d='M12 10v4.2M12 17.6h.01'/%3E%3C/svg%3E");
+  --i-food:    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.5 3.5v6a2.5 2.5 0 0 0 5 0v-6M7 9.5V20.5'/%3E%3Cpath d='M15.5 20.5V3.5c2.4.6 3.9 2.6 3.9 5.2 0 2-1.3 3.4-3.9 3.9'/%3E%3C/svg%3E");
+  --i-service: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2.5' y='7' width='19' height='13'/%3E%3Cpath d='M8.5 7V5a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v2M2.5 13h19'/%3E%3C/svg%3E");
+  --i-lock:    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4.5' y='10.5' width='15' height='10'/%3E%3Cpath d='M8 10.5V7.5a4 4 0 0 1 8 0v3'/%3E%3C/svg%3E");
+}
+
+/* ---------- 6 · Shell: selvedge rail, topbar, bottom nav ------------------ */
+
+.shell { display: flex; min-height: 100vh; }
+
+.rail {
+  /* above the scrim: an open drawer is the top layer, not a dimmed one */
+  position: fixed; inset: 0 auto 0 0; z-index: 50;
+  width: var(--rail-w);
+  display: none;
+  flex-direction: column;
+  background: var(--nila);
+  color: var(--nila-on);
+}
+.rail::after {
+  content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: 3px;
+  background-image: repeating-linear-gradient(to bottom, rgb(255 255 255 / 0.22) 0 1px, transparent 1px 5px);
+}
+.rail__head { height: 64px; display: flex; align-items: center; padding: 0 18px; flex: none; }
+.rail__nav  { flex: 1; padding: 10px 12px; overflow-y: auto; }
+.rail__foot { flex: none; padding: 12px; border-top: 1px solid rgb(255 255 255 / 0.14); }
+
+.rail-item {
+  display: flex; align-items: center; gap: 12px;
+  min-height: 44px; padding: 0 12px;
+  border-radius: var(--r-2);
+  color: var(--nila-on-2);
+  font-size: var(--t-base); font-weight: 500;
+  text-decoration: none;
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.rail-item:hover { background: rgb(255 255 255 / 0.09); color: var(--nila-on); }
+.rail-item[aria-current="page"] {
+  background: var(--nila-on);
+  color: var(--nila);
+  font-weight: 650;
+}
+.rail-item__count {
+  margin-left: auto;
+  min-width: 22px; height: 20px; padding: 0 5px;
+  display: grid; place-items: center;
+  border-radius: var(--r-1);
+  background: var(--kunyit); color: var(--kunyit-ink);
+  font-size: var(--t-2xs); font-weight: 750;
+}
+.rail__sep { height: 1px; margin: 10px 12px; background: rgb(255 255 255 / 0.14); }
+
+.topbar {
+  position: sticky; top: 0; z-index: 30;
+  display: flex; align-items: center; gap: 8px;
+  height: 60px; padding: 0 16px;
+  background: var(--kapas);
+  border-bottom: 1px solid var(--garis);
+}
+.topbar__title { min-width: 0; flex: 1; font-weight: 600; font-size: var(--t-base);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.iconbtn {
+  width: var(--tap); height: var(--tap); flex: none;
+  display: grid; place-items: center;
+  border: 0; background: transparent; color: var(--tinta-2);
+  border-radius: var(--r-2); cursor: pointer;
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.iconbtn:hover { background: var(--kain-2); color: var(--tinta); }
+.iconbtn:active { background: var(--kain-3); }
+.iconbtn:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+.iconbtn--dot { position: relative; }
+.iconbtn--dot::after {
+  content: ""; position: absolute; top: 12px; right: 13px;
+  width: 7px; height: 7px; border-radius: var(--r-1);
+  background: var(--merah); box-shadow: 0 0 0 2px var(--kapas);
+}
+
+.main { display: flex; min-width: 0; flex: 1; flex-direction: column; }
+.wrap { width: 100%; max-width: 1220px; margin: 0 auto; padding: 0 16px; }
+
+.bottomnav {
+  position: fixed; inset: auto 0 0 0; z-index: 40;
+  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+  background: var(--nila);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.bottomnav::before {
+  content: ""; position: absolute; top: -7px; left: 0; right: 0; height: 7px;
+  background-repeat: repeat-x; background-size: 18px 7px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='7' viewBox='0 0 18 7'%3E%3Cpath d='M9 0l9 7H0z' fill='%2316244c'/%3E%3C/svg%3E");
+}
+.bottomnav__item {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px; min-height: 60px; padding: 6px 2px;
+  color: var(--nila-on-2); text-decoration: none;
+  font-size: var(--t-2xs); font-weight: 550;
+}
+.bottomnav__item[aria-current="page"] { color: var(--nila); background: var(--nila-on); font-weight: 700; }
+.bottomnav__item--dot::after {
+  content: ""; position: absolute; top: 9px; right: 22%;
+  width: 7px; height: 7px; border-radius: var(--r-1); background: var(--kunyit);
+}
+
+/* mobile drawer */
+.scrim {
+  position: fixed; inset: 0; z-index: 45;
+  background: rgb(13 23 50 / 0.55);
+  opacity: 0; pointer-events: none;
+  transition: opacity var(--dur) var(--ease);
+}
+body.drawer-open .scrim { opacity: 1; pointer-events: auto; }
+body.drawer-open { overflow: hidden; }
+
+@media (min-width: 1024px) {
+  .rail { display: flex; }
+  .main { padding-left: var(--rail-w); }
+  .bottomnav { display: none; }
+  .only-mobile { display: none !important; }
+}
+@media (max-width: 1023.98px) {
+  .rail {
+    display: flex;
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform 220ms var(--ease), visibility 0s linear 220ms;
+    box-shadow: var(--e3);
+  }
+  body.drawer-open .rail {
+    transform: translateX(0);
+    visibility: visible;
+    transition: transform 220ms var(--ease), visibility 0s;
+  }
+  .only-desktop { display: none !important; }
+}
+
+/* ---------- 7 · Kain band (the page head: cloth, figures, tumpal edge) ---- */
+
+.kain {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--nila);
+  color: var(--nila-on);
+}
+.kain__inner { position: relative; width: 100%; max-width: 1220px; margin: 0 auto; padding: 22px 16px 20px; }
+.kain__title { font-size: var(--t-3xl); color: var(--nila-on); }
+.kain__meta { margin-top: 7px; color: var(--nila-on-2); font-size: var(--t-sm); }
+.kain__edge {
+  height: 9px; background-repeat: repeat-x; background-size: 22px 9px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='9' viewBox='0 0 22 9'%3E%3Cpath d='M0 0h22L11 9z' fill='%2316244c'/%3E%3C/svg%3E");
+}
+/* a large cap motif riding the band's right edge — the stamp on the cloth */
+.kain__motif {
+  position: absolute; top: 50%; right: -34px; transform: translateY(-50%);
+  width: 220px; height: 220px; opacity: 0.13; pointer-events: none;
+  color: var(--nila-on);
+}
+@media (max-width: 767.98px) { .kain__motif { display: none; } }
+
+/* figures set directly on the cloth, divided by warp rules — not four cards */
+.figs {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 20px;
+  border-top: 1px solid rgb(255 255 255 / 0.2);
+}
+.fig {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgb(255 255 255 / 0.13);
+  border-left: 1px solid rgb(255 255 255 / 0.13);
+}
+/* two columns: the left cell of each row starts flush with the title */
+.fig:nth-child(odd) { border-left: 0; padding-left: 0; }
+.fig__num {
+  font-size: var(--t-2xl); font-weight: 800; line-height: 1;
+  font-variation-settings: "wdth" 116; letter-spacing: -0.03em;
+  color: var(--nila-on);
+  white-space: nowrap;
+}
+/* a currency figure is one word: it steps down rather than breaking */
+.fig__num--money { font-size: var(--t-money-s); letter-spacing: -0.022em; }
+.fig__num small { font-size: 0.5em; font-weight: 600; color: var(--nila-on-2); letter-spacing: 0; }
+.fig__lab { margin-top: 9px; }
+.fig__note { margin-top: 3px; font-size: var(--t-xs); color: var(--nila-on-2); }
+.fig__note--kunyit { color: var(--kunyit-on-nila); }
+.fig__note--daun { color: var(--daun-on-nila); }
+
+@media (min-width: 640px) {
+  .kain__inner { padding: 30px 24px 26px; }
+  .kain__title { font-size: var(--t-4xl); }
+  .figs { margin-top: 26px; }
+  .fig__num { font-size: var(--t-3xl); }
+  .fig__num--money { font-size: var(--t-money-m); }
+}
+@media (min-width: 1024px) { .kain__inner { padding: 36px 32px 30px; } }
+
+/* four across only once every cell can hold a whole rupiah figure */
+@media (min-width: 1200px) {
+  .figs { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .fig:nth-child(odd) { border-left: 1px solid rgb(255 255 255 / 0.13); padding-left: 16px; }
+  .fig:first-child { border-left: 0; padding-left: 0; }
+  .fig__num { font-size: var(--t-4xl); }
+  .fig__num--money { font-size: var(--t-xl); }
+}
+
+/* ---------- 8 · Panels (cloth faces) ------------------------------------- */
+
+.panel {
+  background: var(--kapas);
+  border: 1px solid var(--garis);
+  border-radius: var(--r-2);
+  box-shadow: var(--e1);
+}
+.panel__head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--garis-2);
+}
+.panel__sub { margin-top: 3px; font-size: var(--t-xs); color: var(--tinta-2); }
+.panel__body { padding: 16px; }
+.panel__foot {
+  padding: 12px 16px; border-top: 1px solid var(--garis-2);
+  background: var(--kain); border-radius: 0 0 var(--r-2) var(--r-2);
+}
+.panel--klowong {
+  background: transparent;
+  border: 1px dashed var(--nila-line);
+  box-shadow: none;
+}
+
+.link {
+  display: inline-flex; align-items: center; gap: 4px;
+  color: var(--nila-teks); font-size: var(--t-sm); font-weight: 600;
+  text-decoration: none; padding: 4px 6px; margin: -4px -6px;
+  border-radius: var(--r-1);
+}
+.link:hover { background: var(--nila-wash); }
+
+/* ---------- 9 · Buttons -------------------------------------------------- */
+
+.btn {
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: var(--tap); padding: 0 20px;
+  border: 1px solid transparent; border-radius: var(--r-2);
+  font-family: var(--font); font-size: var(--t-base); font-weight: 650;
+  letter-spacing: 0.002em;
+  cursor: pointer; text-decoration: none;
+  transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease),
+              color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.btn--cap { background: var(--nila); color: var(--nila-on); box-shadow: var(--e1); }
+.btn--cap:hover  { background: var(--nila-2); }
+.btn--cap:active { background: var(--nila-3); box-shadow: none; }
+
+.btn--garis { background: var(--kapas); color: var(--tinta); border-color: var(--garis); }
+.btn--garis:hover  { background: var(--kain-2); border-color: var(--nila-line); }
+.btn--garis:active { background: var(--kain-3); }
+
+.btn--tolak { background: var(--kapas); color: var(--merah-teks); border-color: var(--merah-line); }
+.btn--tolak:hover { background: var(--merah-wash); border-color: var(--merah); }
+
+.btn--onnila { background: rgb(255 255 255 / 0.12); color: var(--nila-on); border-color: rgb(255 255 255 / 0.32); }
+.btn--onnila:hover { background: rgb(255 255 255 / 0.2); }
+
+.btn--sm { min-height: 38px; padding: 0 14px; font-size: var(--t-sm); }
+.btn--block { width: 100%; }
+
+.btn:disabled, .btn[aria-disabled="true"] {
+  opacity: 0.42; cursor: not-allowed; box-shadow: none; pointer-events: none;
+}
+.btn[data-loading="true"] { color: transparent; pointer-events: none; }
+.btn[data-loading="true"]::after {
+  content: ""; position: absolute; inset: 0; margin: auto;
+  width: 17px; height: 17px; border-radius: 50%;
+  border: 2px solid currentColor; border-top-color: transparent;
+  color: var(--nila-on);
+  animation: spin 620ms linear infinite;
+}
+.btn--garis[data-loading="true"]::after { color: var(--tinta); }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- 10 · Form controls ------------------------------------------- */
+
+.field { display: block; }
+.field__lab {
+  display: block; margin-bottom: 6px;
+  font-size: var(--t-sm); font-weight: 600; color: var(--tinta);
+}
+.field__hint { margin-top: 6px; font-size: var(--t-xs); color: var(--tinta-2); }
+.field__err {
+  display: none; align-items: center; gap: 6px;
+  margin-top: 6px; font-size: var(--t-xs); font-weight: 600; color: var(--merah-teks);
+}
+.field.is-error .field__err { display: flex; }
+
+.input, .select {
+  width: 100%; min-height: var(--tap);
+  padding: 0 14px;
+  background: var(--kapas);
+  border: 1px solid var(--garis);
+  border-radius: var(--r-2);
+  font-family: var(--font); font-size: var(--t-base); color: var(--tinta);
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.input::placeholder { color: var(--tinta-3); }
+.input:hover, .select:hover { border-color: var(--nila-line); }
+.input:focus-visible, .select:focus-visible {
+  border-color: var(--nila); outline: 2px solid var(--nila); outline-offset: 1px;
+}
+.field.is-error .input { border-color: var(--merah); background: var(--merah-field); }
+.input:disabled { background: var(--kain-2); color: var(--tinta-3); cursor: not-allowed; }
+
+.select {
+  appearance: none; padding-right: 40px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234a5570' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9.5l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center; background-size: 18px;
+}
+
+/* affixed unit — Rp / % sit inside the field frame */
+.affix {
+  display: flex; align-items: stretch;
+  background: var(--kapas); border: 1px solid var(--garis); border-radius: var(--r-2);
+  transition: border-color var(--dur) var(--ease);
+}
+.affix:hover { border-color: var(--nila-line); }
+.affix:focus-within { border-color: var(--nila); outline: 2px solid var(--nila); outline-offset: 1px; }
+.affix__unit {
+  display: grid; place-items: center; padding: 0 12px;
+  background: var(--kain); border-right: 1px solid var(--garis-2);
+  font-size: var(--t-sm); font-weight: 650; color: var(--tinta-2);
+}
+.affix__unit--after { border-right: 0; border-left: 1px solid var(--garis-2); }
+.affix .input { border: 0; outline: 0 !important; background: transparent; }
+.affix .input:focus-visible { outline: 0 !important; }
+
+/* stamped checkbox / radio — a small cap that inks when chosen */
+.check { display: inline-flex; align-items: center; gap: 11px; min-height: var(--tap); cursor: pointer; font-size: var(--t-base); }
+.check input { position: absolute; opacity: 0; width: 0; height: 0; }
+.check__box {
+  width: 22px; height: 22px; flex: none;
+  border: 1px solid var(--garis); border-radius: var(--r-1);
+  background: var(--kapas);
+  display: grid; place-items: center;
+  transition: background-color 140ms var(--ease), border-color 140ms var(--ease);
+}
+.check__box::after {
+  content: ""; width: 14px; height: 14px;
+  background-color: var(--nila-on);
+  -webkit-mask-image: var(--i-check); mask-image: var(--i-check);
+  -webkit-mask-size: contain; mask-size: contain;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  transform: scale(0); transition: transform 140ms var(--ease);
+}
+.check input:checked + .check__box { background: var(--nila); border-color: var(--nila); }
+.check input:checked + .check__box::after { transform: scale(1); }
+.check input:focus-visible + .check__box { outline: 2px solid var(--nila); outline-offset: 2px; }
+
+/* choice cards (jenis usaha) */
+.choice { display: block; cursor: pointer; }
+.choice input { position: absolute; opacity: 0; width: 0; height: 0; }
+.choice__body {
+  display: flex; align-items: center; gap: 13px;
+  min-height: 68px; padding: 12px 15px;
+  background: var(--kapas); border: 1px solid var(--garis); border-radius: var(--r-2);
+  transition: border-color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+.choice:hover .choice__body { border-color: var(--nila-line); }
+.choice input:checked + .choice__body {
+  border-color: var(--nila); background: var(--nila-wash);
+  box-shadow: inset 0 0 0 1px var(--nila);
+}
+.choice input:focus-visible + .choice__body { outline: 2px solid var(--nila); outline-offset: 2px; }
+
+/* ---------- 11 · Tags (square, washed, hairline of their own hue) --------- */
+
+.tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 8px;
+  border-radius: var(--r-1); border: 1px solid;
+  font-size: var(--t-2xs); font-weight: 700;
+  letter-spacing: 0.045em; text-transform: uppercase;
+  white-space: nowrap;
+}
+.tag--nila   { background: var(--nila-wash);   color: var(--nila-teks);   border-color: var(--nila-line); }
+.tag--daun   { background: var(--daun-wash);   color: var(--daun-teks);   border-color: var(--daun-line); }
+.tag--kunyit { background: var(--kunyit-wash); color: var(--kunyit-teks); border-color: var(--kunyit-line); }
+.tag--merah  { background: var(--merah-wash);  color: var(--merah-teks);  border-color: var(--merah-line); }
+.tag--soga   { background: var(--soga-wash);   color: var(--soga-teks);   border-color: var(--soga-line); }
+.tag--mati   { background: var(--kain-2);      color: var(--tinta-2);     border-color: var(--garis); }
+.tag__dot { width: 6px; height: 6px; border-radius: var(--r-1); background: currentColor; }
+
+/* a count riding a button inherits its ink instead of a fixed grey */
+.cnt { color: inherit; opacity: 0.7; font-variant-numeric: tabular-nums; }
+
+/* ---------- 12 · Register strip (attendance as a cap repeat) -------------- */
+
+.reg { display: flex; flex-wrap: wrap; gap: 6px; }
+.reg__cell {
+  position: relative; overflow: hidden;
+  width: 38px; height: 46px;
+  border: 1px solid var(--nila-line); border-radius: var(--r-1);
+  display: flex; align-items: flex-end; justify-content: center;
+  background-color: var(--kapas);
+  font-size: var(--t-3xs); font-weight: 750; letter-spacing: 0.03em;
+  cursor: default;
+}
+/* the dyed field fills the stamp; the caption plate stays solid under the text */
+.reg__cell::before { content: ""; position: absolute; inset: 0 0 16px 0; }
+.reg__cell > span {
+  position: relative; z-index: 1;
+  display: block; width: 100%; padding: 1px 0 2px;
+  text-align: center;
+  border-top: 1px solid var(--nila-line);
+  background: var(--nila-wash); color: var(--nila-teks);
+}
+/* hadir - fully dyed */
+.reg__cell--hadir { border-color: var(--nila-3); }
+.reg__cell--hadir::before {
+  background-color: var(--nila);
+  background-image: repeating-linear-gradient(45deg, rgb(255 255 255 / 0.08) 0 1px, transparent 1px 4px);
+}
+.reg__cell--hadir > span { border-color: var(--nila-3); }
+/* telat - kunyit hatch: present but off-time */
+.reg__cell--telat { border-color: var(--kunyit-line-2); }
+.reg__cell--telat::before {
+  background-color: var(--kunyit-wash);
+  background-image: repeating-linear-gradient(45deg, var(--kunyit) 0 2px, transparent 2px 6px);
+}
+.reg__cell--telat > span { background: var(--kunyit-wash); color: var(--kunyit-teks); border-color: var(--kunyit-line-2); }
+/* izin - soga dots */
+.reg__cell--izin { border-color: var(--soga-line); }
+.reg__cell--izin::before {
+  background-color: var(--soga-wash);
+  background-image: radial-gradient(var(--soga) 1.1px, transparent 1.2px);
+  background-size: 7px 7px;
+}
+.reg__cell--izin > span { background: var(--soga-wash); color: var(--soga-teks); border-color: var(--soga-line); }
+/* absen - klowong: outline only, nothing dyed */
+.reg__cell--absen { border-style: dashed; border-color: var(--merah); }
+.reg__cell--absen > span { background: var(--merah-wash); color: var(--merah-teks); border-color: var(--merah-line); }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.legend__item { display: inline-flex; align-items: center; gap: 7px; font-size: var(--t-xs); color: var(--tinta-2); }
+.legend__key { width: 15px; height: 15px; border: 1px solid var(--nila-line); border-radius: var(--r-1); flex: none; }
+.legend__key--hadir { background: var(--nila); border-color: var(--nila-3); }
+.legend__key--telat { background-color: var(--kunyit-wash); background-image: repeating-linear-gradient(45deg, var(--kunyit) 0 2px, transparent 2px 6px); border-color: var(--kunyit-line-2); }
+.legend__key--izin  { background-color: var(--soga-wash); background-image: radial-gradient(var(--soga) 1.1px, transparent 1.2px); background-size: 6px 6px; border-color: var(--soga-line); }
+.legend__key--absen { background: transparent; border-style: dashed; border-color: var(--merah); }
+
+/* ---------- 13 · Isen bar (fill density = magnitude) ---------------------- */
+
+.isen { display: flex; align-items: center; gap: 9px; }
+.isen__track {
+  position: relative; flex: 1; min-width: 54px; height: 12px;
+  border: 1px solid var(--nila-line); border-radius: var(--r-1);
+  background-color: var(--kapas);
+  background-image: radial-gradient(var(--nila-line) 0.9px, transparent 1px);
+  background-size: 5px 5px;
+  overflow: hidden;
+}
+.isen__fill {
+  position: absolute; inset: 0 auto 0 0;
+  background-color: var(--nila);
+  background-image: repeating-linear-gradient(45deg, rgb(255 255 255 / 0.16) 0 1px, transparent 1px 4px);
+}
+.isen__fill--kunyit { background-color: var(--kunyit); }
+.isen__val { font-size: var(--t-xs); font-weight: 650; color: var(--tinta-2); min-width: 34px; text-align: right; }
+
+/* split bar for today's attendance mix */
+.bar { display: flex; height: 14px; border: 1px solid var(--nila-line); border-radius: var(--r-1); overflow: hidden; background: var(--kapas); }
+.bar__seg { height: 100%; }
+.bar__seg--hadir { background-color: var(--nila); background-image: repeating-linear-gradient(45deg, rgb(255 255 255 / 0.14) 0 1px, transparent 1px 4px); }
+.bar__seg--telat { background-color: var(--kunyit-wash); background-image: repeating-linear-gradient(45deg, var(--kunyit) 0 2px, transparent 2px 6px); }
+.bar__seg--izin  { background-color: var(--soga-wash); background-image: radial-gradient(var(--soga) 1.1px, transparent 1.2px); background-size: 6px 6px; }
+
+/* ---------- 14 · Woven table -------------------------------------------- */
+
+.tblwrap { overflow-x: auto; }
+.tbl { width: 100%; border-collapse: collapse; text-align: left; font-size: var(--t-sm); }
+.tbl thead th {
+  background: var(--nila); color: var(--nila-on-2);
+  padding: 10px 14px;
+  font-size: var(--t-2xs); font-weight: 700; letter-spacing: var(--track-lab);
+  text-transform: uppercase; white-space: nowrap;
+  border-bottom: 0;
+}
+.tbl tbody td, .tbl tbody th {
+  padding: 12px 14px; border-bottom: 1px solid var(--garis-2);
+  font-weight: 400; vertical-align: middle;
+}
+.tbl tbody tr:hover td, .tbl tbody tr:hover th { background: var(--kain); }
+.tbl tfoot th, .tbl tfoot td {
+  padding: 13px 14px;
+  background: var(--kain-2);
+  border-top: 2px solid var(--nila);
+  font-weight: 700; font-size: var(--t-sm);
+}
+.tbl .r { text-align: right; }
+.tbl .money { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tbl .money--minus { color: var(--merah-teks); }
+.tbl .money--total { font-weight: 700; }
+.tbl__name { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.tbl__name b { display: block; font-size: var(--t-base); font-weight: 650; }
+.tbl__name span { display: block; font-size: var(--t-xs); color: var(--tinta-2); }
+
+/* klowong rows — a draft payroll is drawn, not yet dyed */
+.tbl tbody tr.klowong td, .tbl tbody tr.klowong th { color: var(--tinta-2); }
+.tbl tbody tr.klowong .money--total { color: var(--nila-teks); }
+.tbl tbody tr.klowong .cap {
+  background: transparent; border-style: dashed; color: var(--nila-teks);
+}
+.tbl tbody tr.tercap .cap { background: var(--nila); color: var(--nila-on); border-color: var(--nila-3); border-style: solid; }
+.tbl tbody tr.tercap td, .tbl tbody tr.tercap th { color: var(--tinta); }
+.tbl tbody tr.tercap .money--total { color: var(--tinta); font-weight: 750; }
+
+/* the dyeing sweep: one authored moment, left to right, on approval */
+.tbl tbody tr.dyeing {
+  animation: dye 380ms var(--ease) both;
+  animation-delay: var(--d, 0ms);
+}
+@keyframes dye {
+  0%   { background-image: linear-gradient(90deg, var(--nila-wash) 0 0%, transparent 0%); }
+  55%  { background-image: linear-gradient(90deg, var(--nila-wash) 0 100%, transparent 100%); }
+  100% { background-image: linear-gradient(90deg, transparent 0 100%, transparent 100%); }
+}
+
+/* stacked row list for narrow screens */
+.rows { list-style: none; margin: 0; padding: 0; }
+.rows > li { padding: 14px 16px; border-bottom: 1px solid var(--garis-2); }
+.rows > li:last-child { border-bottom: 0; }
+.kv { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; font-size: var(--t-sm); }
+.kv dt { color: var(--tinta-2); }
+.kv dd { margin: 0; font-variant-numeric: tabular-nums; }
+.kv--total { border-top: 1px solid var(--garis-2); margin-top: 5px; padding-top: 8px; font-weight: 700; }
+
+/* ---------- 15 · Seal (draft klowong → stamped tercap) -------------------- */
+
+.seal {
+  position: relative; flex: none;
+  width: 96px; height: 96px;
+  display: grid; place-items: center; text-align: center;
+  border-radius: 50%;
+  transition: color var(--dur) var(--ease);
+}
+.seal svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.seal__word {
+  position: relative; font-size: var(--t-2xs); font-weight: 800;
+  letter-spacing: 0.11em; text-transform: uppercase;
+  font-variation-settings: "wdth" 100;
+}
+.seal--draft  { color: var(--kunyit-teks); }
+.seal--tercap { color: var(--nila); }
+.seal--press { animation: press 420ms var(--ease) both; }
+@keyframes press {
+  0%   { transform: scale(1.5) rotate(-11deg); opacity: 0; }
+  55%  { transform: scale(0.95) rotate(-6deg); opacity: 1; }
+  100% { transform: scale(1) rotate(-7deg); opacity: 1; }
+}
+.seal--tercap { transform: rotate(-7deg); }
+
+/* ---------- 16 · Status band (draft / locked notice) --------------------- */
+
+.notis {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid; border-radius: var(--r-2);
+}
+.notis__ico { display: grid; place-items: center; width: 34px; height: 34px; flex: none; border-radius: var(--r-1); }
+.notis--kunyit { background: var(--kunyit-wash); border-color: var(--kunyit-line); color: var(--kunyit-teks); }
+.notis--kunyit .notis__ico { background: var(--kunyit); color: var(--kunyit-ink); }
+.notis--daun { background: var(--daun-wash); border-color: var(--daun-line); color: var(--daun-teks); }
+.notis--daun .notis__ico { background: var(--daun); color: #fff; }
+.notis--nila { background: var(--nila-wash); border-color: var(--nila-line); color: var(--nila-teks); }
+.notis--nila .notis__ico { background: var(--nila); color: var(--nila-on); }
+.notis strong { font-size: var(--t-base); font-weight: 700; }
+.notis p { font-size: var(--t-sm); margin-top: 3px; }
+
+/* ---------- 17 · Drenched block (take-home; the cloth at full dye) ------- */
+
+.drench {
+  position: relative; overflow: hidden;
+  border-radius: var(--r-2);
+  color: var(--nila-on);
+  padding: 22px;
+}
+.drench__num {
+  font-size: var(--t-2xl); font-weight: 800; line-height: 1;
+  font-variation-settings: "wdth" 116; letter-spacing: -0.028em;
+  white-space: nowrap;
+}
+@media (min-width: 640px)  { .drench__num { font-size: var(--t-3xl); } }
+@media (min-width: 1280px) { .drench__num { font-size: var(--t-4xl); } }
+.drench hr { border: 0; border-top: 1px solid rgb(255 255 255 / 0.22); margin: 16px 0; }
+
+/* ---------- 18 · Stepper (three cap stamps on a tumpal band) ------------- */
+
+.stepper { display: flex; align-items: center; gap: 10px; }
+.step { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.step:not(:last-child) { flex: 1; }
+.step__cap {
+  width: 36px; height: 36px; flex: none;
+  display: grid; place-items: center;
+  border: 1px solid var(--nila-line); border-radius: var(--r-1);
+  background: var(--kapas); color: var(--tinta-2);
+  font-weight: 750; font-size: var(--t-sm);
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.step__lab { font-size: var(--t-sm); font-weight: 600; color: var(--tinta-2); white-space: nowrap; }
+.step__rule { flex: 1; min-width: 12px; height: 3px; border-radius: 2px; background: var(--kain-3); }
+.step.is-now .step__cap { background: var(--nila); color: var(--nila-on); border-color: var(--nila-3); box-shadow: 0 0 0 3px var(--nila-wash); }
+.step.is-now .step__lab { color: var(--tinta); font-weight: 700; }
+.step.is-done .step__cap { background: var(--nila-wash); color: var(--nila-teks); border-color: var(--nila-line); }
+.step.is-done .step__lab { color: var(--tinta); }
+.step.is-done .step__rule { background: var(--nila); }
+.step__cap .ico { width: 17px; height: 17px; }
+
+/* sub-section: a ruled band on the panel's own surface, never a card in a card */
+.sub { padding-top: 16px; margin-top: 16px; border-top: 1px solid var(--garis); }
+.sub:first-child { padding-top: 0; margin-top: 0; border-top: 0; }
+.sub__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+
+/* ---------- 19 · Empty state ------------------------------------------- */
+
+.empty { padding: 40px 20px; text-align: center; }
+.empty__cap {
+  width: 56px; height: 56px; margin: 0 auto 14px;
+  border: 1px dashed var(--nila-line); border-radius: var(--r-2);
+  display: grid; place-items: center; color: var(--nila-teks);
+}
+.empty h3 { font-size: var(--t-md); }
+.empty p { margin-top: 6px; font-size: var(--t-sm); color: var(--tinta-2); max-width: 44ch; margin-inline: auto; }
+
+
+/* ---------- 20 · Utilities used across pages ---------------------------- */
+
+.stack   { display: flex; flex-direction: column; }
+.row     { display: flex; align-items: center; }
+.grow    { flex: 1; min-width: 0; }
+.trunc   { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.muted   { color: var(--tinta-2); }
+.muted-2 { color: var(--tinta-3); }
+.pos     { color: var(--daun-teks); }
+.neg     { color: var(--merah-teks); }
+.section { padding: 22px 0; }
+
+@media (max-width: 1023.98px) {
+  .pagepad { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+@media print {
+  .rail, .topbar, .bottomnav, .noprint { display: none !important; }
+  .main { padding-left: 0; }
+  body { background: #fff; }
+}
+
+/* ==========================================================================
+   21 · Layout layer
+   Own utilities instead of the Tailwind CDN: the world needs SVG pattern
+   fills, tumpal bands and mask icons that a runtime-injected preflight can
+   reorder underneath. One stylesheet, deterministic cascade, still no build.
+   ========================================================================== */
+
+.flex { display: flex; }
+.col { flex-direction: column; }
+.wrapf { flex-wrap: wrap; }
+.ai-c { align-items: center; }
+.ai-s { align-items: flex-start; }
+.ai-e { align-items: flex-end; }
+.ai-b { align-items: baseline; }
+.jc-b { justify-content: space-between; }
+.jc-c { justify-content: center; }
+.jc-e { justify-content: flex-end; }
+.rel { position: relative; }
+.none { flex: none; }
+
+.g-1 { gap: 4px; }  .g-2 { gap: 8px; }   .g-3 { gap: 12px; }
+.g-4 { gap: 16px; } .g-5 { gap: 20px; }  .g-6 { gap: 26px; }
+
+.mt-1 { margin-top: 4px; }  .mt-2 { margin-top: 8px; }  .mt-3 { margin-top: 12px; }
+.mt-4 { margin-top: 16px; } .mt-5 { margin-top: 20px; } .mt-6 { margin-top: 26px; }
+.mb-3 { margin-bottom: 12px; } .mb-4 { margin-bottom: 16px; }
+
+.grid { display: grid; }
+.c1 { grid-template-columns: minmax(0, 1fr); }
+.c2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.c3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.span2 { grid-column: span 2; }
+
+.t-xs { font-size: var(--t-xs); }
+.t-sm { font-size: var(--t-sm); }
+.t-lg { font-size: var(--t-lg); }
+.w-700 { font-weight: 700; }
+.txt-r { text-align: right; }
+.txt-c { text-align: center; }
+.prose { max-width: 68ch; }
+
+@media (min-width: 640px) {
+  .sm\:c2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sm\:c3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .sm\:c4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .sm\:row { flex-direction: row; }
+  .sm\:none { flex: none; }
+  .wrap { padding: 0 24px; }
+}
+@media (min-width: 768px) {
+  .md\:c2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .md\:hide { display: none !important; }
+  .md\:show { display: revert !important; }
+}
+@media (min-width: 1024px) {
+  .lg\:c2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lg\:c3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .lg\:main2 { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: start; }
+  .lg\:side { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: start; }
+  .lg\:span2 { grid-column: span 2; }
+  .wrap { padding: 0 32px; }
+}
+@media (max-width: 767.98px) {
+  .md\:show { display: none !important; }
+}
+
+/* seal: the draft ring is drawn (dashed); stamping closes it */
+.seal--draft  .seal__ring { stroke-dasharray: 3 3; stroke-width: 1.6; }
+.seal--tercap .seal__ring { stroke-dasharray: none; stroke-width: 2.8; }
+
+/* [hidden] must win over every display utility and component rule above */
+[hidden] { display: none !important; }
+
+/* date cap: the day stamped as two lines */
+.cap--date {
+  display: flex; flex-direction: column; justify-content: center; gap: 1px;
+  width: 48px; height: 48px; line-height: 1;
+}
+.cap--date small { font-size: var(--t-4xs); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; opacity: .8; }
+.cap--date strong { font-size: var(--t-md); font-weight: 800; }
+
+/* a tag that sits on dyed cloth */
+.tag--on-nila { background: rgb(255 255 255 / 0.14); color: var(--nila-on); border-color: rgb(255 255 255 / 0.34); }
+
+/* shift band: the working day as one length of cloth, filled as it is worked */
+.shiftbar { position: relative; }
+.shiftbar__ticks { display: flex; justify-content: space-between; margin-top: 6px; font-size: var(--t-2xs); color: var(--tinta-2); font-weight: 600; }
+.shiftbar__now {
+  position: absolute; top: -7px; width: 12px; height: 7px; transform: translateX(-50%);
+  background-repeat: no-repeat; background-size: 12px 7px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7' viewBox='0 0 12 7'%3E%3Cpath d='M0 0h12L6 7z' fill='%2316244c'/%3E%3C/svg%3E");
+}
+
+@media (min-width: 1024px) {
+  .lg\:sticky { position: sticky; top: 78px; }
+}
+
+/* a page without the rail (payslip, sign-in, onboarding) keeps its own gutters */
+.main--solo { padding-left: 0 !important; }
+
+/* ghost action on dyed cloth */
+.btn--ghost { background: transparent; color: var(--nila-on); border-color: rgb(255 255 255 / 0.32); }
+.btn--ghost:hover { background: rgb(255 255 255 / 0.12); }
+
+code {
+  font-family: var(--font); font-size: 0.94em; font-weight: 600;
+  background: var(--kain-2); border: 1px solid var(--garis-2);
+  border-radius: var(--r-1); padding: 1px 5px;
+}
+
+/* crown: the finished cloth edge on top of a panel — selvedge line then fringe */
+.crown {
+  height: 14px; flex: none;
+  border-radius: var(--r-2) var(--r-2) 0 0;
+  background-image:
+    linear-gradient(var(--nila), var(--nila)),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='9' viewBox='0 0 22 9'%3E%3Cpath d='M0 0h22L11 9z' fill='%2316244c'/%3E%3C/svg%3E");
+  background-size: 100% 5px, 22px 9px;
+  background-position: top left, left 5px;
+  background-repeat: no-repeat, repeat-x;
+}
+.crown--soga {
+  background-image:
+    linear-gradient(var(--soga), var(--soga)),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='9' viewBox='0 0 22 9'%3E%3Cpath d='M0 0h22L11 9z' fill='%238a5a2b'/%3E%3C/svg%3E");
+}
+
+/* the clear primary action when it sits on dyed cloth */
+.btn--terang { background: var(--nila-on); color: var(--nila); border-color: var(--nila-on); }
+.btn--terang:hover { background: #ffffff; }
+.btn--terang:active { background: var(--nila-on-press); }

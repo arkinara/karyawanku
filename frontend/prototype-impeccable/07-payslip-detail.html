@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#16244c" />
+<title>Slip Gaji Agustus 2026 · KaryawanKu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/kk.css" />
+</head>
+<body>
+<!--
+THESIS: A payslip is a stamped document, not a card stack — earnings and deductions read as two woven columns and the take-home is printed on fully dyed cloth, sealed with the date it was approved. Refuses the green-header / red-header receipt card pair.
+OWN-WORLD: Kerokan-pale cool ground #edf0f5; indigo #16244c owns whole regions (rail, head band, table heads, dyed rows); soga, merah, kunyit, daun carry data roles; tumpal triangle bands edge every region; square 2-4px corners, never pills; Archivo at two widths, no monospace anywhere.
+STORY: Siti sees exactly what she earned, what was deducted and why, what lands in her account, and takes a copy.
+FIRST VIEWPORT: Indigo kain band with the period title, her name and role, the soga approval seal at its right and four figures on the cloth; earnings and deductions beneath, the take-home block dyed solid beside them.
+FORM: Cap & Kain — grounded candidate 5 of 7; seed key d2443f8d.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
+-->
+
+<div class="main main--solo">
+
+  <header class="topbar">
+    <a class="iconbtn" href="04-quick-dashboard-employee.html" aria-label="Kembali ke beranda">
+      <span class="ico ico-back" aria-hidden="true"></span>
+    </a>
+    <p class="topbar__title">Slip Gaji</p>
+    <button class="btn btn--garis btn--sm none" type="button">
+      <span class="ico ico-doc ico--sm" aria-hidden="true"></span>Riwayat
+    </button>
+    <button class="iconbtn" type="button" aria-label="Opsi lain">
+      <span class="ico ico-more" aria-hidden="true"></span>
+    </button>
+  </header>
+
+  <section class="kain tenun" aria-labelledby="judul">
+    <div class="kain__inner">
+      <div class="flex wrapf ai-s jc-b g-5">
+        <div class="grow">
+          <h1 class="disp kain__title" id="judul">Slip Gaji Agustus 2026</h1>
+          <p class="kain__meta">Siti Nurhaliza · Kasir · KRY-002 · Warung Kopi Nusantara</p>
+        </div>
+
+        <div class="seal seal--tercap none" style="color:var(--soga-on-nila)">
+          <svg viewBox="0 0 100 100" aria-hidden="true">
+            <defs><path id="arc" d="M50 50 m -33 0 a 33 33 0 1 1 66 0 a 33 33 0 1 1 -66 0" /></defs>
+            <circle class="seal__ring" cx="50" cy="50" r="46" fill="none" stroke="currentColor" />
+            <circle cx="50" cy="50" r="39" fill="none" stroke="currentColor" stroke-width="1" opacity=".7" />
+            <text font-family="Archivo, sans-serif" font-size="7.6" font-weight="700" letter-spacing="1.05" fill="currentColor">
+              <textPath href="#arc">DISETUJUI 19 AGUSTUS 2026 ·</textPath>
+            </text>
+          </svg>
+          <span class="seal__word">Tercap</span>
+        </div>
+      </div>
+
+      <div class="figs">
+        <div class="fig">
+          <p class="fig__num fig__num--money num">Rp 4.100.000</p>
+          <p class="lab lab--on-nila fig__lab">Total pendapatan</p>
+          <p class="fig__note">Gaji, tunjangan, lembur</p>
+        </div>
+        <div class="fig">
+          <p class="fig__num fig__num--money num" style="color:var(--merah-on-nila)">− Rp 191.000</p>
+          <p class="lab lab--on-nila fig__lab">Total potongan</p>
+          <p class="fig__note">BPJS dan PPh 21</p>
+        </div>
+        <div class="fig">
+          <p class="fig__num num">24</p>
+          <p class="lab lab--on-nila fig__lab">Hari kerja</p>
+          <p class="fig__note">Dari 24 hari dijadwalkan</p>
+        </div>
+        <div class="fig">
+          <p class="fig__num num">4<small> jam</small></p>
+          <p class="lab lab--on-nila fig__lab">Lembur</p>
+          <p class="fig__note">Dibayar 2× tarif per jam</p>
+        </div>
+      </div>
+    </div>
+  </section>
+  <div class="kain__edge" aria-hidden="true"></div>
+
+  <main class="wrap section pagepad">
+    <div class="grid c1 lg:side g-4">
+
+      <div class="flex col g-4">
+
+        <!-- Pendapatan -->
+        <section class="panel">
+          <div class="crown" aria-hidden="true"></div>
+          <div class="panel__head">
+            <div>
+              <h2>Pendapatan</h2>
+              <p class="panel__sub">Periode 1 – 31 Agustus 2026</p>
+            </div>
+            <p class="t-lg w-700 num none">Rp 4.100.000</p>
+          </div>
+          <div class="panel__body">
+            <dl>
+              <div class="kv"><dt>Gaji pokok</dt><dd class="num">Rp 3.200.000</dd></div>
+              <div class="kv"><dt>Tunjangan transport</dt><dd class="num">Rp 400.000</dd></div>
+              <div class="kv"><dt>Tunjangan makan</dt><dd class="num">Rp 350.000</dd></div>
+              <div class="kv"><dt>Lembur <span class="muted">(4 jam × 2×)</span></dt><dd class="num">Rp 150.000</dd></div>
+              <div class="kv kv--total"><dt>Total pendapatan</dt><dd class="num">Rp 4.100.000</dd></div>
+            </dl>
+          </div>
+        </section>
+
+        <!-- Potongan -->
+        <section class="panel">
+          <div class="crown crown--soga" aria-hidden="true"></div>
+          <div class="panel__head">
+            <div>
+              <h2>Potongan</h2>
+              <p class="panel__sub">Wajib menurut ketentuan yang berlaku</p>
+            </div>
+            <p class="t-lg w-700 num neg none">− Rp 191.000</p>
+          </div>
+          <div class="panel__body">
+            <dl>
+              <div class="kv"><dt>BPJS Kesehatan <span class="muted">(1%)</span></dt><dd class="num neg">− Rp 32.000</dd></div>
+              <div class="kv"><dt>BPJS Ketenagakerjaan <span class="muted">(2%)</span></dt><dd class="num neg">− Rp 64.000</dd></div>
+              <div class="kv"><dt>PPh 21 <span class="muted">(progresif, PTKP K/0)</span></dt><dd class="num neg">− Rp 95.000</dd></div>
+              <div class="kv kv--total"><dt>Total potongan</dt><dd class="num neg">− Rp 191.000</dd></div>
+            </dl>
+            <p class="t-xs muted mt-3">Tidak ada potongan keterlambatan bulan ini.</p>
+          </div>
+        </section>
+
+        <p class="t-xs muted prose">
+          Slip gaji ini dihasilkan otomatis dan sudah dicap oleh Warung Kopi Nusantara pada 19 Agustus 2026.
+          Jika ada nilai yang tidak sesuai, hubungi HR sebelum periode berikutnya ditutup.
+        </p>
+      </div>
+
+      <!-- The take-home, printed on fully dyed cloth -->
+      <aside>
+        <div class="lg:sticky">
+          <div class="drench capfield">
+            <p class="lab lab--on-nila">Yang Anda terima</p>
+            <p class="disp drench__num mt-3 num">Rp 3.909.000</p>
+            <p class="t-sm mt-3" style="color:var(--nila-on-2)">Ditransfer ke BCA ····1234 pada 25 Agustus 2026</p>
+
+            <hr />
+
+            <dl>
+              <div class="kv" style="color:var(--nila-on)"><dt style="color:var(--nila-on-2)">Total pendapatan</dt><dd class="num">Rp 4.100.000</dd></div>
+              <div class="kv" style="color:var(--nila-on)"><dt style="color:var(--nila-on-2)">Total potongan</dt><dd class="num">− Rp 191.000</dd></div>
+            </dl>
+
+            <div class="flex col g-3 mt-4">
+              <button class="btn btn--terang btn--block" type="button" id="btnPdf">
+                <span class="ico ico-down ico--sm" aria-hidden="true"></span>Unduh PDF
+              </button>
+              <a class="btn btn--ghost btn--block" href="#">Lihat riwayat slip gaji</a>
+            </div>
+          </div>
+
+          <div class="notis notis--nila mt-4">
+            <span class="notis__ico"><span class="ico ico-lock ico--sm" aria-hidden="true"></span></span>
+            <div class="grow">
+              <strong>Sudah dicap, tidak bisa diubah</strong>
+              <p>Nilai pada slip ini terkunci sejak payroll Agustus disetujui.</p>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+
+<nav class="bottomnav only-mobile" aria-label="Navigasi utama">
+  <a class="bottomnav__item" href="04-quick-dashboard-employee.html"><span class="ico ico-panel" aria-hidden="true"></span>Beranda</a>
+  <a class="bottomnav__item" href="#"><span class="ico ico-clock" aria-hidden="true"></span>Absensi</a>
+  <a class="bottomnav__item bottomnav__item--dot" href="#"><span class="ico ico-cal" aria-hidden="true"></span>Cuti</a>
+  <a class="bottomnav__item" href="07-payslip-detail.html" aria-current="page"><span class="ico ico-money" aria-hidden="true"></span>Slip Gaji</a>
+  <a class="bottomnav__item" href="#"><span class="ico ico-gear" aria-hidden="true"></span>Pengaturan</a>
+</nav>
+
+<script src="assets/kk.js"></script>
+</body>
+</html>

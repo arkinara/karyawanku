@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Payroll Agustus 2026 · KaryawanKu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="tokens.css" />
+<link rel="stylesheet" href="app.css" />
+</head>
+<body>
+<div class="shell">
+
+  <aside class="rail">
+    <div class="rail__brand">
+      <span class="mark" aria-hidden="true">K</span>
+      <span class="wordmark">KaryawanKu</span>
+    </div>
+    <nav class="rail__nav" aria-label="Navigasi utama">
+      <div class="rail__group">
+        <a class="navlink" href="03-dashboard-owner.html">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+          Dashboard</a>
+        <a class="navlink" href="05-daftar-karyawan.html">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>
+          Karyawan</a>
+        <a class="navlink" href="#">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          Absensi</a>
+        <a class="navlink" href="#">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/></svg>
+          Cuti <span class="navlink__count">2</span></a>
+        <a class="navlink" href="#">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M3 8h18M3 16h18"/></svg>
+          Shift</a>
+        <a class="navlink" href="06-payroll-run.html" aria-current="page">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>
+          Payroll</a>
+      </div>
+      <div class="rail__group">
+        <a class="navlink" href="#">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-2.9-1.2l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15H4.5a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.2-2.9l-.06-.06A2 2 0 1 1 8.56 5.2l.06.06a1.7 1.7 0 0 0 1.88.34h.08A1.7 1.7 0 0 0 11.6 4.1V4a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 2.9 1.2l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0 1.2 2.9h.09a2 2 0 1 1 0 4H19.4Z"/></svg>
+          Pengaturan</a>
+      </div>
+    </nav>
+    <div class="rail__foot">
+      <div class="orgcard">
+        <span class="avatar" aria-hidden="true">WK</span>
+        <span class="orgcard__meta">
+          <span class="orgcard__name">Warung Kopi Nusantara</span>
+          <span class="orgcard__sub">Paket Gratis · 12 karyawan</span>
+        </span>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <p class="topbar__title">Payroll Run</p>
+      <button type="button" class="cmdk-trigger" data-cmdk>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        Cari <kbd>⌘K</kbd>
+      </button>
+      <button type="button" class="iconbtn cmdk-icon" data-cmdk aria-label="Cari perintah">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      </button>
+      <button type="button" class="iconbtn" aria-label="Akun saya"><span class="avatar avatar--solid">PD</span></button>
+    </header>
+
+    <main class="page reveal">
+
+      <div class="pagehead">
+        <div>
+          <h1>Payroll Agustus 2026</h1>
+          <p class="pagehead__sub">Periode 1 – 31 Agustus 2026 · jadwal bayar 25 Agustus 2026</p>
+        </div>
+        <div class="cluster">
+          <div class="field selectwrap">
+            <label class="sr-only" for="periode">Pilih periode</label>
+            <select class="input" id="periode">
+              <option selected>Agustus 2026</option>
+              <option>Juli 2026</option>
+              <option>Juni 2026</option>
+              <option>Mei 2026</option>
+            </select>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </div>
+          <button type="button" class="btn btn--ghost">Ekspor CSV</button>
+        </div>
+      </div>
+
+      <div class="banner" role="status">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+        <div>
+          <p class="banner__title">Draft — belum disetujui</p>
+          <p class="banner__body">Payroll terakhir yang disetujui: 28 Juli 2026. Slip belum dikirim ke karyawan.</p>
+        </div>
+      </div>
+
+      <div class="statstrip">
+        <div class="stat">
+          <p class="stat__label">Karyawan dihitung</p>
+          <p class="stat__value num">12</p>
+          <p class="stat__foot">Semua karyawan aktif</p>
+        </div>
+        <div class="stat">
+          <p class="stat__label">Total gaji (Rp)</p>
+          <p class="stat__value num">28.500.000</p>
+          <p class="stat__foot">Gaji pokok + tunjangan</p>
+        </div>
+        <div class="stat stat--neg">
+          <p class="stat__label">Total potongan (Rp)</p>
+          <p class="stat__value num">4.200.000</p>
+          <p class="stat__foot">BPJS, PPh 21, keterlambatan</p>
+        </div>
+        <div class="stat stat--pos">
+          <p class="stat__label">Take-home (Rp)</p>
+          <p class="stat__value num">24.300.000</p>
+          <p class="stat__foot is-pos">Yang akan dibayarkan</p>
+        </div>
+      </div>
+
+      <section class="section">
+        <div class="section__head">
+          <h2>Rincian per karyawan</h2>
+          <span class="section__note">Menampilkan <span class="num">5</span> dari <span class="num">12</span> · nilai dalam rupiah</span>
+        </div>
+
+        <!-- Desktop -->
+        <div class="tablewrap only-desktop">
+          <table class="ledger">
+            <caption class="sr-only">Rincian gaji karyawan periode Agustus 2026</caption>
+            <thead>
+              <tr>
+                <th scope="col">Nama</th>
+                <th scope="col" class="r">Gaji pokok</th>
+                <th scope="col" class="r">Tunjangan</th>
+                <th scope="col" class="r">Potongan</th>
+                <th scope="col" class="r">Take-home</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row"><span class="person"><span class="avatar" aria-hidden="true">BS</span><span><span class="person__name">Budi Santoso</span><span class="person__meta">Kepala Barista</span></span></span></th>
+                <td class="r num">3.500.000</td>
+                <td class="r num">800.000</td>
+                <td class="r num money-neg">− 350.000</td>
+                <td class="r num"><strong>3.950.000</strong></td>
+              </tr>
+              <tr>
+                <th scope="row"><span class="person"><span class="avatar" aria-hidden="true">SN</span><span><span class="person__name">Siti Nurhaliza</span><span class="person__meta">Kasir</span></span></span></th>
+                <td class="r num">3.200.000</td>
+                <td class="r num">750.000</td>
+                <td class="r num money-neg">− 320.000</td>
+                <td class="r num"><strong>3.630.000</strong></td>
+              </tr>
+              <tr>
+                <th scope="row"><span class="person"><span class="avatar" aria-hidden="true">AF</span><span><span class="person__name">Ahmad Fauzi</span><span class="person__meta">Barista</span></span></span></th>
+                <td class="r num">2.800.000</td>
+                <td class="r num">600.000</td>
+                <td class="r num money-neg">− 280.000</td>
+                <td class="r num"><strong>3.120.000</strong></td>
+              </tr>
+              <tr>
+                <th scope="row"><span class="person"><span class="avatar" aria-hidden="true">DL</span><span><span class="person__name">Dewi Lestari</span><span class="person__meta">Pramusaji</span></span></span></th>
+                <td class="r num">2.500.000</td>
+                <td class="r num">500.000</td>
+                <td class="r num money-neg">− 250.000</td>
+                <td class="r num"><strong>2.750.000</strong></td>
+              </tr>
+              <tr>
+                <th scope="row"><span class="person"><span class="avatar" aria-hidden="true">RH</span><span><span class="person__name">Rudi Hermawan</span><span class="person__meta">Kasir</span></span></span></th>
+                <td class="r num">3.000.000</td>
+                <td class="r num">700.000</td>
+                <td class="r num money-neg">− 300.000</td>
+                <td class="r num"><strong>3.400.000</strong></td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr>
+                <th scope="row">Subtotal 5 karyawan</th>
+                <td class="r num">15.000.000</td>
+                <td class="r num">3.350.000</td>
+                <td class="r num money-neg">− 1.500.000</td>
+                <td class="r num">16.850.000</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <!-- Mobile: same figures, dotted-leader ledger -->
+        <ul class="rows only-mobile">
+          <li class="row row--top">
+            <span class="avatar avatar--lg" aria-hidden="true">BS</span>
+            <div class="row__body">
+              <span class="row__title">Budi Santoso</span>
+              <span class="row__meta">Kepala Barista</span>
+              <dl class="mt-xs">
+                <div class="leader"><dt class="leader__k">Gaji pokok</dt><span class="leader__fill"></span><dd class="leader__v">3.500.000</dd></div>
+                <div class="leader"><dt class="leader__k">Tunjangan</dt><span class="leader__fill"></span><dd class="leader__v">800.000</dd></div>
+                <div class="leader"><dt class="leader__k">Potongan</dt><span class="leader__fill"></span><dd class="leader__v money-neg">− 350.000</dd></div>
+                <div class="leader leader--total"><dt class="leader__k">Take-home</dt><span class="leader__fill"></span><dd class="leader__v">3.950.000</dd></div>
+              </dl>
+            </div>
+          </li>
+          <li class="row row--top">
+            <span class="avatar avatar--lg" aria-hidden="true">SN</span>
+            <div class="row__body">
+              <span class="row__title">Siti Nurhaliza</span>
+              <span class="row__meta">Kasir</span>
+              <dl class="mt-xs">
+                <div class="leader"><dt class="leader__k">Gaji pokok</dt><span class="leader__fill"></span><dd class="leader__v">3.200.000</dd></div>
+                <div class="leader"><dt class="leader__k">Tunjangan</dt><span class="leader__fill"></span><dd class="leader__v">750.000</dd></div>
+                <div class="leader"><dt class="leader__k">Potongan</dt><span class="leader__fill"></span><dd class="leader__v money-neg">− 320.000</dd></div>
+                <div class="leader leader--total"><dt class="leader__k">Take-home</dt><span class="leader__fill"></span><dd class="leader__v">3.630.000</dd></div>
+              </dl>
+            </div>
+          </li>
+          <li class="row row--top">
+            <span class="avatar avatar--lg" aria-hidden="true">AF</span>
+            <div class="row__body">
+              <span class="row__title">Ahmad Fauzi</span>
+              <span class="row__meta">Barista</span>
+              <dl class="mt-xs">
+                <div class="leader"><dt class="leader__k">Gaji pokok</dt><span class="leader__fill"></span><dd class="leader__v">2.800.000</dd></div>
+                <div class="leader"><dt class="leader__k">Tunjangan</dt><span class="leader__fill"></span><dd class="leader__v">600.000</dd></div>
+                <div class="leader"><dt class="leader__k">Potongan</dt><span class="leader__fill"></span><dd class="leader__v money-neg">− 280.000</dd></div>
+                <div class="leader leader--total"><dt class="leader__k">Take-home</dt><span class="leader__fill"></span><dd class="leader__v">3.120.000</dd></div>
+              </dl>
+            </div>
+          </li>
+          <li class="row row--top">
+            <span class="avatar avatar--lg" aria-hidden="true">DL</span>
+            <div class="row__body">
+              <span class="row__title">Dewi Lestari</span>
+              <span class="row__meta">Pramusaji</span>
+              <dl class="mt-xs">
+                <div class="leader"><dt class="leader__k">Gaji pokok</dt><span class="leader__fill"></span><dd class="leader__v">2.500.000</dd></div>
+                <div class="leader"><dt class="leader__k">Tunjangan</dt><span class="leader__fill"></span><dd class="leader__v">500.000</dd></div>
+                <div class="leader"><dt class="leader__k">Potongan</dt><span class="leader__fill"></span><dd class="leader__v money-neg">− 250.000</dd></div>
+                <div class="leader leader--total"><dt class="leader__k">Take-home</dt><span class="leader__fill"></span><dd class="leader__v">2.750.000</dd></div>
+              </dl>
+            </div>
+          </li>
+          <li class="row row--top">
+            <span class="avatar avatar--lg" aria-hidden="true">RH</span>
+            <div class="row__body">
+              <span class="row__title">Rudi Hermawan</span>
+              <span class="row__meta">Kasir</span>
+              <dl class="mt-xs">
+                <div class="leader"><dt class="leader__k">Gaji pokok</dt><span class="leader__fill"></span><dd class="leader__v">3.000.000</dd></div>
+                <div class="leader"><dt class="leader__k">Tunjangan</dt><span class="leader__fill"></span><dd class="leader__v">700.000</dd></div>
+                <div class="leader"><dt class="leader__k">Potongan</dt><span class="leader__fill"></span><dd class="leader__v money-neg">− 300.000</dd></div>
+                <div class="leader leader--total"><dt class="leader__k">Take-home</dt><span class="leader__fill"></span><dd class="leader__v">3.400.000</dd></div>
+              </dl>
+            </div>
+          </li>
+          <li class="row">
+            <span class="row__body"><span class="row__title">Subtotal 5 karyawan</span></span>
+            <span class="row__end num"><strong>16.850.000</strong></span>
+          </li>
+        </ul>
+      </section>
+
+      <!-- Irreversible action — C4 sticky bottom bar vocabulary, inline -->
+      <section class="section">
+        <div class="section__head">
+          <h2>Setujui payroll</h2>
+        </div>
+        <div class="panel">
+          <p class="small">Setelah disetujui, slip gaji dikirim ke <strong>12 karyawan</strong> dan angka periode ini tidak bisa diubah lagi.</p>
+          <div class="cluster mt-md">
+            <button type="button" class="btn btn--primary">Setujui payroll</button>
+            <button type="button" class="btn btn--ghost">Batal</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<nav class="tabbar" aria-label="Navigasi utama">
+  <a class="tab" href="03-dashboard-owner.html">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+    Ringkasan</a>
+  <a class="tab" href="05-daftar-karyawan.html">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>
+    Karyawan</a>
+  <a class="tab" href="#">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+    Absensi</a>
+  <a class="tab" href="#">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/></svg>
+    Cuti<span class="tab__dot"></span></a>
+  <a class="tab" href="06-payroll-run.html" aria-current="page">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg>
+    Payroll</a>
+</nav>
+
+<script src="app.js"></script>
+</body>
+</html>

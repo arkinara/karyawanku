@@ -1,0 +1,114 @@
+/* Hallmark · project: KaryawanKu · scope: app-shell (product screens) + Index-First (hub)
+ * theme: custom (tuned) · vibe: "ledger precision, cool teal, hairline utility"
+ * paper: oklch(98.6% 0.004 195) · accent: oklch(45% 0.108 178)
+ * display: Space Grotesk · body: IBM Plex Sans · mono: JetBrains Mono
+ * axes: light / grotesk-sans / chromatic-teal (~178deg)
+ * studied: no · context: user-provided (tone=utilitarian) · brand teal preserved from source prototype
+ *
+ * Portable token set. Every colour + font in this prototype resolves through a name here.
+ */
+
+:root {
+  /* ---- Type ---- */
+  --font-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --font-body:    "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono:    "JetBrains Mono", ui-monospace, "Cascadia Mono", monospace;
+
+  --text-2xs:  0.6875rem; /* 11 · mono labels */
+  --text-xs:   0.75rem;   /* 12 */
+  --text-sm:   0.8125rem; /* 13 */
+  --text-base: 0.9375rem; /* 15 · body floor for this app */
+  --text-md:   1rem;
+  --text-lg:   1.125rem;
+  --text-xl:   1.375rem;
+  --text-2xl:  1.75rem;
+  --text-3xl:  2.25rem;
+  --text-display-s: clamp(1.875rem, 3.5vw + 0.5rem, 2.5rem);
+  --text-display:   clamp(2.25rem, 5vw + 0.5rem, 3.5rem);
+
+  --tracking-tight: -0.02em;
+  --tracking-label:  0.08em;
+  --leading-tight: 1.15;
+  --leading-body:  1.55;
+
+  /* ---- Paper / ink (cool, teal-tinted; never #fff or #000) ---- */
+  --color-paper:      oklch(98.6% 0.004 195);
+  --color-paper-2:    oklch(96.8% 0.006 195);
+  --color-paper-3:    oklch(94.4% 0.008 195);
+  --color-ink:        oklch(21%   0.016 210);
+  --color-ink-2:      oklch(38%   0.014 205);
+  --color-muted:      oklch(49%   0.012 205);
+
+  /* ---- Hairlines (the whole structural language) ---- */
+  --color-rule:       oklch(86%   0.009 200);
+  --color-rule-2:     oklch(92.5% 0.007 200);
+  --rule-hair: 1px;
+
+  /* ---- The one dark beat ---- */
+  --color-graphite:    oklch(24% 0.018 205);
+  --color-graphite-2:  oklch(31% 0.016 205);
+  --color-graphite-ink:oklch(94% 0.008 200);
+  --color-graphite-muted: oklch(72% 0.012 200);
+
+  /* ---- Signal accent (brand teal, OKLCH-corrected) ---- */
+  --color-accent:      oklch(45%   0.108 178); /* fills only */
+  --color-accent-hover:oklch(40%   0.100 178);
+  --color-accent-press:oklch(35%   0.090 178);
+  --color-accent-ink:  oklch(98.6% 0.004 195); /* text on accent */
+  --color-accent-text: oklch(38%   0.094 178); /* teal text on paper */
+  --color-accent-wash: oklch(95%   0.022 178);
+  --color-focus:       oklch(50%   0.118 180);
+
+  /* ---- Data semantics (encode meaning, never decorate) ---- */
+  --color-pos:       oklch(46%   0.105 155);
+  --color-pos-wash:  oklch(95.5% 0.026 155);
+  --color-warn:      oklch(52%   0.115 68);
+  --color-warn-wash: oklch(95.5% 0.032 78);
+  --color-neg:       oklch(48%   0.155 25);
+  --color-neg-wash:  oklch(95.5% 0.028 25);
+  --color-cool:      oklch(48%   0.098 245);
+  --color-cool-wash: oklch(95.5% 0.022 245);
+
+  /* ---- Space · 4pt ---- */
+  --space-2xs: 4px;
+  --space-xs:  8px;
+  --space-sm:  12px;
+  --space-md:  16px;
+  --space-lg:  24px;
+  --space-xl:  32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+
+  /* ---- Radius · drawn with a ruler, never pills ---- */
+  --radius-xs: 3px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+
+  /* ---- Motion ---- */
+  --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in:     cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms;
+  --dur-short: 220ms;
+  --dur-long:  420ms;
+
+  /* ---- Elevation · lightness, not shadow ---- */
+  --lift-1: 0 1px 2px oklch(21% 0.016 210 / 0.06);
+  --lift-2: 0 6px 24px oklch(21% 0.016 210 / 0.10);
+
+  /* ---- z · named scale, no 9999 ---- */
+  --z-base: 0;
+  --z-raised: 10;
+  --z-sticky: 20;
+  --z-nav: 30;
+  --z-overlay: 40;
+  --z-modal: 50;
+
+  /* ---- Layout ---- */
+  --rail-w: 232px;
+  --topbar-h: 56px;
+  --tabbar-h: 60px;
+  --page-max: 1180px;
+  --touch: 44px;
+}

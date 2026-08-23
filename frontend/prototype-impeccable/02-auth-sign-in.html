@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#16244c" />
+<title>Masuk · KaryawanKu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/kk.css" />
+</head>
+<body>
+<!--
+THESIS: The door is a bolt of dyed cloth — the whole left field is the cap repeat at full scale, carrying one real number from the product, and the form sits on undyed ground beside it. Refuses the blurred-gradient-blob marketing panel.
+OWN-WORLD: Kerokan-pale cool ground #edf0f5; indigo #16244c owns whole regions (rail, head band, table heads, dyed rows); soga, merah, kunyit, daun carry data roles; tumpal triangle bands edge every region; square 2-4px corners, never pills; Archivo at two widths, no monospace anywhere.
+STORY: A returning owner or employee recognises the product, signs in, and lands on their own dashboard.
+FIRST VIEWPORT: Full-height indigo cap field at left with the brand, the promise and a real payroll figure; at right, on pale ground, the sign-in fields at full tap size with a visible primary action.
+FORM: Cap & Kain — grounded candidate 5 of 7; seed key d2443f8d.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
+-->
+
+<div class="grid c1 lg:c2" style="min-height:100vh">
+
+  <!-- The dyed field -->
+  <aside class="capfield only-desktop flex col jc-b on-nila" style="padding:44px 48px;color:var(--nila-on)">
+    <a href="02-auth-sign-in.html" class="brand">
+      <span class="brand__cap" aria-hidden="true">
+        <svg viewBox="0 0 36 36">
+          <g fill="none" stroke="#f6f8fd" stroke-width="1" opacity=".5"><path d="M0 18h36M18 0v36"/><rect x="7" y="7" width="22" height="22"/></g>
+          <path d="M12.5 10v16M12.5 18l7.5-8M12.5 18l8 8" fill="none" stroke="#f6f8fd" stroke-width="2.5" stroke-linecap="round"/>
+          <g fill="#f6f8fd" opacity=".6"><circle cx="3.6" cy="3.6" r="1.1"/><circle cx="32.4" cy="3.6" r="1.1"/><circle cx="3.6" cy="32.4" r="1.1"/><circle cx="32.4" cy="32.4" r="1.1"/></g>
+        </svg>
+      </span>
+      <span class="brand__name">KaryawanKu</span>
+    </a>
+
+    <div style="max-width:460px">
+      <p class="disp" style="font-size:var(--t-4xl);max-width:15ch">Kelola karyawan dan gaji dari satu tempat.</p>
+      <p class="mt-4" style="color:var(--nila-on-2);max-width:38ch">
+        Absensi, cuti, dan payroll untuk usaha kecil di Indonesia. Tanpa spreadsheet, tanpa ribet.
+      </p>
+
+      <!-- one real figure from the product, not a decorative chart -->
+      <div class="mt-6" style="border:1px solid rgb(255 255 255 / .28);border-radius:var(--r-2);padding:18px;background:rgb(13 23 50 / .35)">
+        <div class="flex ai-e jc-b g-4">
+          <div>
+            <p class="lab lab--on-nila">Payroll Agustus 2026</p>
+            <p class="disp num mt-2" style="font-size:var(--t-2xl);white-space:nowrap">Rp 28.500.000</p>
+          </div>
+          <span class="tag tag--on-nila none num">12 karyawan</span>
+        </div>
+        <div class="bar mt-4" style="border-color:rgb(255 255 255 / .3);background:rgb(255 255 255 / .12)" role="img" aria-label="83 persen kehadiran bulan ini">
+          <span class="bar__seg" style="width:83%;background:var(--nila-on)"></span>
+        </div>
+        <p class="t-xs mt-3" style="color:var(--nila-on-2)">83% kehadiran · jadwal bayar 25 Agustus</p>
+      </div>
+    </div>
+
+    <p class="t-sm flex wrapf ai-c g-3" style="color:var(--nila-on-2)">
+      <span>Lebih dari 2.000 usaha kecil</span>
+      <span aria-hidden="true">·</span>
+      <span>Data disimpan di Indonesia</span>
+    </p>
+  </aside>
+
+  <!-- The form, on undyed ground -->
+  <main class="flex col jc-c ai-c" style="padding:32px 20px">
+    <div style="width:100%;max-width:420px">
+
+      <div class="flex col ai-c g-3 mb-4 only-mobile">
+        <span class="brand__cap" aria-hidden="true" style="width:52px;height:52px">
+          <svg viewBox="0 0 36 36" style="width:52px;height:52px">
+            <g fill="none" stroke="#f6f8fd" stroke-width="1" opacity=".45"><path d="M0 18h36M18 0v36"/><rect x="7" y="7" width="22" height="22"/></g>
+            <path d="M12.5 10v16M12.5 18l7.5-8M12.5 18l8 8" fill="none" stroke="#f6f8fd" stroke-width="2.5" stroke-linecap="round"/>
+            <g fill="#f6f8fd" opacity=".55"><circle cx="3.6" cy="3.6" r="1.1"/><circle cx="32.4" cy="3.6" r="1.1"/><circle cx="3.6" cy="32.4" r="1.1"/><circle cx="32.4" cy="32.4" r="1.1"/></g>
+          </svg>
+        </span>
+        <span class="brand__name">KaryawanKu</span>
+      </div>
+
+      <div class="panel">
+        <div class="crown" aria-hidden="true"></div>
+        <div class="panel__body" style="padding:24px">
+          <h1 class="disp" style="font-size:var(--t-2xl)">Masuk</h1>
+          <p class="t-sm muted mt-2">Kelola karyawan dan gaji dari satu tempat.</p>
+
+          <form class="flex col g-4 mt-5" id="formMasuk" novalidate>
+            <div class="field">
+              <label class="field__lab" for="email">Email</label>
+              <input class="input" id="email" type="email" autocomplete="email" placeholder="nama@usaha.com" />
+              <span class="field__err" id="emailErr" role="alert">
+                <span class="ico ico-alert ico--sm" aria-hidden="true"></span>Masukkan email yang valid, contoh nama@usaha.com
+              </span>
+            </div>
+
+            <div class="field">
+              <div class="flex ai-b jc-b g-3">
+                <label class="field__lab" for="password">Kata sandi</label>
+                <a class="t-sm w-700" href="#">Lupa sandi?</a>
+              </div>
+              <div class="rel">
+                <input class="input" id="password" type="password" autocomplete="current-password" placeholder="Minimal 6 karakter" style="padding-right:56px" />
+                <button class="iconbtn" type="button" data-pw-toggle="password" aria-label="Tampilkan kata sandi"
+                        style="position:absolute;right:2px;top:50%;transform:translateY(-50%);width:44px;height:44px">
+                  <span class="ico ico-eye" aria-hidden="true"></span>
+                </button>
+              </div>
+              <span class="field__err" id="pwErr" role="alert">
+                <span class="ico ico-alert ico--sm" aria-hidden="true"></span>Kata sandi minimal 6 karakter
+              </span>
+            </div>
+
+            <label class="check">
+              <input type="checkbox" />
+              <span class="check__box" aria-hidden="true"></span>
+              <span>Ingat saya di perangkat ini</span>
+            </label>
+
+            <button class="btn btn--cap btn--block" type="submit" id="btnMasuk">Masuk</button>
+          </form>
+
+          <div class="flex ai-c g-3 mt-5" aria-hidden="true">
+            <span style="height:1px;flex:1;background:var(--garis-2)"></span>
+            <span class="lab">atau</span>
+            <span style="height:1px;flex:1;background:var(--garis-2)"></span>
+          </div>
+
+          <button class="btn btn--garis btn--block mt-4" type="button">
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.7v3h3.9c2.3-2.1 3.5-5.2 3.5-8.9Z"/>
+              <path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.9-3c-1.1.7-2.4 1.2-4 1.2-3.1 0-5.7-2.1-6.6-4.9H1.4v3.1A12 12 0 0 0 12 24Z"/>
+              <path fill="#FBBC05" d="M5.4 14.4a7.2 7.2 0 0 1 0-4.6V6.7H1.4a12 12 0 0 0 0 10.8l4-3.1Z"/>
+              <path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.4 6.7l4 3.1C6.3 6.9 8.9 4.8 12 4.8Z"/>
+            </svg>
+            Masuk dengan Google
+          </button>
+
+          <p class="t-sm muted mt-5 txt-c">
+            Belum punya akun? <a class="w-700" href="01-onboarding-wizard.html">Daftar usaha Anda</a>
+          </p>
+        </div>
+      </div>
+
+      <p class="t-xs muted mt-4 txt-c" style="max-width:36ch;margin-inline:auto">
+        Dengan masuk, Anda setuju pada
+        <a href="#">Syarat Layanan</a> dan
+        <a href="#">Kebijakan Privasi</a> KaryawanKu.
+      </p>
+    </div>
+  </main>
+</div>
+
+<script src="assets/kk.js"></script>
+</body>
+</html>

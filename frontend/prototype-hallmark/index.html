@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>KaryawanKu — Prototype (Hallmark)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="tokens.css" />
+<link rel="stylesheet" href="app.css" />
+</head>
+<body>
+<div class="viewer">
+
+  <header class="masthead">
+    <div class="masthead__brand">
+      <span class="mark" aria-hidden="true">K</span>
+      <div>
+        <span class="wordmark">KaryawanKu</span>
+        <span class="orgcard__sub">Prototipe · revisi Hallmark</span>
+      </div>
+    </div>
+    <p class="xsmall muted hide-xs">7 layar · Bahasa Indonesia · format rupiah</p>
+  </header>
+
+  <!-- Viewer controls -->
+  <div class="viewer__bar">
+    <div class="viewer__tabs" id="tabs" role="tablist" aria-label="Pilih layar"></div>
+    <div class="segment" role="group" aria-label="Lebar viewport">
+      <input type="radio" name="vp" id="vp-375" value="375" />
+      <label for="vp-375">375</label>
+      <input type="radio" name="vp" id="vp-768" value="768" />
+      <label for="vp-768">768</label>
+      <input type="radio" name="vp" id="vp-1440" value="1440" checked />
+      <label for="vp-1440">1440</label>
+      <input type="radio" name="vp" id="vp-full" value="full" />
+      <label for="vp-full">Penuh</label>
+    </div>
+  </div>
+
+  <div class="viewer__stage">
+    <div class="viewer__frame" id="frameWrap">
+      <iframe id="frame" title="Pratinjau layar prototipe" src="03-dashboard-owner.html"></iframe>
+    </div>
+    <p class="xsmall muted mt-sm center" id="frameCaption">—</p>
+  </div>
+
+  <!-- Index-First: the full list, readable without the viewer -->
+  <section class="page">
+    <div class="section__head">
+      <h2>Daftar layar</h2>
+      <span class="section__note">Buka langsung di tab baru untuk melihat perilaku responsif asli</span>
+    </div>
+
+    <div class="index-list">
+      <div class="index-row">
+        <span class="index-row__n">01</span>
+        <span class="index-row__t">Setup Usaha</span>
+        <span class="index-row__d">Wizard 3 langkah · profil usaha, komponen gaji default, konfirmasi</span>
+        <a class="linkaction" href="01-onboarding.html">Buka →</a>
+      </div>
+      <div class="index-row">
+        <span class="index-row__n">02</span>
+        <span class="index-row__t">Masuk</span>
+        <span class="index-row__d">Email + sandi, Google, panel contoh tampilan payroll</span>
+        <a class="linkaction" href="02-masuk.html">Buka →</a>
+      </div>
+      <div class="index-row">
+        <span class="index-row__n">03</span>
+        <span class="index-row__t">Ringkasan Hari Ini</span>
+        <span class="index-row__d">Owner · metrik tim, absensi, 2 pengajuan cuti menunggu keputusan</span>
+        <a class="linkaction" href="03-dashboard-owner.html">Buka →</a>
+      </div>
+      <div class="index-row">
+        <span class="index-row__n">04</span>
+        <span class="index-row__t">Beranda Karyawan</span>
+        <span class="index-row__d">Karyawan · jam kerja berjalan, clock out, jadwal 3 hari, aksi cepat</span>
+        <a class="linkaction" href="04-dashboard-karyawan.html">Buka →</a>
+      </div>
+      <div class="index-row">
+        <span class="index-row__n">05</span>
+        <span class="index-row__t">Daftar Karyawan</span>
+        <span class="index-row__d">Owner · cari, filter status, tabel 6 karyawan dengan kontrak dan status</span>
+        <a class="linkaction" href="05-daftar-karyawan.html">Buka →</a>
+      </div>
+      <div class="index-row">
+        <span class="index-row__n">06</span>
+        <span class="index-row__t">Payroll Run</span>
+        <span class="index-row__d">Owner · draft Agustus 2026, rincian 5 karyawan, subtotal, persetujuan</span>
+        <a class="linkaction" href="06-payroll-run.html">Buka →</a>
+      </div>
+      <div class="index-row">
+        <span class="index-row__n">07</span>
+        <span class="index-row__t">Slip Gaji</span>
+        <span class="index-row__d">Karyawan · pendapatan, potongan, take-home pay, unduh PDF</span>
+        <a class="linkaction" href="07-slip-gaji.html">Buka →</a>
+      </div>
+    </div>
+
+    <section class="section">
+      <div class="section__head">
+        <h2>Apa yang berubah dari prototipe sebelumnya</h2>
+      </div>
+      <div class="panel">
+        <dl>
+          <div class="leader"><dt class="leader__k">Sistem warna</dt><span class="leader__fill"></span><dd class="leader__v">HSL → OKLCH</dd></div>
+          <div class="leader"><dt class="leader__k">Huruf</dt><span class="leader__fill"></span><dd class="leader__v">Inter → Space Grotesk + IBM Plex Sans + JetBrains Mono</dd></div>
+          <div class="leader"><dt class="leader__k">Permukaan</dt><span class="leader__fill"></span><dd class="leader__v">kartu bertumpuk → garis rambut</dd></div>
+          <div class="leader"><dt class="leader__k">CSS</dt><span class="leader__fill"></span><dd class="leader__v">Tailwind CDN → token + CSS sendiri</dd></div>
+          <div class="leader"><dt class="leader__k">Navigasi</dt><span class="leader__fill"></span><dd class="leader__v">rail + tab bar + palet ⌘K</dd></div>
+          <div class="leader leader--total"><dt class="leader__k">Angka rupiah</dt><span class="leader__fill"></span><dd class="leader__v">tidak diubah</dd></div>
+        </dl>
+      </div>
+      <p class="xsmall muted mt-sm">
+        Jabatan diselaraskan ke Daftar Karyawan (layar 05), yang di prototipe lama saling bertentangan dengan layar 06 dan 07.
+        Klaim “lebih dari 2.000 usaha kecil” dihapus karena tidak ada datanya.
+      </p>
+    </section>
+  </section>
+
+  <footer class="footer">
+    <span>KaryawanKu · prototipe statis</span>
+    <span>Warung Kopi Nusantara · Agustus 2026</span>
+    <span>Tema: custom teal · Space Grotesk + IBM Plex Sans + JetBrains Mono</span>
+  </footer>
+</div>
+
+<script>
+  (function () {
+    var PAGES = [
+      { id: '01', file: '01-onboarding.html',        title: 'Setup Usaha',        role: 'Owner',    desc: 'Wizard 3 langkah' },
+      { id: '02', file: '02-masuk.html',             title: 'Masuk',              role: 'Semua',    desc: 'Email + sandi + Google' },
+      { id: '03', file: '03-dashboard-owner.html',   title: 'Ringkasan',          role: 'Owner',    desc: 'Metrik tim, absensi, cuti pending' },
+      { id: '04', file: '04-dashboard-karyawan.html',title: 'Beranda Karyawan',   role: 'Karyawan', desc: 'Clock out, jadwal, aksi cepat' },
+      { id: '05', file: '05-daftar-karyawan.html',   title: 'Daftar Karyawan',    role: 'Owner',    desc: 'Cari, filter, 6 karyawan' },
+      { id: '06', file: '06-payroll-run.html',       title: 'Payroll Run',        role: 'Owner',    desc: 'Draft Agustus 2026 + persetujuan' },
+      { id: '07', file: '07-slip-gaji.html',         title: 'Slip Gaji',          role: 'Karyawan', desc: 'Pendapatan, potongan, take-home' }
+    ];
+
+    var tabs = document.getElementById('tabs');
+    var frame = document.getElementById('frame');
+    var wrap = document.getElementById('frameWrap');
+    var caption = document.getElementById('frameCaption');
+    var active = 2;
+
+    tabs.innerHTML = PAGES.map(function (p, i) {
+      return '<button type="button" role="tab" class="vtab" data-i="' + i + '" aria-selected="' + (i === active) + '">' +
+             '<span class="n">' + p.id + '</span>' + p.title + '</button>';
+    }).join('');
+
+    function select(i) {
+      active = i;
+      var p = PAGES[i];
+      frame.src = p.file;
+      caption.textContent = p.id + ' · ' + p.title + ' — ' + p.role + ' — ' + p.desc;
+      Array.prototype.forEach.call(tabs.querySelectorAll('.vtab'), function (b, n) {
+        b.setAttribute('aria-selected', String(n === i));
+      });
+    }
+
+    tabs.addEventListener('click', function (e) {
+      var b = e.target.closest('.vtab');
+      if (b) select(Number(b.dataset.i));
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll('input[name="vp"]'), function (r) {
+      r.addEventListener('change', function () {
+        wrap.style.width = r.value === 'full' ? '100%' : r.value + 'px';
+      });
+    });
+
+    wrap.style.width = '1440px';
+    select(active);
+  })();
+</script>
+</body>
+</html>

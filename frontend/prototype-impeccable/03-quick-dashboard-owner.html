@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#16244c" />
+<title>Ringkasan Hari Ini · KaryawanKu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/kk.css" />
+</head>
+<body>
+<!--
+THESIS: Attendance and payroll rendered as stamped cloth — the workforce is a cap repeat, one stamp per person. Refuses the SaaS HRIS arrangement of four identical white KPI tiles floating on neutral grey.
+OWN-WORLD: Kerokan-pale cool ground #edf0f5; indigo #16244c owns whole regions (rail, head band, table heads, dyed rows); soga, merah, kunyit, daun carry data roles; tumpal triangle bands edge every region; square 2-4px corners, never pills; Archivo at two widths, no monospace anywhere.
+STORY: The owner sees today's truth written on the cloth and acts: approve the leave, stamp the payroll.
+FIRST VIEWPORT: Indigo selvedge rail at left; full-bleed indigo kain band carrying the title, the date and four day-figures set directly on the cloth, tumpal edge beneath; then the twelve-person attendance register as cap squares, pending leave decisions beside it.
+FORM: Cap & Kain — grounded candidate 5 of 7; seed key d2443f8d.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
+-->
+
+<div class="scrim" aria-hidden="true"></div>
+
+<div class="shell">
+
+  <aside class="rail" id="rail">
+    <div class="rail__head">
+      <a href="03-quick-dashboard-owner.html" class="brand">
+        <span class="brand__cap" aria-hidden="true">
+          <svg viewBox="0 0 36 36">
+            <g fill="none" stroke="#f6f8fd" stroke-width="1" opacity=".45"><path d="M0 18h36M18 0v36"/><rect x="7" y="7" width="22" height="22"/></g>
+            <path d="M12.5 10v16M12.5 18l7.5-8M12.5 18l8 8" fill="none" stroke="#f6f8fd" stroke-width="2.5" stroke-linecap="round"/>
+            <g fill="#f6f8fd" opacity=".55"><circle cx="3.6" cy="3.6" r="1.1"/><circle cx="32.4" cy="3.6" r="1.1"/><circle cx="3.6" cy="32.4" r="1.1"/><circle cx="32.4" cy="32.4" r="1.1"/></g>
+          </svg>
+        </span>
+        <span class="brand__name">KaryawanKu</span>
+      </a>
+      <button class="iconbtn only-mobile" data-drawer-close type="button" aria-label="Tutup navigasi"
+              style="margin-left:auto;color:var(--nila-on-2)">
+        <span class="ico ico-x" aria-hidden="true"></span>
+      </button>
+    </div>
+
+    <nav class="rail__nav" aria-label="Navigasi utama">
+      <a class="rail-item" href="03-quick-dashboard-owner.html" aria-current="page"><span class="ico ico-panel" aria-hidden="true"></span>Dashboard</a>
+      <a class="rail-item" href="05-employee-directory.html"><span class="ico ico-users" aria-hidden="true"></span>Karyawan</a>
+      <a class="rail-item" href="#"><span class="ico ico-clock" aria-hidden="true"></span>Absensi</a>
+      <a class="rail-item" href="#"><span class="ico ico-cal" aria-hidden="true"></span>Cuti<span class="rail-item__count">2</span></a>
+      <a class="rail-item" href="#"><span class="ico ico-bands" aria-hidden="true"></span>Shift</a>
+      <a class="rail-item" href="06-payroll-run.html"><span class="ico ico-money" aria-hidden="true"></span>Payroll</a>
+      <div class="rail__sep" role="presentation"></div>
+      <a class="rail-item" href="#"><span class="ico ico-gear" aria-hidden="true"></span>Pengaturan</a>
+    </nav>
+
+    <div class="rail__foot">
+      <div class="flex ai-c g-3">
+        <span class="cap cap--nila cap--sm" aria-hidden="true">WK</span>
+        <span class="grow">
+          <span class="trunc" style="display:block;font-size:var(--t-sm);font-weight:600">Warung Kopi Nusantara</span>
+          <span class="trunc" style="display:block;font-size:var(--t-xs);color:var(--nila-on-2)">Paket Gratis · 12 karyawan</span>
+        </span>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main pagepad">
+
+    <header class="topbar">
+      <button class="iconbtn only-mobile" data-drawer-open type="button" aria-label="Buka navigasi">
+        <span class="ico ico-menu ico--lg" aria-hidden="true"></span>
+      </button>
+      <p class="topbar__title">Selamat pagi, <strong>Pak Darmawan</strong></p>
+      <button class="iconbtn iconbtn--dot" type="button" aria-label="Notifikasi, ada yang baru">
+        <span class="ico ico-bell" aria-hidden="true"></span>
+      </button>
+      <button class="iconbtn" type="button" aria-label="Akun saya, Pak Darmawan" style="width:auto;padding:0 4px">
+        <span class="cap cap--nila cap--sm" aria-hidden="true">PD</span>
+      </button>
+    </header>
+
+    <!-- The kain band: the day's head panel, dyed indigo, figures on the cloth -->
+    <section class="kain tenun" aria-labelledby="judul">
+      <div class="kain__inner">
+        <svg class="kain__motif" viewBox="0 0 200 200" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <path d="M0 100h200M100 0v200"/>
+          <rect x="26" y="26" width="148" height="148"/>
+          <rect x="47.7" y="47.7" width="104.6" height="104.6" transform="rotate(45 100 100)"/>
+          <circle cx="100" cy="100" r="34"/><circle cx="100" cy="100" r="16"/>
+          <path d="M0 0l26 26M200 0l-26 26M0 200l26-26M200 200l-26-26"/>
+          <g fill="currentColor" stroke="none"><circle cx="100" cy="100" r="4"/><circle cx="30" cy="30" r="2.8"/><circle cx="170" cy="30" r="2.8"/><circle cx="30" cy="170" r="2.8"/><circle cx="170" cy="170" r="2.8"/></g>
+        </svg>
+
+        <div class="flex wrapf ai-e jc-b g-4">
+          <div>
+            <h1 class="disp kain__title" id="judul">Ringkasan Hari Ini</h1>
+            <p class="kain__meta">Rabu, 19 Agustus 2026 · diperbarui 08:12 WIB</p>
+          </div>
+          <button class="btn btn--onnila btn--sm none" type="button">
+            <span class="ico ico-down ico--sm" aria-hidden="true"></span>Unduh laporan
+          </button>
+        </div>
+
+        <div class="figs">
+          <div class="fig">
+            <p class="fig__num num">12</p>
+            <p class="lab lab--on-nila fig__lab">Total karyawan</p>
+            <p class="fig__note">11 aktif · 1 nonaktif</p>
+          </div>
+          <div class="fig">
+            <p class="fig__num num">10<small>/12</small></p>
+            <p class="lab lab--on-nila fig__lab">Hadir tepat waktu</p>
+            <p class="fig__note fig__note--daun">2 telat · 0 absen</p>
+          </div>
+          <div class="fig">
+            <p class="fig__num num">2</p>
+            <p class="lab lab--on-nila fig__lab">Cuti pending</p>
+            <p class="fig__note fig__note--kunyit">Menunggu keputusan Anda</p>
+          </div>
+          <div class="fig">
+            <p class="fig__num fig__num--money num">Rp 28.500.000</p>
+            <p class="lab lab--on-nila fig__lab">Gaji bulan ini</p>
+            <p class="fig__note">Jadwal bayar 25 Agustus</p>
+          </div>
+        </div>
+      </div>
+    </section>
+    <div class="kain__edge" aria-hidden="true"></div>
+
+    <main class="wrap section">
+      <div class="grid c1 lg:main2 g-4">
+
+        <!-- Attendance: the register, one cap per person -->
+        <section class="panel">
+          <div class="panel__head">
+            <div>
+              <h2>Absensi Hari Ini</h2>
+              <p class="panel__sub">Shift pagi · 19 Agustus 2026</p>
+            </div>
+            <a class="link" href="#">Lihat semua<span class="ico ico-right ico--sm" aria-hidden="true"></span></a>
+          </div>
+
+          <div class="panel__body">
+            <p class="lab">Register harian · 12 karyawan</p>
+            <ul class="reg mt-3" aria-label="Kehadiran 12 karyawan hari ini" style="list-style:none;margin:12px 0 0;padding:0">
+              <li class="reg__cell reg__cell--hadir"><span>BS<span class="sr"> — Budi Santoso, hadir, masuk 06.52</span></span></li>
+              <li class="reg__cell reg__cell--hadir"><span>SN<span class="sr"> — Siti Nurhaliza, hadir, masuk 06.58</span></span></li>
+              <li class="reg__cell reg__cell--hadir"><span>AF<span class="sr"> — Ahmad Fauzi, hadir, masuk 06.47</span></span></li>
+              <li class="reg__cell reg__cell--hadir"><span>DL<span class="sr"> — Dewi Lestari, hadir, masuk 06.55</span></span></li>
+              <li class="reg__cell reg__cell--hadir"><span>MS<span class="sr"> — Maya Sari, hadir, masuk 06.59</span></span></li>
+              <li class="reg__cell reg__cell--telat"><span>AS<span class="sr"> — Agus Setiawan, telat 18 menit, masuk 07.18</span></span></li>
+              <li class="reg__cell reg__cell--telat"><span>RZ<span class="sr"> — Rizky Hidayat, telat 7 menit, masuk 07.07</span></span></li>
+              <li class="reg__cell reg__cell--hadir"><span>IP<span class="sr"> — Indah Permata, hadir, masuk 06.44</span></span></li>
+              <li class="reg__cell reg__cell--hadir"><span>YP<span class="sr"> — Yoga Pratama, hadir, masuk 06.51</span></span></li>
+              <li class="reg__cell reg__cell--hadir"><span>NF<span class="sr"> — Nur Fadilah, hadir, masuk 06.57</span></span></li>
+              <li class="reg__cell reg__cell--hadir"><span>EK<span class="sr"> — Eko Kurniawan, hadir, masuk 06.49</span></span></li>
+              <li class="reg__cell reg__cell--hadir"><span>TW<span class="sr"> — Tari Wulandari, hadir, masuk 06.53</span></span></li>
+            </ul>
+
+            <div class="bar mt-4" role="img" aria-label="10 hadir tepat waktu, 2 telat, 0 izin, 0 absen">
+              <span class="bar__seg bar__seg--hadir" style="width:83.33%"></span>
+              <span class="bar__seg bar__seg--telat" style="width:16.67%"></span>
+            </div>
+
+            <div class="legend mt-3">
+              <span class="legend__item"><span class="legend__key legend__key--hadir"></span>Hadir 10</span>
+              <span class="legend__item"><span class="legend__key legend__key--telat"></span>Telat 2</span>
+              <span class="legend__item"><span class="legend__key legend__key--izin"></span>Izin 0</span>
+              <span class="legend__item"><span class="legend__key legend__key--absen"></span>Absen 0</span>
+            </div>
+
+            <div class="mt-5">
+              <div class="tumpal tumpal--kunyit" aria-hidden="true"></div>
+              <div style="border:1px solid var(--kunyit-line);border-top:0;border-radius:0 0 var(--r-2) var(--r-2)">
+                <p class="lab" style="padding:11px 14px 0;color:var(--kunyit-teks)">Perlu ditindak — karyawan telat</p>
+                <ul class="rows">
+                  <li class="flex ai-c g-3">
+                    <span class="cap cap--kunyit cap--sm" aria-hidden="true">AS</span>
+                    <span class="grow">
+                      <span class="trunc" style="display:block;font-weight:650">Agus Setiawan</span>
+                      <span style="display:block;font-size:var(--t-xs);color:var(--tinta-2)">Barista · Shift Pagi 07:00 · masuk 07:18</span>
+                    </span>
+                    <span class="tag tag--kunyit num">+18 mnt</span>
+                  </li>
+                  <li class="flex ai-c g-3">
+                    <span class="cap cap--kunyit cap--sm" aria-hidden="true">RZ</span>
+                    <span class="grow">
+                      <span class="trunc" style="display:block;font-weight:650">Rizky Hidayat</span>
+                      <span style="display:block;font-size:var(--t-xs);color:var(--tinta-2)">Kasir · Shift Pagi 07:00 · masuk 07:07</span>
+                    </span>
+                    <span class="tag tag--kunyit num">+7 mnt</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Pending leave: two decisions -->
+        <section class="panel">
+          <div class="panel__head">
+            <div>
+              <h2>Cuti Menunggu Persetujuan</h2>
+              <p class="panel__sub">2 pengajuan perlu keputusan</p>
+            </div>
+            <a class="link" href="#">Lihat semua<span class="ico ico-right ico--sm" aria-hidden="true"></span></a>
+          </div>
+
+          <ul class="rows">
+            <li>
+              <div class="flex ai-s g-3">
+                <span class="cap" aria-hidden="true">SN</span>
+                <div class="grow">
+                  <div class="flex wrapf ai-c g-2">
+                    <p class="w-700">Siti Nurhaliza</p>
+                    <span class="tag tag--nila">Cuti Tahunan</span>
+                  </div>
+                  <p class="t-sm mt-1"><span class="muted">22 – 23 Agustus 2026 ·</span> <strong>2 hari</strong></p>
+                  <p class="t-sm mt-2" style="color:var(--tinta-2)">“Acara pernikahan keluarga di Bandung.”</p>
+                  <p class="t-xs mt-2 muted">Sisa kuota cuti <strong class="num" style="color:var(--tinta)">9 hari</strong> · diajukan 2 hari lalu</p>
+                </div>
+              </div>
+              <div class="flex g-3 mt-4">
+                <button class="btn btn--cap grow sm:none" type="button">
+                  <span class="ico ico-check ico--sm" aria-hidden="true"></span>Setujui
+                </button>
+                <button class="btn btn--tolak grow sm:none" type="button">
+                  <span class="ico ico-x ico--sm" aria-hidden="true"></span>Tolak
+                </button>
+              </div>
+            </li>
+
+            <li>
+              <div class="flex ai-s g-3">
+                <span class="cap" aria-hidden="true">BP</span>
+                <div class="grow">
+                  <div class="flex wrapf ai-c g-2">
+                    <p class="w-700">Budi Prasetyo</p>
+                    <span class="tag tag--kunyit">Izin Sakit</span>
+                  </div>
+                  <p class="t-sm mt-1"><span class="muted">20 Agustus 2026 ·</span> <strong>1 hari</strong></p>
+                  <p class="t-sm mt-2" style="color:var(--tinta-2)">“Demam, ada surat dokter terlampir.”</p>
+                  <p class="t-xs mt-2 muted flex wrapf ai-c g-2">
+                    <span>Sisa kuota cuti <strong class="num" style="color:var(--tinta)">12 hari</strong></span>
+                    <a class="link t-xs" href="#"><span class="ico ico-doc ico--sm" aria-hidden="true"></span>Lihat lampiran</a>
+                  </p>
+                </div>
+              </div>
+              <div class="flex g-3 mt-4">
+                <button class="btn btn--cap grow sm:none" type="button">
+                  <span class="ico ico-check ico--sm" aria-hidden="true"></span>Setujui
+                </button>
+                <button class="btn btn--tolak grow sm:none" type="button">
+                  <span class="ico ico-x ico--sm" aria-hidden="true"></span>Tolak
+                </button>
+              </div>
+            </li>
+          </ul>
+
+          <div class="panel__foot">
+            <p class="t-xs muted">Keputusan cuti langsung memperbarui jadwal shift dan kuota karyawan.</p>
+          </div>
+        </section>
+      </div>
+
+      <!-- Payroll handoff: the month's cloth, still un-dyed -->
+      <section class="panel panel--klowong mt-4">
+        <div class="flex wrapf ai-c jc-b g-4" style="padding:16px">
+          <div class="flex ai-c g-3">
+            <span class="cap cap--lg" style="border-style:dashed" aria-hidden="true"><span class="ico ico-stamp" aria-hidden="true"></span></span>
+            <div>
+              <h2>Payroll Agustus 2026 masih draft</h2>
+              <p class="t-sm muted mt-1">12 karyawan · take-home Rp 24.300.000 · jadwal bayar 25 Agustus</p>
+            </div>
+          </div>
+          <a class="btn btn--cap none" href="06-payroll-run.html">
+            Periksa &amp; cap payroll<span class="ico ico-right ico--sm" aria-hidden="true"></span>
+          </a>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<nav class="bottomnav only-mobile" aria-label="Navigasi utama">
+  <a class="bottomnav__item" href="03-quick-dashboard-owner.html" aria-current="page"><span class="ico ico-panel" aria-hidden="true"></span>Dashboard</a>
+  <a class="bottomnav__item" href="05-employee-directory.html"><span class="ico ico-users" aria-hidden="true"></span>Karyawan</a>
+  <a class="bottomnav__item" href="#"><span class="ico ico-clock" aria-hidden="true"></span>Absensi</a>
+  <a class="bottomnav__item bottomnav__item--dot" href="#"><span class="ico ico-cal" aria-hidden="true"></span>Cuti</a>
+  <a class="bottomnav__item" href="06-payroll-run.html"><span class="ico ico-money" aria-hidden="true"></span>Payroll</a>
+</nav>
+
+<script src="assets/kk.js"></script>
+</body>
+</html>

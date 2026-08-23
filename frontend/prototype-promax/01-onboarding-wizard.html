@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light dark" />
+<title>Setup Usaha · KaryawanKu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/kk.css" />
+<script>(function(){var q=new URLSearchParams(location.search).get('theme');var m=q;if(!m){try{m=localStorage.getItem('kk-theme')}catch(e){}}if(!m)m=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';if(m==='dark')document.documentElement.classList.add('dark')})();</script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="assets/kk-tailwind.js"></script>
+<style>
+  /* Stepper: numbers stay legible at every size, connector is decorative */
+  .step { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .step-dot {
+    display: grid; place-items: center; flex: none;
+    width: 32px; height: 32px; border-radius: 50%;
+    background: hsl(var(--surface-3)); color: hsl(var(--on-surface-variant));
+    font-size: 13px; font-weight: 700;
+    transition: background-color var(--d-base) var(--ease-standard), color var(--d-base) var(--ease-standard), box-shadow var(--d-base);
+  }
+  .step[data-state="current"] .step-dot { background: hsl(var(--primary)); color: hsl(var(--on-primary)); box-shadow: 0 0 0 4px hsl(var(--primary) / .18); }
+  .step[data-state="done"] .step-dot { background: hsl(var(--success-container)); color: hsl(var(--on-success-container)); }
+  .step[data-state="current"] .step-name,
+  .step[data-state="done"] .step-name { color: hsl(var(--on-surface)); }
+  .step-name { font-size: 13.5px; font-weight: 560; color: hsl(var(--on-surface-variant)); white-space: nowrap; }
+  .step-line { flex: 1; height: 2px; min-width: 12px; background: hsl(var(--outline-variant)); border-radius: 2px; }
+  .step[data-state="done"] .step-line { background: hsl(var(--success)); }
+</style>
+</head>
+<body class="min-h-dvh bg-surface-1">
+
+<header class="appbar" style="position:sticky">
+  <a class="brand" href="index.html" style="height:auto;padding-left:12px">
+    <span class="brand-mark" aria-hidden="true">K</span>
+    <span class="brand-name">KaryawanKu</span>
+  </a>
+  <span class="flex-1"></span>
+  <button type="button" class="btn btn-icon" data-kk-theme-toggle></button>
+  <p class="t-body-sm t-muted mr-1 hidden sm:block">Sudah punya akun?
+    <a href="02-auth-sign-in.html" class="font-semibold" style="color:hsl(var(--primary))">Masuk</a>
+  </p>
+</header>
+
+<main id="main" class="page">
+  <div class="page-inner page-narrow">
+
+    <!-- Progress -->
+    <div class="card card-pad">
+      <div class="flex items-center gap-3">
+        <div class="step flex-1" data-step-item="1" data-state="current">
+          <span class="step-dot">1</span><span class="step-name hidden sm:inline">Profil usaha</span><span class="step-line" aria-hidden="true"></span>
+        </div>
+        <div class="step flex-1" data-step-item="2" data-state="upcoming">
+          <span class="step-dot">2</span><span class="step-name hidden sm:inline">Komponen gaji</span><span class="step-line" aria-hidden="true"></span>
+        </div>
+        <div class="step" data-step-item="3" data-state="upcoming">
+          <span class="step-dot">3</span><span class="step-name hidden sm:inline">Konfirmasi</span>
+        </div>
+      </div>
+      <div class="mt-4 flex items-center gap-3">
+        <div class="meter flex-1" role="progressbar" id="bar" aria-valuemin="0" aria-valuemax="3" aria-valuenow="1"
+             aria-label="Kemajuan setup">
+          <span style="width:33.3%;background:hsl(var(--primary))"></span>
+        </div>
+        <p class="t-caption whitespace-nowrap">Langkah <span id="stepNow">1</span>/3</p>
+      </div>
+      <p class="t-caption mt-2 sm:hidden" id="stepNameMobile">Profil usaha</p>
+    </div>
+
+    <!-- Step panels -->
+    <div class="card mt-4" style="overflow:hidden">
+      <div class="card-body" style="padding:20px">
+
+        <!-- STEP 1 -->
+        <section data-step="1" aria-labelledby="h-s1">
+          <h1 class="t-h1" id="h-s1">Ceritakan tentang usaha Anda</h1>
+          <p class="t-body-sm t-muted mt-1.5">Dipakai untuk kop slip gaji dan laporan. Semua bisa diubah nanti.</p>
+
+          <form class="mt-6" id="form1" data-kk-validate novalidate onsubmit="return false">
+            <div class="field">
+              <label class="label" for="namaUsaha">Nama usaha <span class="req" aria-hidden="true">*</span></label>
+              <input class="input" id="namaUsaha" value="Warung Kopi Nusantara" autocomplete="organization"
+                     data-rule="required" data-msg-required="Nama usaha wajib diisi." aria-describedby="err-nama" />
+              <p class="error-text" id="err-nama" role="alert"></p>
+            </div>
+
+            <fieldset class="field" style="border:0;padding:0;margin-top:16px">
+              <legend class="label" style="padding:0">Jenis usaha</legend>
+              <div class="grid gap-3 sm:grid-cols-3">
+                <label>
+                  <input type="radio" name="jenis" class="sr-only" value="F&amp;B" checked />
+                  <span class="radio-card">
+                    <span class="icon-tile icon-tile-primary" data-icon="coffee"></span>
+                    <span style="min-width:0">
+                      <span class="t-label block">F&amp;B</span>
+                      <span class="t-caption block">Kafe, restoran, katering</span>
+                    </span>
+                  </span>
+                </label>
+                <label>
+                  <input type="radio" name="jenis" class="sr-only" value="Jasa" />
+                  <span class="radio-card">
+                    <span class="icon-tile" data-icon="briefcase"></span>
+                    <span style="min-width:0">
+                      <span class="t-label block">Jasa</span>
+                      <span class="t-caption block">Salon, bengkel, laundry</span>
+                    </span>
+                  </span>
+                </label>
+                <label>
+                  <input type="radio" name="jenis" class="sr-only" value="Retail" />
+                  <span class="radio-card">
+                    <span class="icon-tile" data-icon="building"></span>
+                    <span style="min-width:0">
+                      <span class="t-label block">Retail</span>
+                      <span class="t-caption block">Toko, minimarket</span>
+                    </span>
+                  </span>
+                </label>
+              </div>
+            </fieldset>
+
+            <div class="mt-4 grid gap-4 sm:grid-cols-2">
+              <div class="field" style="margin-top:0">
+                <label class="label" for="jumlah">Perkiraan jumlah karyawan</label>
+                <select class="select" id="jumlah">
+                  <option>1 – 5 orang</option>
+                  <option selected>6 – 20 orang</option>
+                  <option>21 – 50 orang</option>
+                  <option>Lebih dari 50 orang</option>
+                </select>
+                <p class="helper">Menentukan paket dan batas kuota absensi.</p>
+              </div>
+              <div class="field" style="margin-top:0">
+                <label class="label" for="kota">Kota <span class="req" aria-hidden="true">*</span></label>
+                <input class="input" id="kota" value="Jakarta Selatan" autocomplete="address-level2"
+                       data-rule="required" data-msg-required="Kota wajib diisi." aria-describedby="err-kota" />
+                <p class="error-text" id="err-kota" role="alert"></p>
+              </div>
+            </div>
+          </form>
+        </section>
+
+        <!-- STEP 2 -->
+        <section data-step="2" hidden aria-labelledby="h-s2">
+          <h1 class="t-h1" id="h-s2">Komponen gaji standar</h1>
+          <p class="t-body-sm t-muted mt-1.5">Jadi nilai bawaan untuk karyawan baru. Bisa disesuaikan per orang.</p>
+
+          <div class="mt-6 grid gap-3 md:grid-cols-2">
+            <div class="card card-flat card-pad" style="background:hsl(var(--surface-1))">
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <p class="t-h3">Gaji pokok</p>
+                  <p class="t-caption mt-0.5">Dasar perhitungan BPJS dan PPh 21</p>
+                </div>
+                <span class="chip chip-primary">Wajib</span>
+              </div>
+              <div class="input-group mt-3">
+                <span class="affix" aria-hidden="true">Rp</span>
+                <input class="input num" id="pokok" inputmode="numeric" value="4.500.000" aria-label="Gaji pokok dalam rupiah" />
+              </div>
+            </div>
+
+            <div class="card card-flat card-pad" style="background:hsl(var(--surface-1))">
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <p class="t-h3">Tunjangan transport</p>
+                  <p class="t-caption mt-0.5">Dibayar penuh per bulan</p>
+                </div>
+                <span class="chip chip-success">Pendapatan</span>
+              </div>
+              <div class="input-group mt-3">
+                <span class="affix" aria-hidden="true">Rp</span>
+                <input class="input num" id="transport" inputmode="numeric" value="500.000" aria-label="Tunjangan transport dalam rupiah" />
+              </div>
+            </div>
+
+            <div class="card card-flat card-pad md:col-span-2" style="background:hsl(var(--surface-1))">
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <p class="t-h3">Potongan BPJS</p>
+                  <p class="t-caption mt-0.5">Persentase dari gaji pokok, sesuai ketentuan iuran pekerja</p>
+                </div>
+                <span class="chip chip-danger">Potongan</span>
+              </div>
+              <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                <label class="block">
+                  <span class="t-caption mb-1 block">BPJS Kesehatan</span>
+                  <span class="input-group">
+                    <input class="input num" id="bpjsKes" inputmode="decimal" value="1" aria-label="Persentase BPJS Kesehatan" />
+                    <span class="affix" aria-hidden="true">%</span>
+                  </span>
+                </label>
+                <label class="block">
+                  <span class="t-caption mb-1 block">BPJS Ketenagakerjaan</span>
+                  <span class="input-group">
+                    <input class="input num" id="bpjsTk" inputmode="decimal" value="2" aria-label="Persentase BPJS Ketenagakerjaan" />
+                    <span class="affix" aria-hidden="true">%</span>
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Progressive disclosure: extras stay collapsed until asked for -->
+            <div class="card card-flat md:col-span-2" style="background:hsl(var(--surface-1))">
+              <div class="flex items-center gap-3 p-4">
+                <div class="min-w-0 flex-1">
+                  <p class="t-h3">Tunjangan makan harian</p>
+                  <p class="t-caption mt-0.5">Dihitung per hari hadir, bukan per bulan</p>
+                </div>
+                <button type="button" class="switch" id="mealSwitch" role="switch" aria-checked="false"
+                        aria-label="Aktifkan tunjangan makan harian"></button>
+              </div>
+              <div id="mealBox" hidden style="border-top:1px solid hsl(var(--outline-variant));padding:16px">
+                <label class="block" style="max-width:280px">
+                  <span class="t-caption mb-1 block">Nominal per hari hadir</span>
+                  <span class="input-group">
+                    <span class="affix" aria-hidden="true">Rp</span>
+                    <input class="input num" id="makan" inputmode="numeric" value="25.000" aria-label="Tunjangan makan per hari" />
+                  </span>
+                </label>
+                <p class="helper">Estimasi 22 hari kerja dipakai di ringkasan.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live preview so the owner sees the consequence while typing -->
+          <div class="banner banner-info mt-4">
+            <span class="icon-tile icon-tile-info" data-icon="trend"></span>
+            <div class="min-w-0 flex-1">
+              <p class="t-label">Estimasi take-home pay karyawan baru</p>
+              <p class="mt-0.5 text-[21px] font-bold num" id="livePreview">Rp 4.865.000</p>
+              <p class="t-caption mt-0.5" id="livePreviewBreak">Rp 5.000.000 pendapatan − Rp 135.000 potongan</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- STEP 3 -->
+        <section data-step="3" hidden aria-labelledby="h-s3">
+          <h1 class="t-h1" id="h-s3">Periksa kembali</h1>
+          <p class="t-body-sm t-muted mt-1.5">Setelah selesai, Anda langsung bisa menambahkan karyawan.</p>
+
+          <div class="mt-6 space-y-3">
+            <div class="card card-flat">
+              <div class="card-head" style="padding:12px 16px">
+                <h2 class="t-h3">Profil usaha</h2>
+                <button type="button" class="btn btn-text btn-sm" data-goto="1">Ubah</button>
+              </div>
+              <dl class="text-[13.5px]" id="sum1"></dl>
+            </div>
+
+            <div class="card card-flat">
+              <div class="card-head" style="padding:12px 16px">
+                <h2 class="t-h3">Komponen gaji bawaan</h2>
+                <button type="button" class="btn btn-text btn-sm" data-goto="2">Ubah</button>
+              </div>
+              <dl class="text-[13.5px]" id="sum2"></dl>
+            </div>
+
+            <div class="banner banner-success">
+              <span class="icon-tile icon-tile-success" data-icon="checkCircle"></span>
+              <div>
+                <p class="t-label">Siap dipakai</p>
+                <p class="t-caption mt-0.5">Kami buatkan 2 shift bawaan (Pagi 07:00–15:00, Siang 14:00–22:00) yang bisa diubah di menu Shift.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Actions stay in the same place on every step -->
+      <div class="card-foot flex items-center justify-between gap-3">
+        <p class="t-caption hidden sm:block" id="autosave">Draf disimpan otomatis</p>
+        <div class="flex flex-1 gap-3 sm:flex-none">
+          <button type="button" class="btn btn-outline flex-1 sm:flex-none" id="btnBack" disabled>Kembali</button>
+          <button type="button" class="btn btn-filled flex-1 sm:flex-none" id="btnNext">Lanjut</button>
+        </div>
+      </div>
+    </div>
+
+    <p class="t-caption mt-4 text-center">Butuh bantuan setup? <a href="#" class="underline">Chat dukungan</a></p>
+  </div>
+</main>
+
+<script src="assets/kk.js"></script>
+<script>
+(function () {
+  var step = 1;
+  var NAMES = { 1: 'Profil usaha', 2: 'Komponen gaji', 3: 'Konfirmasi' };
+  var DRAFT = 'kk-onboarding-draft';
+
+  document.querySelectorAll('[data-icon]').forEach(function (el) { el.innerHTML = KK.icon(el.dataset.icon, 18); });
+
+  /* ---- money helpers: accept "4.500.000", store as number ---- */
+  function toNum(s) { return Number(String(s).replace(/[^\d]/g, '')) || 0; }
+  function toID(n) { return new Intl.NumberFormat('id-ID').format(Math.round(n)); }
+  function rp(n) { return 'Rp ' + toID(n); }
+
+  var f = {
+    nama: document.getElementById('namaUsaha'),
+    kota: document.getElementById('kota'),
+    jumlah: document.getElementById('jumlah'),
+    pokok: document.getElementById('pokok'),
+    transport: document.getElementById('transport'),
+    bpjsKes: document.getElementById('bpjsKes'),
+    bpjsTk: document.getElementById('bpjsTk'),
+    makan: document.getElementById('makan'),
+  };
+
+  function jenis() {
+    var r = document.querySelector('input[name="jenis"]:checked');
+    return r ? r.value : 'F&B';
+  }
+  function mealOn() { return document.getElementById('mealSwitch').getAttribute('aria-checked') === 'true'; }
+
+  function calc() {
+    var pokok = toNum(f.pokok.value);
+    var transport = toNum(f.transport.value);
+    var meal = mealOn() ? toNum(f.makan.value) * 22 : 0;
+    var kes = pokok * (parseFloat(f.bpjsKes.value.replace(',', '.')) || 0) / 100;
+    var tk = pokok * (parseFloat(f.bpjsTk.value.replace(',', '.')) || 0) / 100;
+    var gross = pokok + transport + meal;
+    var cut = kes + tk;
+    return { pokok: pokok, transport: transport, meal: meal, kes: kes, tk: tk, gross: gross, cut: cut, net: gross - cut };
+  }
+
+  function paintPreview() {
+    var c = calc();
+    document.getElementById('livePreview').textContent = rp(c.net);
+    document.getElementById('livePreviewBreak').textContent = rp(c.gross) + ' pendapatan − ' + rp(c.cut) + ' potongan';
+  }
+
+  function row(dt, dd, cls) {
+    return '<div style="display:flex;justify-content:space-between;gap:16px;padding:10px 16px;border-top:1px solid hsl(var(--outline-variant))">' +
+      '<dt class="t-muted">' + dt + '</dt><dd class="num ' + (cls || '') + '" style="font-weight:600;text-align:right">' + dd + '</dd></div>';
+  }
+
+  function paintSummary() {
+    var c = calc();
+    document.getElementById('sum1').innerHTML =
+      row('Nama usaha', f.nama.value) +
+      row('Jenis usaha', jenis()) +
+      row('Jumlah karyawan', f.jumlah.value) +
+      row('Kota', f.kota.value);
+
+    var html =
+      row('Gaji pokok', rp(c.pokok)) +
+      row('Tunjangan transport', '+ ' + rp(c.transport)) +
+      (c.meal ? row('Tunjangan makan (22 hari)', '+ ' + rp(c.meal)) : '') +
+      row('BPJS Kesehatan (' + f.bpjsKes.value + '%)', '− ' + rp(c.kes)) +
+      row('BPJS Ketenagakerjaan (' + f.bpjsTk.value + '%)', '− ' + rp(c.tk)) +
+      '<div style="display:flex;justify-content:space-between;gap:16px;padding:12px 16px;border-top:1px solid hsl(var(--outline-variant));' +
+      'background:hsl(var(--primary-container));color:hsl(var(--on-primary-container))">' +
+      '<dt style="font-weight:650">Estimasi take-home pay</dt><dd class="num" style="font-weight:700">' + rp(c.net) + '</dd></div>';
+    document.getElementById('sum2').innerHTML = html;
+  }
+
+  /* ---- draft autosave ---- */
+  function save() {
+    try {
+      localStorage.setItem(DRAFT, JSON.stringify({
+        nama: f.nama.value, kota: f.kota.value, jumlah: f.jumlah.selectedIndex, jenis: jenis(),
+        pokok: f.pokok.value, transport: f.transport.value, kes: f.bpjsKes.value, tk: f.bpjsTk.value,
+        meal: mealOn(), makan: f.makan.value,
+      }));
+      var el = document.getElementById('autosave');
+      el.textContent = 'Draf disimpan ' + new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    } catch (e) { /* storage unavailable — the prototype still works */ }
+  }
+
+  function restore() {
+    try {
+      var d = JSON.parse(localStorage.getItem(DRAFT) || 'null');
+      if (!d) return;
+      f.nama.value = d.nama; f.kota.value = d.kota; f.jumlah.selectedIndex = d.jumlah;
+      f.pokok.value = d.pokok; f.transport.value = d.transport;
+      f.bpjsKes.value = d.kes; f.bpjsTk.value = d.tk; f.makan.value = d.makan;
+      var r = document.querySelector('input[name="jenis"][value="' + d.jenis + '"]');
+      if (r) r.checked = true;
+      if (d.meal) setMeal(true);
+    } catch (e) { /* ignore malformed draft */ }
+  }
+
+  function setMeal(on) {
+    var sw = document.getElementById('mealSwitch');
+    sw.setAttribute('aria-checked', String(on));
+    document.getElementById('mealBox').hidden = !on;
+  }
+
+  document.getElementById('mealSwitch').addEventListener('click', function () {
+    setMeal(this.getAttribute('aria-checked') !== 'true');
+    paintPreview(); save();
+  });
+
+  Object.keys(f).forEach(function (k) {
+    f[k].addEventListener('input', function () { paintPreview(); save(); });
+  });
+  document.querySelectorAll('input[name="jenis"]').forEach(function (r) {
+    r.addEventListener('change', function () { save(); });
+  });
+
+  // Money fields re-format to Indonesian thousands on blur.
+  ['pokok', 'transport', 'makan'].forEach(function (k) {
+    f[k].addEventListener('blur', function () { f[k].value = toID(toNum(f[k].value)); paintPreview(); });
+  });
+
+  /* ---- step machine ---- */
+  function render() {
+    document.querySelectorAll('[data-step]').forEach(function (s) {
+      s.hidden = Number(s.dataset.step) !== step;
+    });
+    document.querySelectorAll('[data-step-item]').forEach(function (li) {
+      var n = Number(li.dataset.stepItem);
+      li.dataset.state = n < step ? 'done' : n === step ? 'current' : 'upcoming';
+      var dot = li.querySelector('.step-dot');
+      dot.innerHTML = n < step ? KK.icon('check', 16) : String(n);
+    });
+    document.getElementById('stepNow').textContent = step;
+    document.getElementById('stepNameMobile').textContent = NAMES[step];
+    var bar = document.getElementById('bar');
+    bar.setAttribute('aria-valuenow', step);
+    bar.firstElementChild.style.width = (step / 3 * 100) + '%';
+    document.getElementById('btnBack').disabled = step === 1;
+    document.getElementById('btnNext').textContent = step === 3 ? 'Selesai & mulai' : 'Lanjut';
+    if (step === 2) paintPreview();
+    if (step === 3) paintSummary();
+    KK.announce('Langkah ' + step + ' dari 3: ' + NAMES[step]);
+  }
+
+  function step1Valid() {
+    var ok = true;
+    [f.nama, f.kota].forEach(function (i) {
+      if (!i.value.trim()) {
+        i.setAttribute('aria-invalid', 'true');
+        var e = document.getElementById('err-' + (i.id === 'namaUsaha' ? 'nama' : 'kota'));
+        e.innerHTML = KK.icon('alert', 14) + '<span>Kolom ini wajib diisi.</span>';
+        e.dataset.show = 'true';
+        ok = false;
+      }
+    });
+    if (!ok) { f.nama.value.trim() ? f.kota.focus() : f.nama.focus(); }
+    return ok;
+  }
+
+  document.getElementById('btnNext').addEventListener('click', function () {
+    if (step === 1 && !step1Valid()) return;
+    if (step < 3) {
+      step++; render();
+      document.getElementById('main').scrollIntoView({ block: 'start' });
+      return;
+    }
+    var btn = this;
+    btn.setAttribute('aria-busy', 'true');
+    setTimeout(function () {
+      btn.removeAttribute('aria-busy');
+      try { localStorage.removeItem(DRAFT); } catch (e) {}
+      KK.toast('Setup selesai. Selamat datang di KaryawanKu.', { tone: 'success' });
+      setTimeout(function () { location.href = '03-quick-dashboard-owner.html'; }, 700);
+    }, 1100);
+  });
+
+  document.getElementById('btnBack').addEventListener('click', function () {
+    if (step > 1) { step--; render(); }
+  });
+  document.querySelectorAll('[data-goto]').forEach(function (b) {
+    b.addEventListener('click', function () { step = Number(b.dataset.goto); render(); });
+  });
+
+  restore();
+  render();
+  paintPreview();
+})();
+</script>
+</body>
+</html>

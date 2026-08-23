@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Daftar Karyawan · KaryawanKu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="tokens.css" />
+<link rel="stylesheet" href="app.css" />
+</head>
+<body>
+<div class="shell">
+
+  <aside class="rail">
+    <div class="rail__brand">
+      <span class="mark" aria-hidden="true">K</span>
+      <span class="wordmark">KaryawanKu</span>
+    </div>
+    <nav class="rail__nav" aria-label="Navigasi utama">
+      <div class="rail__group">
+        <a class="navlink" href="03-dashboard-owner.html">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+          Dashboard</a>
+        <a class="navlink" href="05-daftar-karyawan.html" aria-current="page">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>
+          Karyawan</a>
+        <a class="navlink" href="#">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          Absensi</a>
+        <a class="navlink" href="#">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/></svg>
+          Cuti <span class="navlink__count">2</span></a>
+        <a class="navlink" href="#">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M3 8h18M3 16h18"/></svg>
+          Shift</a>
+        <a class="navlink" href="06-payroll-run.html">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>
+          Payroll</a>
+      </div>
+      <div class="rail__group">
+        <a class="navlink" href="#">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-2.9-1.2l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15H4.5a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.2-2.9l-.06-.06A2 2 0 1 1 8.56 5.2l.06.06a1.7 1.7 0 0 0 1.88.34h.08A1.7 1.7 0 0 0 11.6 4.1V4a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 2.9 1.2l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0 1.2 2.9h.09a2 2 0 1 1 0 4H19.4Z"/></svg>
+          Pengaturan</a>
+      </div>
+    </nav>
+    <div class="rail__foot">
+      <div class="orgcard">
+        <span class="avatar" aria-hidden="true">WK</span>
+        <span class="orgcard__meta">
+          <span class="orgcard__name">Warung Kopi Nusantara</span>
+          <span class="orgcard__sub">Paket Gratis · 12 karyawan</span>
+        </span>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <p class="topbar__title">Daftar Karyawan</p>
+      <button type="button" class="cmdk-trigger" data-cmdk>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        Cari <kbd>⌘K</kbd>
+      </button>
+      <button type="button" class="iconbtn cmdk-icon" data-cmdk aria-label="Cari perintah">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      </button>
+      <button type="button" class="iconbtn" aria-label="Akun saya"><span class="avatar avatar--solid">PD</span></button>
+    </header>
+
+    <main class="page reveal">
+
+      <div class="pagehead">
+        <div>
+          <h1>Daftar Karyawan</h1>
+          <p class="pagehead__sub"><span class="num">12</span> terdaftar · <span class="num">11</span> aktif · <span class="num">1</span> nonaktif</p>
+        </div>
+        <button type="button" class="btn btn--primary">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          Tambah
+        </button>
+      </div>
+
+      <div class="stack mt-lg">
+        <div class="field">
+          <label class="sr-only" for="cari">Cari karyawan</label>
+          <input class="input" id="cari" type="search" placeholder="Cari nama, jabatan, atau NIK…" />
+        </div>
+
+        <div class="split">
+          <div class="segment">
+            <input type="radio" name="statusFilter" id="f-semua" checked />
+            <label for="f-semua">Semua <span class="n">12</span></label>
+            <input type="radio" name="statusFilter" id="f-aktif" />
+            <label for="f-aktif">Aktif <span class="n">11</span></label>
+            <input type="radio" name="statusFilter" id="f-nonaktif" />
+            <label for="f-nonaktif">Nonaktif <span class="n">1</span></label>
+          </div>
+          <button type="button" class="btn btn--ghost btn--sm">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
+            Filter
+          </button>
+        </div>
+      </div>
+
+      <section class="section">
+        <div class="section__head">
+          <h2>Karyawan</h2>
+          <span class="section__note">Menampilkan <span class="num">6</span> dari <span class="num">12</span></span>
+        </div>
+
+        <!-- Desktop: ledger table -->
+        <div class="tablewrap only-desktop">
+          <table class="ledger">
+            <caption class="sr-only">Daftar karyawan Warung Kopi Nusantara</caption>
+            <thead>
+              <tr>
+                <th scope="col">Nama</th>
+                <th scope="col">Kontrak</th>
+                <th scope="col">Status</th>
+                <th scope="col">Tanggal masuk</th>
+                <th scope="col" class="r">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row"><span class="person"><span class="avatar" aria-hidden="true">BS</span><span><span class="person__name">Budi Santoso</span><span class="person__meta">KRY-001 · Kepala Barista</span></span></span></th>
+                <td><span class="tag tag--cool">PKWTT</span></td>
+                <td><span class="tag tag--pos"><span class="tag__dot"></span>Aktif</span></td>
+                <td class="num">12 Jan 2023</td>
+                <td class="r"><a class="linkaction" href="#">Detail</a></td>
+              </tr>
+              <tr>
+                <th scope="row"><span class="person"><span class="avatar" aria-hidden="true">SN</span><span><span class="person__name">Siti Nurhaliza</span><span class="person__meta">KRY-002 · Kasir</span></span></span></th>
+                <td><span class="tag tag--cool">PKWTT</span></td>
+                <td><span class="tag tag--pos"><span class="tag__dot"></span>Aktif</span></td>
+                <td class="num">03 Mar 2023</td>
+                <td class="r"><a class="linkaction" href="#">Detail</a></td>
+              </tr>
+              <tr>
+                <th scope="row"><span class="person"><span class="avatar" aria-hidden="true">AF</span><span><span class="person__name">Ahmad Fauzi</span><span class="person__meta">KRY-003 · Barista</span></span></span></th>
+                <td><span class="tag tag--warn">PKWT</span></td>
+                <td><span class="tag tag--pos"><span class="tag__dot"></span>Aktif</span></td>
+                <td class="num">17 Jul 2024</td>
+                <td class="r"><a class="linkaction" href="#">Detail</a></td>
+              </tr>
+              <tr>
+                <th scope="row"><span class="person"><span class="avatar" aria-hidden="true">DL</span><span><span class="person__name">Dewi Lestari</span><span class="person__meta">KRY-004 · Pramusaji</span></span></span></th>
+                <td><span class="tag">Harian</span></td>
+                <td><span class="tag tag--pos"><span class="tag__dot"></span>Aktif</span></td>
+                <td class="num">02 Feb 2026</td>
+                <td class="r"><a class="linkaction" href="#">Detail</a></td>
+              </tr>
+              <tr>
+                <th scope="row"><span class="person person--off"><span class="avatar avatar--off" aria-hidden="true">RH</span><span><span class="person__name">Rudi Hermawan</span><span class="person__meta">KRY-005 · Kasir</span></span></span></th>
+                <td><span class="tag tag--cool">PKWTT</span></td>
+                <td><span class="tag"><span class="tag__dot"></span>Nonaktif</span></td>
+                <td class="num">08 Sep 2022</td>
+                <td class="r"><a class="linkaction" href="#">Detail</a></td>
+              </tr>
+              <tr>
+                <th scope="row"><span class="person"><span class="avatar" aria-hidden="true">MS</span><span><span class="person__name">Maya Sari</span><span class="person__meta">KRY-006 · Admin</span></span></span></th>
+                <td><span class="tag tag--warn">PKWT</span></td>
+                <td><span class="tag tag--pos"><span class="tag__dot"></span>Aktif</span></td>
+                <td class="num">21 Nov 2025</td>
+                <td class="r"><a class="linkaction" href="#">Detail</a></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Mobile: same data, row list -->
+        <ul class="rows only-mobile">
+          <li class="row">
+            <span class="avatar avatar--lg" aria-hidden="true">BS</span>
+            <span class="row__body">
+              <span class="row__title">Budi Santoso</span>
+              <span class="row__meta">KRY-001 · Kepala Barista · masuk 12 Jan 2023</span>
+              <span class="cluster mt-xs"><span class="tag tag--cool">PKWTT</span><span class="tag tag--pos"><span class="tag__dot"></span>Aktif</span></span>
+            </span>
+            <span class="row__end"><a class="linkaction" href="#">Detail</a></span>
+          </li>
+          <li class="row">
+            <span class="avatar avatar--lg" aria-hidden="true">SN</span>
+            <span class="row__body">
+              <span class="row__title">Siti Nurhaliza</span>
+              <span class="row__meta">KRY-002 · Kasir · masuk 03 Mar 2023</span>
+              <span class="cluster mt-xs"><span class="tag tag--cool">PKWTT</span><span class="tag tag--pos"><span class="tag__dot"></span>Aktif</span></span>
+            </span>
+            <span class="row__end"><a class="linkaction" href="#">Detail</a></span>
+          </li>
+          <li class="row">
+            <span class="avatar avatar--lg" aria-hidden="true">AF</span>
+            <span class="row__body">
+              <span class="row__title">Ahmad Fauzi</span>
+              <span class="row__meta">KRY-003 · Barista · masuk 17 Jul 2024</span>
+              <span class="cluster mt-xs"><span class="tag tag--warn">PKWT</span><span class="tag tag--pos"><span class="tag__dot"></span>Aktif</span></span>
+            </span>
+            <span class="row__end"><a class="linkaction" href="#">Detail</a></span>
+          </li>
+          <li class="row">
+            <span class="avatar avatar--lg" aria-hidden="true">DL</span>
+            <span class="row__body">
+              <span class="row__title">Dewi Lestari</span>
+              <span class="row__meta">KRY-004 · Pramusaji · masuk 02 Feb 2026</span>
+              <span class="cluster mt-xs"><span class="tag">Harian</span><span class="tag tag--pos"><span class="tag__dot"></span>Aktif</span></span>
+            </span>
+            <span class="row__end"><a class="linkaction" href="#">Detail</a></span>
+          </li>
+          <li class="row">
+            <span class="avatar avatar--lg avatar--off" aria-hidden="true">RH</span>
+            <span class="row__body">
+              <span class="row__title">Rudi Hermawan</span>
+              <span class="row__meta">KRY-005 · Kasir · masuk 08 Sep 2022</span>
+              <span class="cluster mt-xs"><span class="tag tag--cool">PKWTT</span><span class="tag"><span class="tag__dot"></span>Nonaktif</span></span>
+            </span>
+            <span class="row__end"><a class="linkaction" href="#">Detail</a></span>
+          </li>
+          <li class="row">
+            <span class="avatar avatar--lg" aria-hidden="true">MS</span>
+            <span class="row__body">
+              <span class="row__title">Maya Sari</span>
+              <span class="row__meta">KRY-006 · Admin · masuk 21 Nov 2025</span>
+              <span class="cluster mt-xs"><span class="tag tag--warn">PKWT</span><span class="tag tag--pos"><span class="tag__dot"></span>Aktif</span></span>
+            </span>
+            <span class="row__end"><a class="linkaction" href="#">Detail</a></span>
+          </li>
+        </ul>
+
+        <p class="xsmall muted mt-md">Sisa <span class="num">6</span> karyawan ada di halaman berikutnya.</p>
+      </section>
+    </main>
+  </div>
+</div>
+
+<nav class="tabbar" aria-label="Navigasi utama">
+  <a class="tab" href="03-dashboard-owner.html">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+    Ringkasan</a>
+  <a class="tab" href="05-daftar-karyawan.html" aria-current="page">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>
+    Karyawan</a>
+  <a class="tab" href="#">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+    Absensi</a>
+  <a class="tab" href="#">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/></svg>
+    Cuti<span class="tab__dot"></span></a>
+  <a class="tab" href="06-payroll-run.html">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg>
+    Payroll</a>
+</nav>
+
+<script src="app.js"></script>
+</body>
+</html>

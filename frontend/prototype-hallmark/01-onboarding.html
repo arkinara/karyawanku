@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Setup Usaha · KaryawanKu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="tokens.css" />
+<link rel="stylesheet" href="app.css" />
+</head>
+<body>
+<div class="plain">
+
+  <header class="masthead">
+    <a class="masthead__brand" href="index.html">
+      <span class="mark" aria-hidden="true">K</span>
+      <span class="wordmark">KaryawanKu</span>
+    </a>
+    <p class="small">Sudah punya akun? <a class="linkaction" href="02-masuk.html">Masuk</a></p>
+  </header>
+
+  <main class="narrow reveal">
+
+    <ol class="steps">
+      <li class="step is-now" data-stepitem="1">
+        <span class="step__n">01</span>
+        <span class="step__t">Profil usaha</span>
+      </li>
+      <li class="step" data-stepitem="2">
+        <span class="step__n">02</span>
+        <span class="step__t">Komponen gaji</span>
+      </li>
+      <li class="step" data-stepitem="3">
+        <span class="step__n">03</span>
+        <span class="step__t">Konfirmasi</span>
+      </li>
+    </ol>
+
+    <!-- STEP 1 -->
+    <section class="mt-xl" data-step="1">
+      <h1>Ceritakan tentang usaha Anda</h1>
+      <p class="small muted mt-xs">Data ini dipakai untuk slip gaji dan laporan bulanan.</p>
+
+      <div class="stack-l mt-lg">
+        <div class="field">
+          <label class="field__label" for="namaUsaha">Nama usaha</label>
+          <input class="input" id="namaUsaha" type="text" value="Warung Kopi Nusantara" />
+        </div>
+
+        <fieldset class="bare">
+          <legend class="field__label">Jenis usaha</legend>
+          <div class="radiocards">
+            <label class="radiocard">
+              <input type="radio" name="jenisUsaha" checked />
+              <span class="box">
+                <span class="t">F&amp;B</span>
+                <span class="d">Restoran, kafe, katering</span>
+              </span>
+            </label>
+            <label class="radiocard">
+              <input type="radio" name="jenisUsaha" />
+              <span class="box">
+                <span class="t">Jasa</span>
+                <span class="d">Salon, bengkel, laundry</span>
+              </span>
+            </label>
+          </div>
+        </fieldset>
+
+        <div class="duo">
+          <div class="field">
+            <label class="field__label" for="jumlahKaryawan">Perkiraan jumlah karyawan</label>
+            <div class="selectwrap">
+              <select class="input" id="jumlahKaryawan">
+                <option>1 – 5 orang</option>
+                <option selected>6 – 20 orang</option>
+                <option>21 – 50 orang</option>
+                <option>Lebih dari 50 orang</option>
+              </select>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </div>
+          </div>
+          <div class="field">
+            <label class="field__label" for="kotaUsaha">Kota</label>
+            <input class="input" id="kotaUsaha" type="text" value="Jakarta Selatan" />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 2 -->
+    <section class="mt-xl" data-step="2" hidden>
+      <h1>Komponen gaji standar</h1>
+      <p class="small muted mt-xs">Nilai ini jadi default saat menambah karyawan baru. Bisa diubah per orang nanti.</p>
+
+      <div class="mt-lg">
+        <div class="compo">
+          <div class="split">
+            <div>
+              <p class="row__title">Gaji Pokok</p>
+              <p class="row__meta">Komponen wajib, dasar semua perhitungan</p>
+            </div>
+            <span class="tag tag--teal">Wajib</span>
+          </div>
+          <div class="inputgroup mt-sm">
+            <span class="inputgroup__affix">Rp</span>
+            <label class="sr-only" for="gajiPokok">Gaji pokok</label>
+            <input class="input" id="gajiPokok" type="text" inputmode="numeric" value="4.500.000" />
+          </div>
+        </div>
+
+        <div class="compo">
+          <div class="split">
+            <div>
+              <p class="row__title">Tunjangan Transport</p>
+              <p class="row__meta">Dibayar per bulan, menambah pendapatan</p>
+            </div>
+            <span class="tag tag--pos">Pendapatan</span>
+          </div>
+          <div class="inputgroup mt-sm">
+            <span class="inputgroup__affix">Rp</span>
+            <label class="sr-only" for="tunjTransport">Tunjangan transport</label>
+            <input class="input" id="tunjTransport" type="text" inputmode="numeric" value="500.000" />
+          </div>
+        </div>
+
+        <div class="compo">
+          <div class="split">
+            <div>
+              <p class="row__title">Potongan BPJS</p>
+              <p class="row__meta">Dipotong dari gaji pokok setiap bulan</p>
+            </div>
+            <span class="tag tag--neg">Potongan</span>
+          </div>
+          <div class="duo mt-sm">
+            <div class="field">
+              <label class="field__label" for="bpjsKes">BPJS Kesehatan</label>
+              <div class="inputgroup">
+                <input class="input" id="bpjsKes" type="text" inputmode="decimal" value="1" />
+                <span class="inputgroup__affix inputgroup__affix--end">%</span>
+              </div>
+            </div>
+            <div class="field">
+              <label class="field__label" for="bpjsTk">BPJS Ketenagakerjaan</label>
+              <div class="inputgroup">
+                <input class="input" id="bpjsTk" type="text" inputmode="decimal" value="2" />
+                <span class="inputgroup__affix inputgroup__affix--end">%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 3 -->
+    <section class="mt-xl" data-step="3" hidden>
+      <h1>Periksa kembali</h1>
+      <p class="small muted mt-xs">Pastikan semua sudah benar sebelum kita mulai.</p>
+
+      <section class="section">
+        <div class="section__head section__head--sub">
+          <h2>Profil usaha</h2>
+          <button type="button" class="linkaction" data-goto="1">Ubah</button>
+        </div>
+        <div class="panel">
+          <dl>
+            <div class="leader"><dt class="leader__k">Nama usaha</dt><span class="leader__fill"></span><dd class="leader__v">Warung Kopi Nusantara</dd></div>
+            <div class="leader"><dt class="leader__k">Jenis usaha</dt><span class="leader__fill"></span><dd class="leader__v">F&amp;B</dd></div>
+            <div class="leader"><dt class="leader__k">Jumlah karyawan</dt><span class="leader__fill"></span><dd class="leader__v">6 – 20 orang</dd></div>
+            <div class="leader"><dt class="leader__k">Kota</dt><span class="leader__fill"></span><dd class="leader__v">Jakarta Selatan</dd></div>
+          </dl>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section__head section__head--sub">
+          <h2>Komponen gaji default</h2>
+          <button type="button" class="linkaction" data-goto="2">Ubah</button>
+        </div>
+        <div class="panel">
+          <dl>
+            <div class="leader"><dt class="leader__k">Gaji Pokok</dt><span class="leader__fill"></span><dd class="leader__v">Rp 4.500.000</dd></div>
+            <div class="leader"><dt class="leader__k">Tunjangan Transport</dt><span class="leader__fill"></span><dd class="leader__v money-pos">+ Rp 500.000</dd></div>
+            <div class="leader"><dt class="leader__k">BPJS Kesehatan — 1%</dt><span class="leader__fill"></span><dd class="leader__v money-neg">− Rp 45.000</dd></div>
+            <div class="leader"><dt class="leader__k">BPJS Ketenagakerjaan — 2%</dt><span class="leader__fill"></span><dd class="leader__v money-neg">− Rp 90.000</dd></div>
+            <div class="leader leader--total"><dt class="leader__k">Estimasi take-home pay</dt><span class="leader__fill"></span><dd class="leader__v">Rp 4.865.000</dd></div>
+          </dl>
+        </div>
+        <p class="xsmall muted mt-sm">Semua nilai masih bisa diubah kapan saja di menu Pengaturan.</p>
+      </section>
+    </section>
+
+    <div class="wizard__actions">
+      <button type="button" class="btn btn--ghost" id="btnBack" disabled>Kembali</button>
+      <button type="button" class="btn btn--primary" id="btnNext">Lanjut</button>
+    </div>
+  </main>
+</div>
+
+<script src="app.js"></script>
+<script>
+  (function () {
+    var step = 1;
+    var back = document.getElementById('btnBack');
+    var next = document.getElementById('btnNext');
+
+    function render() {
+      Array.prototype.forEach.call(document.querySelectorAll('[data-step]'), function (s) {
+        s.hidden = Number(s.dataset.step) !== step;
+      });
+      Array.prototype.forEach.call(document.querySelectorAll('[data-stepitem]'), function (li) {
+        var n = Number(li.dataset.stepitem);
+        li.className = 'step' + (n < step ? ' is-done' : n === step ? ' is-now' : '');
+      });
+      back.disabled = step === 1;
+      next.textContent = step === 3 ? 'Selesai & mulai' : 'Lanjut';
+    }
+
+    next.addEventListener('click', function () {
+      if (step < 3) { step++; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+    });
+    back.addEventListener('click', function () {
+      if (step > 1) { step--; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-goto]'), function (b) {
+      b.addEventListener('click', function () { step = Number(b.dataset.goto); render(); });
+    });
+    render();
+  })();
+</script>
+</body>
+</html>

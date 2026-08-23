@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light dark" />
+<title>Slip Gaji · KaryawanKu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/kk.css" />
+<script>(function(){var q=new URLSearchParams(location.search).get('theme');var m=q;if(!m){try{m=localStorage.getItem('kk-theme')}catch(e){}}if(!m)m=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';if(m==='dark')document.documentElement.classList.add('dark')})();</script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="assets/kk-tailwind.js"></script>
+<style>
+  .lineitem { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: 8px 0; }
+  .lineitem + .lineitem { border-top: 1px dashed hsl(var(--outline-variant)); }
+  .lineitem .k { min-width: 0; }
+  .lineitem .v { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+  .total-row {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
+    margin-top: 10px; padding-top: 10px;
+    border-top: 1px solid hsl(var(--outline-variant));
+    font-weight: 700;
+  }
+  .paystub {
+    background: hsl(var(--primary-container));
+    color: hsl(var(--on-primary-container));
+    border-color: hsl(var(--primary) / .3);
+  }
+  @media print { .paystub { background: #fff; color: #000; border: 1px solid #999; } }
+</style>
+</head>
+<body class="min-h-dvh"
+      data-kk-shell="employee" data-kk-nav="payslip"
+      data-kk-title="Slip gaji"
+      data-kk-subtitle="Siti Nurhaliza · Kasir">
+
+<main id="main" class="page" data-kk-main>
+  <div class="page-inner" style="max-width:1080px">
+
+    <div class="page-head">
+      <div>
+        <h1 class="t-h1">Slip gaji</h1>
+        <p class="t-body-sm t-muted mt-1">Warung Kopi Nusantara · NPWP 01.234.567.8-901.000</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <label class="t-caption" for="period">Periode</label>
+        <select class="select" id="period" style="width:auto;min-height:40px">
+          <option value="2026-08" selected>Agustus 2026</option>
+          <option value="2026-07">Juli 2026</option>
+          <option value="2026-06">Juni 2026</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Header card -->
+    <section class="card card-pad reveal" aria-labelledby="h-emp">
+      <div class="flex flex-wrap items-center gap-4">
+        <span class="avatar avatar-lg">SN</span>
+        <div class="min-w-0 flex-1">
+          <h2 class="t-h2" id="h-emp">Siti Nurhaliza</h2>
+          <p class="t-caption mt-0.5">Kasir · PKWTT · KRY-002 · Cabang Kemang</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="chip chip-success" id="payStatus"><span class="chip-dot" style="background:hsl(var(--success))"></span>Terbayar</span>
+          <span class="chip" id="payDate">Transfer 25 Agu 2026</span>
+        </div>
+      </div>
+
+      <div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div class="rounded-md p-3" style="background:hsl(var(--surface-1))">
+          <p class="metric-value" style="font-size:20px" id="sHari">22</p>
+          <p class="t-caption mt-0.5">Hari hadir</p>
+        </div>
+        <div class="rounded-md p-3" style="background:hsl(var(--surface-1))">
+          <p class="metric-value" style="font-size:20px" id="sJam">176<span class="unit">j</span></p>
+          <p class="t-caption mt-0.5">Jam kerja</p>
+        </div>
+        <div class="rounded-md p-3" style="background:hsl(var(--surface-1))">
+          <p class="metric-value" style="font-size:20px" id="sLembur">4<span class="unit">j</span></p>
+          <p class="t-caption mt-0.5">Lembur</p>
+        </div>
+        <div class="rounded-md p-3" style="background:hsl(var(--surface-1))">
+          <p class="metric-value" style="font-size:20px" id="sTelat">0</p>
+          <p class="t-caption mt-0.5">Telat</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)]">
+
+      <div class="space-y-3">
+        <!-- Earnings -->
+        <section class="card reveal" aria-labelledby="h-in">
+          <div class="card-head" style="background:hsl(var(--success-container));color:hsl(var(--on-success-container));border-radius:calc(var(--r-lg) - 1px) calc(var(--r-lg) - 1px) 0 0">
+            <h2 class="t-h3" id="h-in" style="text-transform:uppercase;letter-spacing:.06em;font-size:12px">Pendapatan</h2>
+            <span class="num t-label" id="inTotal">—</span>
+          </div>
+          <div class="card-body" id="inRows"></div>
+        </section>
+
+        <!-- Deductions -->
+        <section class="card reveal" aria-labelledby="h-out">
+          <div class="card-head" style="background:hsl(var(--danger-container));color:hsl(var(--on-danger-container));border-radius:calc(var(--r-lg) - 1px) calc(var(--r-lg) - 1px) 0 0">
+            <h2 class="t-h3" id="h-out" style="text-transform:uppercase;letter-spacing:.06em;font-size:12px">Potongan</h2>
+            <span class="num t-label" id="outTotal">—</span>
+          </div>
+          <div class="card-body" id="outRows"></div>
+        </section>
+
+        <!-- History -->
+        <section class="card reveal" aria-labelledby="h-hist">
+          <div class="card-head">
+            <h2 class="t-h2" id="h-hist">Riwayat 6 bulan</h2>
+            <span class="t-caption">Take-home per bulan</span>
+          </div>
+          <div class="card-body">
+            <div class="bars" id="histBars" style="height:88px" role="img" aria-labelledby="histDesc"></div>
+            <div class="bar-axis" id="histAxis" aria-hidden="true"></div>
+            <p class="sr-only" id="histDesc"></p>
+          </div>
+        </section>
+
+        <p class="t-caption text-center">
+          Slip ini dihasilkan otomatis. Ada selisih?
+          <button type="button" class="btn btn-text btn-sm" id="report" style="min-height:32px">Laporkan ke HR</button>
+        </p>
+      </div>
+
+      <!-- Summary -->
+      <aside>
+        <div class="card card-pad paystub reveal" style="position:sticky;top:calc(var(--appbar-h) + 16px)">
+          <p class="t-over" style="color:inherit;opacity:.8">Ringkasan</p>
+          <p class="t-body-sm mt-1" id="sumPeriod">Periode Agustus 2026</p>
+
+          <div class="mt-4" style="padding:12px 0;border-top:1px solid hsl(var(--primary)/.25);border-bottom:1px solid hsl(var(--primary)/.25)">
+            <div class="flex items-baseline justify-between gap-3">
+              <span class="t-body-sm" style="opacity:.9">Total pendapatan</span>
+              <span class="num t-label" id="sumIn">—</span>
+            </div>
+            <div class="mt-1.5 flex items-baseline justify-between gap-3">
+              <span class="t-body-sm" style="opacity:.9">Total potongan</span>
+              <span class="num t-label" id="sumOut">—</span>
+            </div>
+          </div>
+
+          <p class="t-over mt-4" style="color:inherit;opacity:.8">Take-home pay</p>
+          <p class="num mt-1 text-[30px] font-bold leading-none" id="sumNet">—</p>
+          <p class="t-caption mt-2" style="color:inherit;opacity:.85">Ditransfer ke BCA ****1234 a/n Siti Nurhaliza</p>
+
+          <div class="mt-4 space-y-2 no-print">
+            <button type="button" class="btn btn-filled btn-block"
+                    data-kk-async='{"ms":1200,"toast":"slip-gaji-agustus-2026.pdf siap diunduh.","tone":"success"}'>
+              <span data-icon="download"></span> Unduh PDF
+            </button>
+            <button type="button" class="btn btn-outline btn-block" onclick="window.print()">
+              <span data-icon="printer"></span> Cetak
+            </button>
+          </div>
+
+          <p class="t-caption mt-4" style="color:inherit;opacity:.8">
+            Perhitungan mengikuti komponen yang disetujui pemilik pada 20 Agustus 2026.
+          </p>
+        </div>
+      </aside>
+    </div>
+  </div>
+</main>
+
+<script src="assets/kk.js"></script>
+<script>
+(function () {
+  document.querySelectorAll('[data-icon]').forEach(function (el) { el.innerHTML = KK.icon(el.dataset.icon, 18); });
+
+  function rp(n) { return 'Rp ' + new Intl.NumberFormat('id-ID').format(n); }
+
+  /* ---------- payslip data per period ---------------------------------- */
+  var SLIPS = {
+    '2026-08': {
+      label: 'Agustus 2026', paid: false, transfer: 'Jadwal transfer 25 Agu 2026',
+      stats: { hari: 22, jam: 176, lembur: 4, telat: 0 },
+      earnings: [
+        { k: 'Gaji pokok', s: '22 hari kerja · PKWTT', v: 2400000 },
+        { k: 'Tunjangan transport', s: 'Rp 200.000 per bulan', v: 200000 },
+        { k: 'Tunjangan makan', s: '22 hari × Rp 6.818', v: 150000 },
+        { k: 'Lembur', s: '4 jam × 1,5 × upah per jam', v: 150000 },
+      ],
+      deductions: [
+        { k: 'BPJS Kesehatan', s: '1% dari gaji pokok', v: 24000 },
+        { k: 'BPJS Ketenagakerjaan', s: '2% dari gaji pokok (JHT + JP)', v: 48000 },
+      ],
+    },
+    '2026-07': {
+      label: 'Juli 2026', paid: true, transfer: 'Ditransfer 25 Jul 2026',
+      stats: { hari: 21, jam: 168, lembur: 2, telat: 1 },
+      earnings: [
+        { k: 'Gaji pokok', s: '21 hari kerja · PKWTT', v: 2400000 },
+        { k: 'Tunjangan transport', s: 'Rp 200.000 per bulan', v: 200000 },
+        { k: 'Tunjangan makan', s: '21 hari × Rp 6.818', v: 143000 },
+        { k: 'Lembur', s: '2 jam × 1,5 × upah per jam', v: 75000 },
+      ],
+      deductions: [
+        { k: 'BPJS Kesehatan', s: '1% dari gaji pokok', v: 24000 },
+        { k: 'BPJS Ketenagakerjaan', s: '2% dari gaji pokok (JHT + JP)', v: 48000 },
+        { k: 'Potongan keterlambatan', s: '1 kejadian · 15 menit', v: 15000 },
+      ],
+    },
+    '2026-06': {
+      label: 'Juni 2026', paid: true, transfer: 'Ditransfer 25 Jun 2026',
+      stats: { hari: 22, jam: 176, lembur: 0, telat: 0 },
+      earnings: [
+        { k: 'Gaji pokok', s: '22 hari kerja · PKWTT', v: 2400000 },
+        { k: 'Tunjangan transport', s: 'Rp 200.000 per bulan', v: 200000 },
+        { k: 'Tunjangan makan', s: '22 hari × Rp 6.818', v: 150000 },
+        { k: 'THR Idul Fitri', s: '1× gaji pokok', v: 2400000 },
+      ],
+      deductions: [
+        { k: 'BPJS Kesehatan', s: '1% dari gaji pokok', v: 24000 },
+        { k: 'BPJS Ketenagakerjaan', s: '2% dari gaji pokok (JHT + JP)', v: 48000 },
+      ],
+    },
+  };
+
+  var HISTORY = [
+    { m: 'Mar', v: 2678000 }, { m: 'Apr', v: 2753000 }, { m: 'Mei', v: 2828000 },
+    { m: 'Jun', v: 5078000 }, { m: 'Jul', v: 2731000 }, { m: 'Agu', v: 2828000 },
+  ];
+
+  function itemHTML(it, negative) {
+    return '<div class="lineitem">' +
+      '<span class="k"><span class="t-body-sm block" style="font-weight:550">' + it.k + '</span>' +
+      '<span class="t-caption block">' + it.s + '</span></span>' +
+      '<span class="v"' + (negative ? ' style="color:hsl(var(--danger))"' : '') + '>' +
+      (negative ? '− ' : '') + rp(it.v) + '</span></div>';
+  }
+
+  function render(key) {
+    var s = SLIPS[key];
+    var inSum = s.earnings.reduce(function (a, x) { return a + x.v; }, 0);
+    var outSum = s.deductions.reduce(function (a, x) { return a + x.v; }, 0);
+    var net = inSum - outSum;
+
+    document.getElementById('sHari').textContent = s.stats.hari;
+    document.getElementById('sJam').innerHTML = s.stats.jam + '<span class="unit">j</span>';
+    document.getElementById('sLembur').innerHTML = s.stats.lembur + '<span class="unit">j</span>';
+    document.getElementById('sTelat').textContent = s.stats.telat;
+
+    var status = document.getElementById('payStatus');
+    status.className = 'chip ' + (s.paid ? 'chip-success' : 'chip-warning');
+    status.innerHTML = '<span class="chip-dot" style="background:hsl(var(--' + (s.paid ? 'success' : 'warning') + '))"></span>' +
+      (s.paid ? 'Terbayar' : 'Menunggu transfer');
+    document.getElementById('payDate').textContent = s.transfer;
+
+    document.getElementById('inRows').innerHTML =
+      s.earnings.map(function (x) { return itemHTML(x, false); }).join('') +
+      '<div class="total-row"><span>Total pendapatan</span><span class="num">' + rp(inSum) + '</span></div>';
+    document.getElementById('outRows').innerHTML =
+      s.deductions.map(function (x) { return itemHTML(x, true); }).join('') +
+      '<div class="total-row"><span>Total potongan</span><span class="num" style="color:hsl(var(--danger))">− ' + rp(outSum) + '</span></div>';
+
+    document.getElementById('inTotal').textContent = rp(inSum);
+    document.getElementById('outTotal').textContent = '− ' + rp(outSum);
+    document.getElementById('sumIn').textContent = rp(inSum);
+    document.getElementById('sumOut').textContent = '− ' + rp(outSum);
+    document.getElementById('sumNet').textContent = rp(net);
+    document.getElementById('sumPeriod').textContent = 'Periode ' + s.label;
+    document.title = 'Slip Gaji ' + s.label + ' · KaryawanKu';
+    KK.announce('Slip gaji periode ' + s.label + ', take-home ' + rp(net));
+  }
+
+  /* ---------- 6-month history chart ------------------------------------ */
+  var max = Math.max.apply(null, HISTORY.map(function (h) { return h.v; }));
+  document.getElementById('histBars').innerHTML = HISTORY.map(function (h, i) {
+    var current = i === HISTORY.length - 1;
+    return '<button type="button" class="bar-col" aria-label="' + h.m + ' ' + rp(h.v) + '">' +
+      '<span class="tip">' + h.m + ' · ' + rp(h.v) + '</span>' +
+      '<span class="bar-seg" style="height:' + (h.v / max * 100).toFixed(1) + '%;animation-delay:' + (i * 40) + 'ms;' +
+      'background:hsl(var(--' + (current ? 'primary' : 'primary') + '))' + (current ? '' : ';opacity:.45') + '"></span>' +
+      '</button>';
+  }).join('');
+  document.getElementById('histAxis').innerHTML = HISTORY.map(function (h) { return '<span>' + h.m + '</span>'; }).join('');
+  document.getElementById('histDesc').textContent =
+    'Take-home pay 6 bulan terakhir: ' + HISTORY.map(function (h) { return h.m + ' ' + rp(h.v); }).join(', ') +
+    '. Kenaikan pada Juni karena THR Idul Fitri.';
+
+  document.getElementById('period').addEventListener('change', function () { render(this.value); });
+
+  document.getElementById('report').addEventListener('click', function () {
+    KK.confirm({
+      title: 'Laporkan selisih ke HR?',
+      body: 'Kami kirim rincian slip Agustus 2026 ke pemilik usaha beserta catatan Anda. Biasanya dibalas dalam 1 hari kerja.',
+      confirm: 'Kirim laporan',
+      cancel: 'Batal',
+    }).then(function (ok) {
+      if (ok) KK.toast('Laporan terkirim ke HR. Nomor tiket #2081.', { tone: 'success' });
+    });
+  });
+
+  render('2026-08');
+})();
+</script>
+</body>
+</html>

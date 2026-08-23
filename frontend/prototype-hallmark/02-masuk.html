@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Masuk · KaryawanKu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="tokens.css" />
+<link rel="stylesheet" href="app.css" />
+</head>
+<body>
+<div class="auth">
+
+  <!-- Graphite side: the product doing its job, labelled as a sample -->
+  <aside class="auth__side">
+    <div class="masthead__brand">
+      <span class="mark" aria-hidden="true">K</span>
+      <span class="wordmark">KaryawanKu</span>
+    </div>
+
+    <div>
+      <h1 class="auth__headline">Absensi, cuti, dan gaji dalam satu buku.</h1>
+      <p class="auth__lede">Untuk usaha kecil di Indonesia. Karyawan absen dari HP, Anda setujui cuti dan payroll dari satu layar.</p>
+
+      <figure class="auth__specimen mt-lg">
+        <figcaption class="label">Contoh tampilan · payroll Agustus</figcaption>
+        <dl class="mt-sm">
+          <div class="leader"><dt class="leader__k">Total gaji</dt><span class="leader__fill"></span><dd class="leader__v">Rp 28.500.000</dd></div>
+          <div class="leader"><dt class="leader__k">Karyawan dihitung</dt><span class="leader__fill"></span><dd class="leader__v">12</dd></div>
+          <div class="leader"><dt class="leader__k">Kehadiran hari ini</dt><span class="leader__fill"></span><dd class="leader__v">10/12</dd></div>
+          <div class="leader leader--total"><dt class="leader__k">Jadwal bayar</dt><span class="leader__fill"></span><dd class="leader__v">25 Agu 2026</dd></div>
+        </dl>
+      </figure>
+    </div>
+
+    <p class="small">Absensi · Cuti · Shift · Payroll · Slip gaji</p>
+  </aside>
+
+  <!-- Form -->
+  <main class="auth__form">
+    <div class="auth__form-inner reveal">
+
+      <div class="masthead__brand hide-at-side">
+        <span class="mark mark--lg" aria-hidden="true">K</span>
+        <span class="wordmark">KaryawanKu</span>
+      </div>
+
+      <h1 class="mt-lg">Masuk</h1>
+      <p class="small muted mt-xs">Kelola karyawan dan gaji dari satu tempat.</p>
+
+      <form class="stack mt-lg" onsubmit="event.preventDefault();">
+        <div class="field">
+          <label class="field__label" for="email">Email</label>
+          <input class="input" id="email" type="email" autocomplete="email" placeholder="nama@usaha.com" />
+        </div>
+
+        <div class="field">
+          <div class="split">
+            <label class="field__label" for="password">Kata sandi</label>
+            <a class="linkaction" href="#">Lupa sandi?</a>
+          </div>
+          <div class="pwwrap">
+            <input class="input" id="password" type="password" autocomplete="current-password" placeholder="••••••••" />
+            <button type="button" class="iconbtn" id="togglePw" aria-label="Tampilkan kata sandi" aria-pressed="false">
+              <svg id="eyeIcon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <label class="check">
+          <input type="checkbox" />
+          Ingat saya di perangkat ini
+        </label>
+
+        <button type="submit" class="btn btn--primary btn--block">Masuk</button>
+      </form>
+
+      <p class="divider small">atau</p>
+
+      <button type="button" class="btn btn--ghost btn--block">
+        <!-- Google mark keeps its own brand colours; third-party logos are exempt from the token system. -->
+        <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.7v3h3.9c2.3-2.1 3.5-5.2 3.5-8.9Z"/>
+          <path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.9-3c-1.1.7-2.4 1.2-4 1.2-3.1 0-5.7-2.1-6.6-4.9H1.4v3.1A12 12 0 0 0 12 24Z"/>
+          <path fill="#FBBC05" d="M5.4 14.4a7.2 7.2 0 0 1 0-4.6V6.7H1.4a12 12 0 0 0 0 10.8l4-3.1Z"/>
+          <path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.4 6.7l4 3.1C6.3 6.9 8.9 4.8 12 4.8Z"/>
+        </svg>
+        Masuk dengan Google
+      </button>
+
+      <p class="small muted mt-lg center">
+        Belum punya akun? <a class="linkaction" href="01-onboarding.html">Daftar usaha</a>
+      </p>
+
+      <p class="xsmall muted mt-md center">
+        Dengan masuk, Anda setuju pada
+        <a class="linkaction" href="#">Syarat Layanan</a> dan
+        <a class="linkaction" href="#">Kebijakan Privasi</a> KaryawanKu.
+      </p>
+
+      <p class="xsmall muted mt-lg center"><a class="linkaction" href="index.html">← Kembali ke indeks prototipe</a></p>
+    </div>
+  </main>
+</div>
+
+<script>
+  (function () {
+    var pw = document.getElementById('password');
+    var btn = document.getElementById('togglePw');
+    btn.addEventListener('click', function () {
+      var show = pw.type === 'password';
+      pw.type = show ? 'text' : 'password';
+      btn.setAttribute('aria-pressed', String(show));
+      btn.setAttribute('aria-label', show ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi');
+    });
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light dark" />
+<title>Ringkasan Hari Ini · KaryawanKu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/kk.css" />
+<script>(function(){var q=new URLSearchParams(location.search).get('theme');var m=q;if(!m){try{m=localStorage.getItem('kk-theme')}catch(e){}}if(!m)m=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';if(m==='dark')document.documentElement.classList.add('dark')})();</script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="assets/kk-tailwind.js"></script>
+</head>
+<body class="min-h-dvh"
+      data-kk-shell="owner" data-kk-nav="dashboard"
+      data-kk-title="Selamat pagi, Pak Darmawan"
+      data-kk-subtitle="Warung Kopi Nusantara · Rabu, 19 Agustus 2026">
+
+<main id="main" class="page" data-kk-main>
+  <div class="page-inner">
+
+    <div class="page-head">
+      <div>
+        <h1 class="t-h1">Ringkasan hari ini</h1>
+        <p class="t-body-sm t-muted mt-1">Rabu, 19 Agustus 2026 · data terakhir masuk <time datetime="2026-08-19T08:12">08:12 WIB</time></p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="segmented" role="tablist" aria-label="Rentang waktu">
+          <button role="tab" class="seg" aria-selected="true" data-range="today">Hari ini</button>
+          <button role="tab" class="seg" aria-selected="false" data-range="week">7 hari</button>
+          <button role="tab" class="seg" aria-selected="false" data-range="month">30 hari</button>
+        </div>
+        <button type="button" class="btn btn-outline"
+                data-kk-async='{"ms":1200,"toast":"Laporan Agustus 2026 (CSV) siap diunduh.","tone":"success"}'>
+          <span data-icon="download"></span> Unduh laporan
+        </button>
+      </div>
+    </div>
+
+    <!-- Priority banner: the one thing that needs a decision today -->
+    <div class="banner banner-warning reveal" id="actionBanner">
+      <span class="icon-tile icon-tile-warning" data-icon="alert"></span>
+      <div class="min-w-0 flex-1">
+        <p class="t-label"><span id="bannerCount">2</span> pengajuan cuti menunggu keputusan Anda</p>
+        <p class="t-caption mt-0.5">Paling lama menunggu 2 hari. Karyawan tidak bisa mengatur jadwal sebelum disetujui.</p>
+      </div>
+      <a href="#leave" class="btn btn-tonal btn-sm no-print">Tinjau</a>
+    </div>
+
+    <!-- Metrics -->
+    <div class="metric-grid mt-4">
+      <div class="card card-pad reveal">
+        <div class="flex items-start justify-between gap-3">
+          <p class="t-label t-muted">Total karyawan</p>
+          <span class="icon-tile icon-tile-primary" data-icon="users"></span>
+        </div>
+        <p class="metric-value mt-3">12</p>
+        <p class="t-caption mt-1">11 aktif · 1 nonaktif
+          <span class="delta delta-up ml-1"><span data-icon-xs="arrowUp"></span>+1 bulan ini</span>
+        </p>
+      </div>
+
+      <div class="card card-pad reveal">
+        <div class="flex items-start justify-between gap-3">
+          <p class="t-label t-muted">Hadir hari ini</p>
+          <span class="icon-tile icon-tile-success" data-icon="checkCircle"></span>
+        </div>
+        <p class="metric-value mt-3">10<span class="unit">/12</span></p>
+        <p class="t-caption mt-1">83% kehadiran
+          <span class="delta delta-up ml-1"><span data-icon-xs="arrowUp"></span>4 poin vs rata-rata</span>
+        </p>
+      </div>
+
+      <div class="card card-pad reveal">
+        <div class="flex items-start justify-between gap-3">
+          <p class="t-label t-muted">Cuti menunggu</p>
+          <span class="icon-tile icon-tile-warning" data-icon="calendar"></span>
+        </div>
+        <p class="metric-value mt-3" id="metricPending">2</p>
+        <p class="t-caption mt-1" style="color:hsl(var(--warning))">Perlu keputusan Anda</p>
+      </div>
+
+      <div class="card card-pad reveal">
+        <div class="flex items-start justify-between gap-3">
+          <p class="t-label t-muted">Payroll Agustus</p>
+          <span class="icon-tile icon-tile-info" data-icon="wallet"></span>
+        </div>
+        <p class="metric-value mt-3">Rp 29,0<span class="unit">jt</span></p>
+        <p class="t-caption mt-1">Bayar 25 Agu · <span class="font-semibold" style="color:hsl(var(--on-surface))">6 hari lagi</span></p>
+      </div>
+    </div>
+
+    <!-- Row: trend chart + today's attendance -->
+    <div class="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+
+      <section class="card reveal" aria-labelledby="h-trend">
+        <div class="card-head">
+          <div>
+            <h2 class="t-h2" id="h-trend">Tren kehadiran 14 hari</h2>
+            <p class="t-caption mt-0.5">Jumlah karyawan per status, per hari kerja</p>
+          </div>
+          <span class="chip chip-success"><span class="chip-dot"></span>Rata-rata 86%</span>
+        </div>
+
+        <div class="card-body">
+          <div class="bars" id="bars" role="img" aria-labelledby="chartSummary"></div>
+          <div class="bar-axis" id="barAxis" aria-hidden="true"></div>
+
+          <p class="sr-only" id="chartSummary">
+            Grafik batang kehadiran 14 hari kerja terakhir. Rata-rata 86 persen hadir tepat waktu.
+            Kehadiran terendah pada 8 Agustus, tertinggi pada 12 dan 18 Agustus. Tabel lengkap tersedia di bawah grafik.
+          </p>
+
+          <div class="legend">
+            <span class="item"><span class="swatch" style="background:hsl(var(--success))"></span>Hadir tepat waktu</span>
+            <span class="item"><span class="swatch" style="background:hsl(var(--warning))"></span>Telat</span>
+            <span class="item"><span class="swatch" style="background:hsl(var(--danger)/.75)"></span>Absen / izin</span>
+          </div>
+
+          <!-- Chart data is never colour-only: the same numbers as a table -->
+          <details class="mt-4">
+            <summary class="t-label" style="cursor:pointer;color:hsl(var(--primary))">Lihat data sebagai tabel</summary>
+            <div class="table-wrap mt-2" style="max-height:240px;overflow-y:auto">
+              <table class="kk" id="chartTable">
+                <caption class="sr-only">Kehadiran per hari, 14 hari kerja terakhir</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Tanggal</th>
+                    <th scope="col" class="num-cell">Tepat waktu</th>
+                    <th scope="col" class="num-cell">Telat</th>
+                    <th scope="col" class="num-cell">Absen</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </details>
+        </div>
+      </section>
+
+      <section class="card reveal" aria-labelledby="h-today">
+        <div class="card-head">
+          <div>
+            <h2 class="t-h2" id="h-today">Absensi hari ini</h2>
+            <p class="t-caption mt-0.5">Shift Pagi · 07:00 mulai</p>
+          </div>
+          <a href="#" class="btn btn-text btn-sm">Semua</a>
+        </div>
+
+        <div class="card-body">
+          <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div class="rounded-md p-3" style="background:hsl(var(--success-container));color:hsl(var(--on-success-container))">
+              <p class="num text-[22px] font-bold leading-none">10</p>
+              <p class="mt-1 text-[11.5px] font-semibold">Hadir</p>
+            </div>
+            <div class="rounded-md p-3" style="background:hsl(var(--warning-container));color:hsl(var(--on-warning-container))">
+              <p class="num text-[22px] font-bold leading-none">2</p>
+              <p class="mt-1 text-[11.5px] font-semibold">Telat</p>
+            </div>
+            <div class="rounded-md p-3" style="background:hsl(var(--surface-2))">
+              <p class="num text-[22px] font-bold leading-none">0</p>
+              <p class="t-caption mt-1 text-[11.5px] font-semibold">Absen</p>
+            </div>
+            <div class="rounded-md p-3" style="background:hsl(var(--surface-2))">
+              <p class="num text-[22px] font-bold leading-none">0</p>
+              <p class="t-caption mt-1 text-[11.5px] font-semibold">Izin</p>
+            </div>
+          </div>
+
+          <div class="mt-4">
+            <div class="meter" role="img" aria-label="10 dari 12 karyawan hadir, 2 di antaranya telat">
+              <span style="width:66.7%;background:hsl(var(--success))"></span>
+              <span style="width:16.6%;background:hsl(var(--warning))"></span>
+            </div>
+            <div class="legend">
+              <span class="item"><span class="swatch" style="background:hsl(var(--success))"></span>8 tepat waktu</span>
+              <span class="item"><span class="swatch" style="background:hsl(var(--warning))"></span>2 telat</span>
+              <span class="item"><span class="swatch" style="background:hsl(var(--surface-3))"></span>2 belum check-in</span>
+            </div>
+          </div>
+
+          <div class="card card-flat mt-4" style="background:hsl(var(--surface-1))">
+            <p class="t-over" style="padding:10px 14px;border-bottom:1px solid hsl(var(--outline-variant))">Perlu ditinjau</p>
+            <ul style="list-style:none;margin:0;padding:0">
+              <li class="flex items-center gap-3 p-3" style="border-bottom:1px solid hsl(var(--outline-variant))">
+                <span class="avatar" style="background:hsl(var(--warning-container));color:hsl(var(--on-warning-container))">AS</span>
+                <span class="min-w-0 flex-1">
+                  <span class="t-label block truncate">Agus Setiawan</span>
+                  <span class="t-caption block truncate">Barista · check-in 07:18</span>
+                </span>
+                <span class="chip chip-warning num">+18 mnt</span>
+              </li>
+              <li class="flex items-center gap-3 p-3" style="border-bottom:1px solid hsl(var(--outline-variant))">
+                <span class="avatar" style="background:hsl(var(--warning-container));color:hsl(var(--on-warning-container))">RH</span>
+                <span class="min-w-0 flex-1">
+                  <span class="t-label block truncate">Rizky Hidayat</span>
+                  <span class="t-caption block truncate">Kasir · check-in 07:07</span>
+                </span>
+                <span class="chip chip-warning num">+7 mnt</span>
+              </li>
+              <li class="flex items-center gap-3 p-3">
+                <span class="avatar avatar-muted">DL</span>
+                <span class="min-w-0 flex-1">
+                  <span class="t-label block truncate">Dewi Lestari</span>
+                  <span class="t-caption block truncate">Pramusaji · shift Siang 14:00</span>
+                </span>
+                <span class="chip">Belum mulai</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Row: leave queue + payroll timeline -->
+    <div class="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+
+      <section class="card reveal" id="leave" aria-labelledby="h-leave" style="scroll-margin-top:80px">
+        <div class="card-head">
+          <div>
+            <h2 class="t-h2" id="h-leave">Cuti menunggu persetujuan</h2>
+            <p class="t-caption mt-0.5"><span id="leaveCount">2</span> pengajuan · urut dari yang paling lama</p>
+          </div>
+          <a href="#" class="btn btn-text btn-sm">Riwayat</a>
+        </div>
+
+        <ul id="leaveList" style="list-style:none;margin:0;padding:0"></ul>
+
+        <div class="empty" id="leaveEmpty">
+          <span class="glyph" data-icon-lg="inbox"></span>
+          <p class="t-h3">Semua pengajuan sudah diputuskan</p>
+          <p class="t-body-sm t-muted">Pengajuan baru akan muncul di sini dan dikirim sebagai notifikasi.</p>
+        </div>
+      </section>
+
+      <div class="space-y-3">
+        <section class="card reveal" aria-labelledby="h-payroll">
+          <div class="card-head">
+            <h2 class="t-h2" id="h-payroll">Payroll Agustus 2026</h2>
+            <span class="chip chip-warning">Draft</span>
+          </div>
+          <div class="card-body">
+            <div class="timeline">
+              <div class="tl-item">
+                <span class="tl-dot tl-done" data-icon-xs="check"></span>
+                <div class="min-w-0">
+                  <p class="t-label">Absensi terkumpul</p>
+                  <p class="t-caption">1–19 Agustus · 228 hari kerja tercatat</p>
+                </div>
+              </div>
+              <div class="tl-item">
+                <span class="tl-dot tl-now" data-icon-xs="play"></span>
+                <div class="min-w-0">
+                  <p class="t-label">Menunggu persetujuan Anda</p>
+                  <p class="t-caption">Draft siap ditinjau · Rp 28.150.000 take-home</p>
+                  <a href="06-payroll-run.html" class="btn btn-filled btn-sm mt-2">Tinjau payroll</a>
+                </div>
+              </div>
+              <div class="tl-item">
+                <span class="tl-dot" data-icon-xs="wallet"></span>
+                <div class="min-w-0">
+                  <p class="t-label t-muted">Transfer & kirim slip gaji</p>
+                  <p class="t-caption">Jadwal 25 Agustus 2026</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card reveal" aria-labelledby="h-quick">
+          <div class="card-head"><h2 class="t-h2" id="h-quick">Aksi cepat</h2></div>
+          <div class="grid gap-2 p-3 sm:grid-cols-2">
+            <a href="05-employee-directory.html" class="card card-flat card-action" style="background:hsl(var(--surface-1))">
+              <span class="icon-tile icon-tile-primary" data-icon="plus"></span>
+              <span class="min-w-0">
+                <span class="t-label block">Tambah karyawan</span>
+                <span class="t-caption block">Kontrak, gaji, shift</span>
+              </span>
+            </a>
+            <a href="#" class="card card-flat card-action" style="background:hsl(var(--surface-1))">
+              <span class="icon-tile icon-tile-info" data-icon="calendar"></span>
+              <span class="min-w-0">
+                <span class="t-label block">Atur shift minggu depan</span>
+                <span class="t-caption block">3 slot belum terisi</span>
+              </span>
+            </a>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="assets/kk.js"></script>
+<script>
+(function () {
+  document.querySelectorAll('[data-icon]').forEach(function (el) { el.innerHTML = KK.icon(el.dataset.icon, 18); });
+  document.querySelectorAll('[data-icon-xs]').forEach(function (el) { el.innerHTML = KK.icon(el.dataset.iconXs, 14); });
+  document.querySelectorAll('[data-icon-lg]').forEach(function (el) { el.innerHTML = KK.icon(el.dataset.iconLg, 26); });
+
+  /* ---------- attendance trend ---------------------------------------- */
+  // present / late / absent per working day, oldest first. Capacity is 12.
+  var DAYS = [
+    { d: '4 Agu', p: 10, l: 1, a: 1 }, { d: '5 Agu', p: 11, l: 1, a: 0 },
+    { d: '6 Agu', p: 10, l: 2, a: 0 }, { d: '7 Agu', p: 9,  l: 2, a: 1 },
+    { d: '8 Agu', p: 8,  l: 2, a: 2 }, { d: '11 Agu', p: 11, l: 0, a: 1 },
+    { d: '12 Agu', p: 12, l: 0, a: 0 }, { d: '13 Agu', p: 10, l: 1, a: 1 },
+    { d: '14 Agu', p: 11, l: 1, a: 0 }, { d: '15 Agu', p: 9,  l: 3, a: 0 },
+    { d: '18 Agu', p: 12, l: 0, a: 0 }, { d: '19 Agu', p: 8,  l: 2, a: 0 },
+    { d: '20 Agu', p: 0,  l: 0, a: 0 }, { d: '21 Agu', p: 0,  l: 0, a: 0 },
+  ];
+  var CAP = 12;
+
+  var bars = document.getElementById('bars');
+  var axis = document.getElementById('barAxis');
+  var tbody = document.querySelector('#chartTable tbody');
+
+  bars.innerHTML = DAYS.map(function (row, i) {
+    var future = row.p + row.l + row.a === 0;
+    var h = function (n) { return (n / CAP * 100).toFixed(1) + '%'; };
+    var tip = future
+      ? row.d + ' · belum berjalan'
+      : row.d + ' · ' + row.p + ' tepat waktu, ' + row.l + ' telat, ' + row.a + ' absen';
+    return '<button type="button" class="bar-col" aria-label="' + tip + '" style="animation-delay:' + (i * 30) + 'ms">' +
+      '<span class="tip">' + tip + '</span>' +
+      (future
+        ? '<span class="bar-seg bar-none" style="height:8%"></span>'
+        : (row.a ? '<span class="bar-seg bar-absent" style="height:' + h(row.a) + ';animation-delay:' + (i * 30) + 'ms"></span>' : '') +
+          (row.l ? '<span class="bar-seg bar-late" style="height:' + h(row.l) + ';animation-delay:' + (i * 30) + 'ms"></span>' : '') +
+          '<span class="bar-seg bar-present" style="height:' + h(row.p) + ';animation-delay:' + (i * 30) + 'ms"></span>'
+      ) +
+      '</button>';
+  }).join('');
+
+  // Only every other label on narrow screens, so ticks never collide.
+  axis.innerHTML = DAYS.map(function (row, i) {
+    var label = row.d.replace(' Agu', '');
+    return '<span' + (i % 2 ? ' class="hidden sm:block"' : '') + '>' + label + '</span>';
+  }).join('');
+
+  tbody.innerHTML = DAYS.filter(function (r) { return r.p + r.l + r.a > 0; }).map(function (r) {
+    return '<tr><th scope="row">' + r.d + '</th>' +
+      '<td class="num-cell">' + r.p + '</td><td class="num-cell">' + r.l + '</td><td class="num-cell">' + r.a + '</td></tr>';
+  }).join('');
+
+  /* ---------- range switcher (prototype-level feedback) ---------------- */
+  document.querySelectorAll('[data-range]').forEach(function (seg) {
+    seg.addEventListener('click', function () {
+      document.querySelectorAll('[data-range]').forEach(function (s) { s.setAttribute('aria-selected', 'false'); });
+      seg.setAttribute('aria-selected', 'true');
+      KK.announce('Rentang diubah ke ' + seg.textContent.trim());
+    });
+  });
+
+  /* ---------- pending leave queue -------------------------------------- */
+  var LEAVE = [
+    {
+      id: 'l1', mono: 'SN', name: 'Siti Nurhaliza', role: 'Kasir',
+      type: 'Cuti Tahunan', chip: 'chip-info',
+      range: '22 – 23 Agustus 2026', days: '2 hari',
+      note: 'Acara pernikahan keluarga di Bandung.',
+      quota: '9 hari', aged: 'diajukan 2 hari lalu', attachment: false,
+      coverage: 'Shift Sabtu perlu pengganti — 1 kandidat tersedia',
+    },
+    {
+      id: 'l2', mono: 'BP', name: 'Budi Prasetyo', role: 'Barista',
+      type: 'Izin Sakit', chip: 'chip-warning',
+      range: '20 Agustus 2026', days: '1 hari',
+      note: 'Demam, ada surat dokter terlampir.',
+      quota: '12 hari', aged: 'diajukan kemarin', attachment: true,
+      coverage: 'Shift Kamis sudah tercover oleh Ahmad Fauzi',
+    },
+  ];
+
+  var list = document.getElementById('leaveList');
+
+  function itemHTML(r) {
+    return '<li id="' + r.id + '" style="padding:16px;border-bottom:1px solid hsl(var(--outline-variant))">' +
+      '<div style="display:flex;gap:12px">' +
+        '<span class="avatar avatar-lg">' + r.mono + '</span>' +
+        '<div style="min-width:0;flex:1">' +
+          '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">' +
+            '<p class="t-h3">' + r.name + '</p>' +
+            '<span class="chip ' + r.chip + '">' + r.type + '</span>' +
+            '<span class="t-caption">' + r.role + '</span>' +
+          '</div>' +
+          '<p class="t-body-sm mt-1"><span class="num">' + r.range + '</span> · <span style="font-weight:600">' + r.days + '</span></p>' +
+          '<p class="t-body-sm t-muted mt-1">“' + r.note + '”</p>' +
+          '<div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">' +
+            '<span class="t-caption">Sisa kuota <span class="num" style="font-weight:600;color:hsl(var(--on-surface))">' + r.quota + '</span></span>' +
+            '<span class="t-caption">' + r.aged + '</span>' +
+            (r.attachment ? '<a href="#" class="t-caption" style="color:hsl(var(--primary));font-weight:600">Lihat surat dokter</a>' : '') +
+          '</div>' +
+          '<p class="t-caption mt-2" style="display:flex;gap:6px;align-items:center">' +
+            '<span style="color:hsl(var(--on-surface-variant));display:grid" data-cov></span>' + r.coverage +
+          '</p>' +
+        '</div>' +
+      '</div>' +
+      '<div class="mt-3 flex gap-2" style="padding-left:0">' +
+        '<button type="button" class="btn btn-filled flex-1 sm:flex-none" data-approve="' + r.id + '">Setujui</button>' +
+        '<button type="button" class="btn btn-danger flex-1 sm:flex-none" data-reject="' + r.id + '">Tolak</button>' +
+        '<button type="button" class="btn btn-text btn-sm ml-auto hidden sm:inline-flex">Detail</button>' +
+      '</div>' +
+    '</li>';
+  }
+
+  function paintList() {
+    list.innerHTML = LEAVE.map(itemHTML).join('');
+    list.querySelectorAll('[data-cov]').forEach(function (el) { el.innerHTML = KK.icon('info', 13); });
+    var n = LEAVE.length;
+    document.getElementById('leaveCount').textContent = n;
+    document.getElementById('metricPending').textContent = n;
+    document.getElementById('bannerCount').textContent = n;
+    document.getElementById('leaveEmpty').dataset.show = n === 0 ? 'true' : 'false';
+    document.getElementById('actionBanner').hidden = n === 0;
+    // Nav badges are part of the shell, so update them in place.
+    document.querySelectorAll('.nav-badge').forEach(function (b) {
+      b.textContent = n; b.hidden = n === 0;
+    });
+  }
+
+  function decide(id, approved) {
+    var idx = LEAVE.findIndex(function (r) { return r.id === id; });
+    if (idx < 0) return;
+    var row = LEAVE[idx];
+    LEAVE.splice(idx, 1);
+    paintList();
+    KK.toast(
+      (approved ? 'Cuti ' + row.name + ' disetujui.' : 'Pengajuan ' + row.name + ' ditolak.'),
+      {
+        tone: approved ? 'success' : 'danger',
+        undo: function () { LEAVE.splice(idx, 0, row); paintList(); },
+      }
+    );
+  }
+
+  list.addEventListener('click', function (e) {
+    var ok = e.target.closest('[data-approve]');
+    if (ok) {
+      ok.setAttribute('aria-busy', 'true');
+      setTimeout(function () { decide(ok.dataset.approve, true); }, 600);
+      return;
+    }
+    var no = e.target.closest('[data-reject]');
+    if (no) {
+      var id = no.dataset.reject;
+      var row = LEAVE.find(function (r) { return r.id === id; });
+      KK.confirm({
+        tone: 'danger',
+        title: 'Tolak pengajuan ' + row.name + '?',
+        body: 'Karyawan akan menerima notifikasi penolakan. Anda masih bisa membatalkannya beberapa saat setelah ini.',
+        confirm: 'Ya, tolak',
+        cancel: 'Batal',
+      }).then(function (yes) { if (yes) decide(id, false); });
+    }
+  });
+
+  paintList();
+})();
+</script>
+</body>
+</html>

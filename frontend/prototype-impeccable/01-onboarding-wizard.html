@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#16244c" />
+<title>Siapkan KaryawanKu · Onboarding</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/kk.css" />
+</head>
+<body>
+<!--
+THESIS: Setup is the first cloth being laid out — three stamps across a band, each one inked as it is completed, and the last step shows the take-home the owner has just defined. Refuses the numbered-circle progress bar over a white form card.
+OWN-WORLD: Kerokan-pale cool ground #edf0f5; indigo #16244c owns whole regions (rail, head band, table heads, dyed rows); soga, merah, kunyit, daun carry data roles; tumpal triangle bands edge every region; square 2-4px corners, never pills; Archivo at two widths, no monospace anywhere.
+STORY: The owner tells the product about the business, sets default salary components, checks the resulting take-home, and starts.
+FIRST VIEWPORT: Indigo kain band naming the task with what it will produce; the three stamps beneath it, the first one inked; then the business-profile fields at full tap size with the commit bar pinned at the foot.
+FORM: Cap & Kain — grounded candidate 5 of 7; seed key d2443f8d.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
+-->
+
+<div class="main main--solo">
+
+  <header class="topbar">
+    <a href="01-onboarding-wizard.html" class="brand grow" style="max-width:max-content">
+      <span class="brand__cap" aria-hidden="true">
+        <svg viewBox="0 0 36 36">
+          <g fill="none" stroke="#f6f8fd" stroke-width="1" opacity=".45"><path d="M0 18h36M18 0v36"/><rect x="7" y="7" width="22" height="22"/></g>
+          <path d="M12.5 10v16M12.5 18l7.5-8M12.5 18l8 8" fill="none" stroke="#f6f8fd" stroke-width="2.5" stroke-linecap="round"/>
+          <g fill="#f6f8fd" opacity=".55"><circle cx="3.6" cy="3.6" r="1.1"/><circle cx="32.4" cy="3.6" r="1.1"/><circle cx="3.6" cy="32.4" r="1.1"/><circle cx="32.4" cy="32.4" r="1.1"/></g>
+        </svg>
+      </span>
+      <span class="brand__name">KaryawanKu</span>
+    </a>
+    <p class="t-sm muted none">Sudah punya akun? <a href="02-auth-sign-in.html" class="w-700">Masuk</a></p>
+  </header>
+
+  <section class="kain tenun" aria-labelledby="judul">
+    <div class="kain__inner">
+      <svg class="kain__motif" viewBox="0 0 200 200" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M0 100h200M100 0v200"/>
+        <rect x="26" y="26" width="148" height="148"/>
+        <rect x="47.7" y="47.7" width="104.6" height="104.6" transform="rotate(45 100 100)"/>
+        <circle cx="100" cy="100" r="34"/><circle cx="100" cy="100" r="16"/>
+        <path d="M0 0l26 26M200 0l-26 26M0 200l26-26M200 200l-26-26"/>
+        <g fill="currentColor" stroke="none"><circle cx="100" cy="100" r="4"/><circle cx="30" cy="30" r="2.8"/><circle cx="170" cy="30" r="2.8"/><circle cx="30" cy="170" r="2.8"/><circle cx="170" cy="170" r="2.8"/></g>
+      </svg>
+      <div style="max-width:760px;margin:0 auto">
+        <h1 class="disp kain__title" id="judul">Siapkan KaryawanKu</h1>
+        <p class="kain__meta">Tiga langkah, sekitar dua menit. Setelah ini Anda bisa langsung menambahkan karyawan dan menjalankan payroll.</p>
+      </div>
+    </div>
+  </section>
+  <div class="kain__edge" aria-hidden="true"></div>
+
+  <main class="wrap section" id="wizard">
+    <div style="max-width:760px;margin:0 auto">
+
+      <nav class="panel" aria-label="Langkah onboarding">
+        <div class="panel__body">
+          <ol class="stepper" style="list-style:none;margin:0;padding:0">
+            <li class="step is-now" data-stepitem="1">
+              <span class="step__cap" aria-hidden="true">1</span>
+              <span class="step__lab md:show" style="font-variant-numeric:tabular-nums">Profil Usaha</span>
+              <span class="step__rule" aria-hidden="true"></span>
+            </li>
+            <li class="step" data-stepitem="2">
+              <span class="step__cap" aria-hidden="true">2</span>
+              <span class="step__lab md:show" style="font-variant-numeric:tabular-nums">Komponen Gaji</span>
+              <span class="step__rule" aria-hidden="true"></span>
+            </li>
+            <li class="step" data-stepitem="3">
+              <span class="step__cap" aria-hidden="true">3</span>
+              <span class="step__lab md:show" style="font-variant-numeric:tabular-nums">Konfirmasi</span>
+            </li>
+          </ol>
+          <p class="t-xs muted mt-3 md:hide">Langkah <span id="stepNow">1</span> dari 3 · <span id="stepName">Profil Usaha</span></p>
+        </div>
+      </nav>
+
+      <!-- STEP 1 -->
+      <section class="panel mt-4" data-step="1" aria-labelledby="s1">
+        <div class="panel__head">
+          <div>
+            <h2 id="s1">Ceritakan tentang usaha Anda</h2>
+            <p class="panel__sub">Informasi ini dipakai untuk slip gaji dan laporan.</p>
+          </div>
+        </div>
+        <div class="panel__body flex col g-5">
+
+          <label class="field">
+            <span class="field__lab">Nama usaha</span>
+            <input class="input" type="text" value="Warung Kopi Nusantara" />
+            <span class="field__hint">Nama ini dicetak pada setiap slip gaji.</span>
+          </label>
+
+          <fieldset style="border:0;padding:0;margin:0">
+            <legend class="field__lab">Jenis usaha</legend>
+            <div class="grid c1 sm:c2 g-3">
+              <label class="choice">
+                <input type="radio" name="jenis" checked />
+                <span class="choice__body">
+                  <span class="cap none" aria-hidden="true"><span class="ico ico-food ico--sm"></span></span>
+                  <span>
+                    <span style="display:block;font-weight:650">F&amp;B</span>
+                    <span class="t-xs muted">Restoran, kafe, katering</span>
+                  </span>
+                </span>
+              </label>
+              <label class="choice">
+                <input type="radio" name="jenis" />
+                <span class="choice__body">
+                  <span class="cap none" aria-hidden="true"><span class="ico ico-service ico--sm"></span></span>
+                  <span>
+                    <span style="display:block;font-weight:650">Jasa</span>
+                    <span class="t-xs muted">Salon, bengkel, laundry</span>
+                  </span>
+                </span>
+              </label>
+            </div>
+          </fieldset>
+
+          <div class="grid c1 sm:c2 g-4">
+            <label class="field">
+              <span class="field__lab">Perkiraan jumlah karyawan</span>
+              <select class="select">
+                <option>1 – 5 orang</option>
+                <option selected>6 – 20 orang</option>
+                <option>21 – 50 orang</option>
+                <option>Lebih dari 50 orang</option>
+              </select>
+            </label>
+            <label class="field">
+              <span class="field__lab">Kota</span>
+              <input class="input" type="text" value="Jakarta Selatan" />
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 2 -->
+      <section class="panel mt-4" data-step="2" aria-labelledby="s2" hidden>
+        <div class="panel__head">
+          <div>
+            <h2 id="s2">Komponen gaji standar</h2>
+            <p class="panel__sub">Nilai ini jadi default saat menambah karyawan baru. Bisa diubah per orang nanti.</p>
+          </div>
+        </div>
+        <div class="panel__body">
+
+          <div class="sub">
+              <div class="flex ai-s jc-b g-3">
+                <div>
+                  <p class="w-700">Gaji pokok</p>
+                  <p class="t-xs muted mt-1">Dasar perhitungan semua komponen lain</p>
+                </div>
+                <span class="tag tag--nila none">Wajib</span>
+              </div>
+              <div class="affix mt-3">
+                <span class="affix__unit">Rp</span>
+                <input class="input num" type="text" value="4.500.000" inputmode="numeric" aria-label="Gaji pokok dalam rupiah" />
+              </div>
+          </div>
+
+          <div class="sub">
+              <div class="flex ai-s jc-b g-3">
+                <div>
+                  <p class="w-700">Tunjangan transport</p>
+                  <p class="t-xs muted mt-1">Dibayar penuh setiap bulan</p>
+                </div>
+                <span class="tag tag--daun none">Pendapatan</span>
+              </div>
+              <div class="affix mt-3">
+                <span class="affix__unit">Rp</span>
+                <input class="input num" type="text" value="500.000" inputmode="numeric" aria-label="Tunjangan transport dalam rupiah" />
+              </div>
+          </div>
+
+          <div class="sub">
+              <div class="flex ai-s jc-b g-3">
+                <div>
+                  <p class="w-700">Potongan BPJS</p>
+                  <p class="t-xs muted mt-1">Dipotong dari gaji pokok setiap periode</p>
+                </div>
+                <span class="tag tag--merah none">Potongan</span>
+              </div>
+              <div class="grid c1 sm:c2 g-3 mt-3">
+                <label class="field">
+                  <span class="field__lab t-xs">BPJS Kesehatan</span>
+                  <span class="affix">
+                    <input class="input num" type="text" value="1" inputmode="decimal" />
+                    <span class="affix__unit affix__unit--after">%</span>
+                  </span>
+                </label>
+                <label class="field">
+                  <span class="field__lab t-xs">BPJS Ketenagakerjaan</span>
+                  <span class="affix">
+                    <input class="input num" type="text" value="2" inputmode="decimal" />
+                    <span class="affix__unit affix__unit--after">%</span>
+                  </span>
+                </label>
+              </div>
+              <p class="t-xs muted mt-3">PPh 21 dihitung otomatis dari penghasilan bruto dan status PTKP tiap karyawan.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 3 -->
+      <section class="panel mt-4" data-step="3" aria-labelledby="s3" hidden>
+        <div class="panel__head">
+          <div>
+            <h2 id="s3">Periksa kembali</h2>
+            <p class="panel__sub">Pastikan semua sudah benar sebelum kita mulai.</p>
+          </div>
+        </div>
+        <div class="panel__body">
+
+          <div class="sub">
+            <div class="sub__head">
+              <h3>Profil usaha</h3>
+              <button class="link none" type="button" data-goto="1">Ubah</button>
+            </div>
+            <div class="mt-3">
+              <dl>
+                <div class="kv"><dt>Nama usaha</dt><dd>Warung Kopi Nusantara</dd></div>
+                <div class="kv"><dt>Jenis usaha</dt><dd>F&amp;B</dd></div>
+                <div class="kv"><dt>Jumlah karyawan</dt><dd>6 – 20 orang</dd></div>
+                <div class="kv"><dt>Kota</dt><dd>Jakarta Selatan</dd></div>
+              </dl>
+            </div>
+          </div>
+
+          <div class="sub">
+            <div class="sub__head">
+              <h3>Komponen gaji default</h3>
+              <button class="link none" type="button" data-goto="2">Ubah</button>
+            </div>
+            <div class="mt-3">
+              <dl>
+                <div class="kv"><dt>Gaji pokok</dt><dd class="num">Rp 4.500.000</dd></div>
+                <div class="kv"><dt>Tunjangan transport</dt><dd class="num pos">+ Rp 500.000</dd></div>
+                <div class="kv"><dt>BPJS Kesehatan (1%)</dt><dd class="num neg">− Rp 45.000</dd></div>
+                <div class="kv"><dt>BPJS Ketenagakerjaan (2%)</dt><dd class="num neg">− Rp 90.000</dd></div>
+              </dl>
+            </div>
+          </div>
+
+          <div class="sub"><div class="drench capfield">
+            <p class="lab lab--on-nila">Estimasi take-home pay per karyawan</p>
+            <p class="disp drench__num mt-3 num">Rp 4.865.000</p>
+            <p class="t-sm mt-3" style="color:var(--nila-on-2)">Sebelum PPh 21 dan potongan keterlambatan. Semua nilai masih bisa diubah kapan saja di Pengaturan.</p>
+          </div></div>
+        </div>
+      </section>
+
+      <!-- Commit bar -->
+      <div class="panel mt-4" style="position:sticky;bottom:16px;box-shadow:var(--e2)">
+        <div class="flex ai-c jc-b g-3" style="padding:12px 16px">
+          <button class="btn btn--garis" type="button" id="btnBack" disabled>Kembali</button>
+          <button class="btn btn--cap" type="button" id="btnNext">Lanjut</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="assets/kk.js"></script>
+</body>
+</html>

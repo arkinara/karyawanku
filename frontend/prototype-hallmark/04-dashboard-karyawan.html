@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Beranda · KaryawanKu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="tokens.css" />
+<link rel="stylesheet" href="app.css" />
+</head>
+<body>
+<div class="shell">
+
+  <aside class="rail">
+    <div class="rail__brand">
+      <span class="mark" aria-hidden="true">K</span>
+      <span class="wordmark">KaryawanKu</span>
+    </div>
+    <nav class="rail__nav" aria-label="Navigasi utama">
+      <div class="rail__group">
+        <a class="navlink" href="04-dashboard-karyawan.html" aria-current="page">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 10 9-7 9 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M9 22V12h6v10"/></svg>
+          Beranda</a>
+        <a class="navlink" href="#">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          Absensi</a>
+        <a class="navlink" href="#">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/></svg>
+          Cuti <span class="navlink__count">1</span></a>
+        <a class="navlink" href="07-slip-gaji.html">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>
+          Slip Gaji</a>
+      </div>
+      <div class="rail__group">
+        <a class="navlink" href="#">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-2.9-1.2l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15H4.5a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.2-2.9l-.06-.06A2 2 0 1 1 8.56 5.2l.06.06a1.7 1.7 0 0 0 1.88.34h.08A1.7 1.7 0 0 0 11.6 4.1V4a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 2.9 1.2l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0 1.2 2.9h.09a2 2 0 1 1 0 4H19.4Z"/></svg>
+          Pengaturan</a>
+      </div>
+    </nav>
+    <div class="rail__foot">
+      <div class="orgcard">
+        <span class="avatar" aria-hidden="true">SN</span>
+        <span class="orgcard__meta">
+          <span class="orgcard__name">Siti Nurhaliza</span>
+          <span class="orgcard__sub">Kasir · Warung Kopi Nusantara</span>
+        </span>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <p class="topbar__title">Beranda</p>
+      <button type="button" class="cmdk-trigger" data-cmdk>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        Cari <kbd>⌘K</kbd>
+      </button>
+      <button type="button" class="iconbtn cmdk-icon" data-cmdk aria-label="Cari perintah">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      </button>
+      <button type="button" class="iconbtn" aria-label="Notifikasi — ada yang baru">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+        <span class="iconbtn__dot"></span>
+      </button>
+      <button type="button" class="iconbtn" aria-label="Akun saya"><span class="avatar avatar--solid">SN</span></button>
+    </header>
+
+    <main class="page reveal">
+
+      <div class="pagehead">
+        <div>
+          <h1>Selamat pagi, Siti</h1>
+          <p class="pagehead__sub">Rabu, 19 Agustus 2026</p>
+        </div>
+        <span class="tag tag--pos"><span class="tag__dot"></span>Sedang bekerja</span>
+      </div>
+
+      <div class="grid-2 mt-xl">
+
+        <!-- Check-in -->
+        <section>
+          <div class="section__head">
+            <h2>Absensi hari ini</h2>
+            <span class="section__note">Shift Pagi · Cabang Kemang</span>
+          </div>
+
+          <div class="panel">
+            <div class="dial">
+              <svg viewBox="0 0 100 100" aria-hidden="true">
+                <circle class="dial__track" cx="50" cy="50" r="45" />
+                <circle class="dial__arc" cx="50" cy="50" r="45" stroke-dasharray="283" stroke-dashoffset="212" />
+              </svg>
+              <div class="dial__inner">
+                <p class="dial__time">01:27</p>
+                <p class="dial__cap">jam kerja hari ini</p>
+              </div>
+            </div>
+
+            <dl class="mt-lg">
+              <div class="leader"><dt class="leader__k">Check-in</dt><span class="leader__fill"></span><dd class="leader__v">07:45 WIB</dd></div>
+              <div class="leader"><dt class="leader__k">Jadwal shift</dt><span class="leader__fill"></span><dd class="leader__v">07:45 – 16:00</dd></div>
+              <div class="leader"><dt class="leader__k">Lokasi</dt><span class="leader__fill"></span><dd class="leader__v">12 m dari cabang</dd></div>
+            </dl>
+
+            <button type="button" class="btn btn--primary btn--block mt-md">Clock Out</button>
+            <p class="xsmall muted mt-xs center">Lokasi terverifikasi lewat GPS perangkat.</p>
+          </div>
+        </section>
+
+        <!-- Jadwal + aksi -->
+        <div>
+          <section>
+            <div class="section__head">
+              <h2>Jadwal 3 hari ke depan</h2>
+              <a class="linkaction" href="#">Semua jadwal</a>
+            </div>
+            <ul class="rows">
+              <li class="row">
+                <span class="daychip" aria-hidden="true"><span class="daychip__d">Kam</span><span class="daychip__n">20</span></span>
+                <span class="row__body">
+                  <span class="row__title">Shift Pagi</span>
+                  <span class="row__meta"><span class="num">07:00 – 15:00</span> · Cabang Kemang</span>
+                </span>
+                <span class="row__end"><span class="tag num">8 jam</span></span>
+              </li>
+              <li class="row">
+                <span class="daychip" aria-hidden="true"><span class="daychip__d">Jum</span><span class="daychip__n">21</span></span>
+                <span class="row__body">
+                  <span class="row__title">Shift Siang</span>
+                  <span class="row__meta"><span class="num">14:00 – 22:00</span> · Cabang Kemang</span>
+                </span>
+                <span class="row__end"><span class="tag num">8 jam</span></span>
+              </li>
+              <li class="row">
+                <span class="daychip daychip--muted" aria-hidden="true"><span class="daychip__d">Sab</span><span class="daychip__n">22</span></span>
+                <span class="row__body">
+                  <span class="row__title">Cuti Tahunan</span>
+                  <span class="row__meta">Menunggu persetujuan Pak Darmawan</span>
+                </span>
+                <span class="row__end"><span class="tag tag--warn">Pending</span></span>
+              </li>
+            </ul>
+          </section>
+
+          <section class="section">
+            <div class="section__head">
+              <h2>Aksi cepat</h2>
+            </div>
+            <div class="actions">
+              <button type="button" class="action">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18M12 15v4M10 17h4"/></svg>
+                <span>
+                  <span class="action__t">Ajukan Cuti</span>
+                  <span class="action__d">Sisa kuota 9 hari</span>
+                </span>
+              </button>
+              <a class="action" href="07-slip-gaji.html">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>
+                <span>
+                  <span class="action__t">Lihat Slip Gaji</span>
+                  <span class="action__d">Periode Agustus 2026</span>
+                </span>
+              </a>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<nav class="tabbar" aria-label="Navigasi utama">
+  <a class="tab" href="04-dashboard-karyawan.html" aria-current="page">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 10 9-7 9 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M9 22V12h6v10"/></svg>
+    Beranda</a>
+  <a class="tab" href="#">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+    Absensi</a>
+  <a class="tab" href="#">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/></svg>
+    Cuti<span class="tab__dot"></span></a>
+  <a class="tab" href="07-slip-gaji.html">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>
+    Slip Gaji</a>
+  <a class="tab" href="#">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-2.9-1.2l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15H4.5a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.2-2.9l-.06-.06A2 2 0 1 1 8.56 5.2l.06.06a1.7 1.7 0 0 0 1.88.34h.08A1.7 1.7 0 0 0 11.6 4.1V4a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 2.9 1.2l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0 1.2 2.9h.09a2 2 0 1 1 0 4H19.4Z"/></svg>
+    Pengaturan</a>
+</nav>
+
+<script src="app.js"></script>
+</body>
+</html>

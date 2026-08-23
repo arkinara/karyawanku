@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#16244c" />
+<title>KaryawanKu · Prototype Cap &amp; Kain</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/kk.css" />
+<style>
+  .viewerbar { position: sticky; top: 0; z-index: 20; background: var(--kapas); border-bottom: 1px solid var(--garis); }
+  .framebox {
+    margin: 0 auto; width: 1440px; max-width: 100%;
+    background: var(--kapas); border: 1px solid var(--garis); border-radius: var(--r-2);
+    box-shadow: var(--e2); overflow: hidden;
+  }
+  .framebox iframe { display: block; width: 100%; border: 0; height: calc(100vh - 280px); min-height: 560px; background: var(--kain); }
+  .tabs { display: flex; gap: 6px; overflow-x: auto; padding: 10px 0; }
+  .tabs .btn { flex: none; }
+  .tabs .btn .num { opacity: .6; margin-right: 2px; }
+</style>
+</head>
+<body>
+<!--
+THESIS: The viewer is the bolt of cloth the seven screens were cut from — one indigo band, one strip of stamps, one framed screen. Refuses the chrome-heavy device-mockup gallery.
+OWN-WORLD: Kerokan-pale cool ground #edf0f5; indigo #16244c owns whole regions (rail, head band, table heads, dyed rows); soga, merah, kunyit, daun carry data roles; tumpal triangle bands edge every region; square 2-4px corners, never pills; Archivo at two widths, no monospace anywhere.
+STORY: The reviewer moves through all seven screens at any viewport width and can see the system holding.
+FIRST VIEWPORT: Indigo kain band naming the prototype and its world; the seven page stamps and the viewport controls beneath it; then the live screen framed on pale ground.
+FORM: Cap & Kain — grounded candidate 5 of 7; seed key d2443f8d.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
+-->
+
+<section class="kain tenun">
+  <div class="kain__inner" style="padding-top:26px;padding-bottom:24px">
+    <svg class="kain__motif" viewBox="0 0 200 200" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+      <path d="M0 100h200M100 0v200"/>
+      <rect x="26" y="26" width="148" height="148"/>
+      <rect x="47.7" y="47.7" width="104.6" height="104.6" transform="rotate(45 100 100)"/>
+      <circle cx="100" cy="100" r="34"/><circle cx="100" cy="100" r="16"/>
+      <path d="M0 0l26 26M200 0l-26 26M0 200l26-26M200 200l-26-26"/>
+      <g fill="currentColor" stroke="none"><circle cx="100" cy="100" r="4"/><circle cx="30" cy="30" r="2.8"/><circle cx="170" cy="30" r="2.8"/><circle cx="30" cy="170" r="2.8"/><circle cx="170" cy="170" r="2.8"/></g>
+    </svg>
+
+    <div class="flex wrapf ai-e jc-b g-4">
+      <div>
+        <h1 class="disp kain__title" style="font-size:var(--t-3xl)">KaryawanKu — Cap &amp; Kain</h1>
+        <p class="kain__meta">
+          7 halaman prototipe · Bahasa Indonesia · format Rupiah dan tanggal Indonesia ·
+          batik <em>cap</em> sebagai struktur, bukan ornamen
+        </p>
+      </div>
+      <p class="t-xs none" style="color:var(--nila-on-2)" id="nowShowing">—</p>
+    </div>
+  </div>
+</section>
+<div class="kain__edge" aria-hidden="true"></div>
+
+<div class="viewerbar">
+  <div class="wrap">
+    <nav class="tabs" aria-label="Halaman prototipe">
+      <button class="btn btn--sm btn--garis" type="button" data-page="01-onboarding-wizard.html"        data-title="01 · Onboarding — Owner · setup usaha dan komponen gaji default"><span class="num">01</span>Onboarding</button>
+      <button class="btn btn--sm btn--garis" type="button" data-page="02-auth-sign-in.html"             data-title="02 · Masuk — semua peran · validasi email dan sandi berjalan"><span class="num">02</span>Masuk</button>
+      <button class="btn btn--sm btn--garis" type="button" data-default data-page="03-quick-dashboard-owner.html"    data-title="03 · Dashboard Owner — register kehadiran 12 karyawan dan 2 keputusan cuti"><span class="num">03</span>Dashboard Owner</button>
+      <button class="btn btn--sm btn--garis" type="button" data-page="04-quick-dashboard-employee.html" data-title="04 · Beranda Karyawan — shift band, clock out, jadwal 3 hari"><span class="num">04</span>Beranda Karyawan</button>
+      <button class="btn btn--sm btn--garis" type="button" data-page="05-employee-directory.html"       data-title="05 · Daftar Karyawan — pencarian dan filter berfungsi, ada empty state"><span class="num">05</span>Daftar Karyawan</button>
+      <button class="btn btn--sm btn--garis" type="button" data-page="06-payroll-run.html"              data-title="06 · Payroll Run — draft klowong, tekan Cap untuk mencelup dan mengunci"><span class="num">06</span>Payroll Run</button>
+      <button class="btn btn--sm btn--garis" type="button" data-page="07-payslip-detail.html"           data-title="07 · Slip Gaji — pendapatan, potongan, take-home tercap"><span class="num">07</span>Slip Gaji</button>
+    </nav>
+
+    <div class="flex wrapf ai-c jc-b g-3" style="padding-bottom:12px">
+      <div class="flex ai-c g-2">
+        <span class="lab">Lebar layar</span>
+        <div class="flex g-1" role="group" aria-label="Pilih lebar layar">
+          <button class="btn btn--sm btn--garis" type="button" data-vp="390"  aria-pressed="false">390</button>
+          <button class="btn btn--sm btn--garis" type="button" data-vp="768"  aria-pressed="false">768</button>
+          <button class="btn btn--sm btn--cap"   type="button" data-vp="1440" aria-pressed="true">1440</button>
+          <button class="btn btn--sm btn--garis" type="button" data-vp="full" aria-pressed="false">Penuh</button>
+        </div>
+      </div>
+      <p class="t-xs muted none">
+        Bandingkan dengan <code>frontend/prototype</code>, <code>prototype-promax</code>, dan <code>prototype-hallmark</code>.
+      </p>
+    </div>
+  </div>
+</div>
+
+<main class="wrap" style="padding-top:20px;padding-bottom:32px">
+  <div class="framebox" id="frameBox">
+    <iframe id="frame" src="03-quick-dashboard-owner.html" title="Pratinjau halaman prototipe"></iframe>
+  </div>
+
+  <section class="panel mt-4">
+    <div class="panel__head">
+      <div>
+        <h2>Apa yang bisa dicoba</h2>
+        <p class="panel__sub">Prototipe statis dengan interaksi nyata — tanpa backend, data contoh</p>
+      </div>
+    </div>
+    <div class="panel__body grid c1 md:c2 g-4">
+      <div>
+        <p class="lab">06 · Payroll Run</p>
+        <p class="t-sm mt-2 prose">Baris payroll draft digambar sebagai <em>klowong</em> — garis tanpa celupan. Tekan <strong>Cap &amp; setujui payroll</strong>: cap tercetak, baris tercelup satu per satu, lalu periode terkunci.</p>
+      </div>
+      <div>
+        <p class="lab">05 · Daftar Karyawan</p>
+        <p class="t-sm mt-2 prose">Pencarian dan filter status benar-benar berjalan. Cari nama yang tidak ada untuk melihat <em>empty state</em> yang sebenarnya.</p>
+      </div>
+      <div>
+        <p class="lab">03 · Dashboard Owner</p>
+        <p class="t-sm mt-2 prose">Kehadiran hari ini dibaca sebagai register cap: tercelup penuh berarti hadir, arsir kunyit berarti telat, garis putus berarti absen. Bukan diagram donat.</p>
+      </div>
+      <div>
+        <p class="lab">02 · Masuk</p>
+        <p class="t-sm mt-2 prose">Kirim formulir kosong untuk melihat status error sungguhan pada field, lengkap dengan pesan pemulihan.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="assets/kk.js"></script>
+</body>
+</html>
