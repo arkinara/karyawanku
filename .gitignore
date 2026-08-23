@@ -1,0 +1,21 @@
+# Local Claude Code tooling (per-developer memory, not project source)
+.claude/
+CLAUDE.md
+
+# product-ux-dev-qa-workflow skill scratch dirs (variant markers)
+.hallmark/
+.impeccable/
+
+# graphify-out/ is intentionally NOT ignored — .gitattributes configures
+# a custom merge driver for graphify-out/graph.json so it can be tracked
+# later without losing concurrent edits.
+
+# Orphan root lockfile (no root package.json; frontend has its own)
+/package-lock.json
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
