@@ -5,7 +5,7 @@ import type { HTMLAttributes } from 'react'
 import { cn } from '@/lib/cn'
 import { initials } from '@/lib/format'
 
-export type AvatarSize = 'sm' | 'md' | 'lg' | 'xl'
+export type AvatarSize = 'sm' | 'md' | 'lg'
 
 export interface AvatarProps extends HTMLAttributes<HTMLSpanElement> {
   src?: string
@@ -16,11 +16,11 @@ export interface AvatarProps extends HTMLAttributes<HTMLSpanElement> {
   online?: boolean
 }
 
+/** Mirrors ProMax `.avatar` / `.avatar-sm` / `.avatar-lg` dimensions. */
 const sizes: Record<AvatarSize, string> = {
-  sm: 'w-8 h-8 text-sm',
-  md: 'w-10 h-10 text-sm',
-  lg: 'w-12 h-12 text-base',
-  xl: 'w-16 h-16 text-lg',
+  sm: 'w-8 h-8 text-[11.5px]',
+  md: 'w-10 h-10 text-[13px]',
+  lg: 'w-[52px] h-[52px] text-[17px]',
 }
 
 export const Avatar = forwardRef<HTMLSpanElement, AvatarProps>(
@@ -37,7 +37,7 @@ export const Avatar = forwardRef<HTMLSpanElement, AvatarProps>(
     return (
       <span
         ref={ref}
-        className={cn('relative inline-flex shrink-0', sizes[size], className)}
+        className={cn('relative inline-flex shrink-0 rounded-full', sizes[size], className)}
         {...props}
       >
         {showImage ? (
@@ -51,7 +51,7 @@ export const Avatar = forwardRef<HTMLSpanElement, AvatarProps>(
           <span
             aria-label={alt ?? name}
             role="img"
-            className="w-full h-full rounded-full bg-primary/10 text-primary font-medium flex items-center justify-center"
+            className="grid w-full h-full place-items-center rounded-full bg-primary-container text-on-primary-container font-semibold tracking-[0.01em]"
           >
             {initials(name)}
           </span>
@@ -60,7 +60,7 @@ export const Avatar = forwardRef<HTMLSpanElement, AvatarProps>(
         {online && (
           <span
             aria-hidden="true"
-            className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-background"
+            className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-surface"
           />
         )}
       </span>

@@ -1,68 +1,81 @@
-import { forwardRef } from 'react'
-import type { HTMLAttributes, ReactNode } from 'react'
-import { CalendarDays, CalendarRange, Clock, LayoutDashboard, Receipt, Users, Wallet } from 'lucide-react'
-import { cn } from '@/lib/cn'
-import { AppBar, NavRail, BottomNav } from '@/components/ui'
-import type { NavItem } from '@/components/ui'
+'use client'
 
-export type UserRole = 'owner' | 'manager' | 'employee'
+import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
+import type { NavKey, RoleNav, UserRole } from '@/lib/nav-config'
+import { NAV } from '@/lib/nav-config'
+import { NavRail } from '@/components/ui/nav-rail'
+import { AppBar } from '@/components/ui/app-bar'
+import { BottomNav } from '@/components/ui/bottom-nav'
+import { Drawer } from '@/components/ui/drawer'
 
-export interface AppShellProps extends HTMLAttributes<HTMLDivElement> {
-  children: ReactNode
+export interface AppShellProps {
   userRole: UserRole
-  /** Current route, e.g. "/absensi" — drives the active nav item and AppBar title. */
-  currentPath: string
+  /** Which nav item is active (must exist in the role's nav map). */
+  activeNav: NavKey
+  title: string
+  subtitle?: string
+  children: ReactNode
+  /** Optional override; defaults to `NAV[userRole]` (single source). */
+  nav?: RoleNav
 }
 
-/** Nav items are declared without `active`; that is derived from `currentPath`. */
-type NavEntry = Omit<NavItem, 'active'>
+/**
+ * The layout shell every app page (03-07) wraps its content in — port of the
+ * ProMax `buildShell()` (kk.js). Desktop (≥1024px): fixed nav rail left.
+ * Mobile (<1024px): bottom nav + drawer-driven app bar. A skip-link is always
+ * the first focusable element.
+ */
+export function AppShell({ userRole, activeNav, title, subtitle, children, nav = NAV[userRole] }: AppShellProps) {
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const isDesktop = useMediaQuery('(min-width: 1024px)')
 
-const DASHBOARD: NavEntry = { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' }
-const KARYAWAN: NavEntry = { label: 'Karyawan', icon: Users, href: '/karyawan' }
-const ABSENSI: NavEntry = { label: 'Absensi', icon: Clock, href: '/absensi' }
-const CUTI: NavEntry = { label: 'Cuti', icon: CalendarDays, href: '/cuti' }
-const SHIFT: NavEntry = { label: 'Shift', icon: CalendarRange, href: '/shift' }
-const PENGGAJIAN: NavEntry = { label: 'Penggajian', icon: Wallet, href: '/penggajian' }
-const SLIP_GAJI: NavEntry = { label: 'Slip Gaji', icon: Receipt, href: '/slip-gaji' }
+  // Crossing to desktop makes the drawer redundant — close it (kk.js wireDrawer).
+  useEffect(() => {
+    if (isDesktop) setDrawerOpen(false)
+  }, [isDesktop])
 
-const navByRole: Record<UserRole, NavEntry[]> = {
-  owner: [DASHBOARD, KARYAWAN, ABSENSI, CUTI, SHIFT, PENGGAJIAN],
-  manager: [DASHBOARD, KARYAWAN, ABSENSI, CUTI, SHIFT],
-  employee: [DASHBOARD, ABSENSI, CUTI, SHIFT, SLIP_GAJI],
-}
+  return (
+    <div className="shell">
+      <a className="skip-link" href="#main">
+        Lompat ke konten utama
+      </a>
 
-/** Mobile fits about four destinations before the labels start truncating. */
-const MOBILE_MAX = 4
+      <NavRail nav={nav} activeNav={activeNav} />
 
-/** "/absensi" matches "/absensi" and "/absensi/123", never "/absensi-lama". */
-function isActive(href: string, currentPath: string): boolean {
-  return currentPath === href || currentPath.startsWith(`${href}/`)
-}
+      <div className="main-col">
+        <AppBar
+          title={title}
+          subtitle={subtitle}
+          user={nav.user}
+          onMenu={() => setDrawerOpen(true)}
+          menuExpanded={drawerOpen}
+        />
 
-export const AppShell = forwardRef<HTMLDivElement, AppShellProps>(
-  ({ children, userRole, currentPath, className, ...props }, ref) => {
-    const items: NavItem[] = navByRole[userRole].map((item) => ({
-      ...item,
-      active: isActive(item.href, currentPath),
-    }))
-
-    const title = items.find((item) => item.active)?.label ?? 'KaryawanKu'
-
-    return (
-      <div ref={ref} className={cn('min-h-screen bg-background', className)} {...props}>
-        <AppBar title={title} sticky />
-
-        <div className="flex">
-          {/* NavRail hides itself below md; BottomNav takes over there. */}
-          <NavRail items={items} className="sticky top-16 h-[calc(100vh-4rem)] shrink-0" />
-
-          <main className="min-w-0 flex-1 p-4 pb-20 sm:p-6 md:pb-6">{children}</main>
-        </div>
-
-        <BottomNav items={items.slice(0, MOBILE_MAX)} />
+        <main id="main" className="page">
+          <div className="page-inner">{children}</div>
+        </main>
       </div>
-    )
-  },
-)
 
-AppShell.displayName = 'AppShell'
+      <BottomNav nav={nav} activeNav={activeNav} />
+
+      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} nav={nav} activeNav={activeNav} />
+    </div>
+  )
+}
+
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(query).matches,
+  )
+
+  useEffect(() => {
+    const mql = window.matchMedia(query)
+    const onChange = (e: MediaQueryListEvent) => setMatches(e.matches)
+    setMatches(mql.matches)
+    mql.addEventListener('change', onChange)
+    return () => mql.removeEventListener('change', onChange)
+  }, [query])
+
+  return matches
+}

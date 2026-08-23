@@ -29,10 +29,15 @@ function toDate(d: Date | string): Date | null {
   return Number.isNaN(date.getTime()) ? null : date
 }
 
-/** `1500000` -> `"Rp 1.500.000"` */
+/**
+ * `1500000` -> `"Rp 1.500.000"`
+ *
+ * `id-ID` currency inserts a narrow no-break space (U+00A0) between "Rp" and
+ * the number; the app standard is a plain space, so it is stripped (kk.js).
+ */
 export function formatIDR(n: number): string {
   if (!Number.isFinite(n)) return '-'
-  return idrFormatter.format(n)
+  return idrFormatter.format(n).replace(/\u00A0/g, ' ')
 }
 
 /** `"2026-08-19"` -> `"19/08/2026"` */

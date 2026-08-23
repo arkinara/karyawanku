@@ -1,59 +1,68 @@
-import { forwardRef } from 'react'
-import type { HTMLAttributes, ReactNode } from 'react'
-import { ChevronLeft } from 'lucide-react'
+import type { UserMeta } from '@/lib/nav-config'
+import { Icon } from '@/components/ui/icon'
+import { Avatar } from '@/components/ui/avatar'
 import { cn } from '@/lib/cn'
 
-export interface AppBarProps extends Omit<HTMLAttributes<HTMLElement>, 'title'> {
-  title?: string
-  /** Right-side slot. Takes priority over `avatar`. */
-  action?: ReactNode
-  /** Right-side fallback — usually an `<Avatar>`; only shown when `action` is absent. */
-  avatar?: ReactNode
-  /** Supplying a handler renders the left back button. */
-  back?: () => void
-  sticky?: boolean
+export interface AppBarProps {
+  /** Page title, e.g. "Selamat pagi, Pak Darmawan". */
+  title: string
+  subtitle?: string
+  /** Current user — drives the avatar button aria-label. */
+  user: UserMeta
+  /** Opens the mobile drawer (menu button is hidden on desktop). */
+  onMenu?: () => void
+  menuExpanded?: boolean
 }
 
-export const AppBar = forwardRef<HTMLElement, AppBarProps>(
-  ({ title, action, avatar, back, sticky = true, className, children, ...props }, ref) => (
-    <header
-      ref={ref}
-      className={cn(
-        'z-20 h-16 px-4 sm:px-6',
-        'flex items-center justify-between gap-3',
-        'bg-surface-container-high border-b border-outline-variant',
-        sticky && 'sticky top-0',
-        className,
+/**
+ * Sticky top app bar — 60px tall, title + subtitle left, theme toggle +
+ * notifications + user avatar right. The skip-link lives in AppShell BEFORE
+ * this so it stays the first focusable element.
+ */
+export function AppBar({ title, subtitle, user, onMenu, menuExpanded = false }: AppBarProps) {
+  return (
+    <header className="appbar">
+      {onMenu && (
+        <button
+          type="button"
+          className="appbar-action lg:hidden"
+          onClick={onMenu}
+          aria-label="Buka menu navigasi"
+          aria-expanded={menuExpanded}
+          aria-controls="kk-drawer"
+        >
+          <Icon name="menu" size={22} />
+        </button>
       )}
-      {...props}
-    >
-      <div className="flex min-w-0 items-center gap-2">
-        {back && (
-          <button
-            type="button"
-            onClick={back}
-            aria-label="Kembali"
-            className={cn(
-              'flex h-10 w-10 shrink-0 items-center justify-center rounded-full',
-              'text-foreground hover:bg-surface-container-highest',
-              'transition-colors duration-m3-short ease-m3-standard',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
-            )}
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-        )}
 
-        {title && <h1 className="truncate text-title-lg text-foreground">{title}</h1>}
-
-        {children}
+      <div className="min-w-0 flex-1">
+        <p className="t-h3 truncate">{title}</p>
+        {subtitle != null && <p className="t-caption truncate">{subtitle}</p>}
       </div>
 
-      {(action ?? avatar) && (
-        <div className="flex shrink-0 items-center gap-2">{action ?? avatar}</div>
-      )}
-    </header>
-  ),
-)
+      {/* Theme toggle is a placeholder; real logic lands in ticket #40. */}
+      <button type="button" className="appbar-action" aria-label="Ganti tampilan" title="Tampilan">
+        <Icon name="sun" size={19} />
+      </button>
 
-AppBar.displayName = 'AppBar'
+      <button
+        type="button"
+        className="appbar-action"
+        aria-label="Notifikasi, 3 belum dibaca"
+        title="Notifikasi"
+      >
+        <Icon name="bell" size={20} />
+        <span className="appbar-dot" aria-hidden="true" />
+      </button>
+
+      <button
+        type="button"
+        className="appbar-action"
+        aria-label={`Akun saya · ${user.name}`}
+        title={`Akun saya · ${user.name}`}
+      >
+        <Avatar name={user.name} size="sm" alt="" aria-hidden="true" className={cn('bg-primary text-on-primary')} />
+      </button>
+    </header>
+  )
+}
