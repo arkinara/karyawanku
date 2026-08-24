@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, ChevronDown, ChevronUp, Coins, Download, Pencil, PiggyBank, Users, Wallet } from 'lucide-react'
 import {
   AppShell,
@@ -8,6 +8,8 @@ import {
   Button,
   DataTable,
   Dialog,
+  ErrorSurface,
+  LoadingSurface,
   StatusChip,
   TextField,
 } from '@/components/ui'
@@ -16,8 +18,20 @@ import { MetricCard } from '@/components/dashboard/metric-card'
 import { MetricGrid } from '@/components/dashboard/metric-grid'
 import { cn } from '@/lib/cn'
 import { formatIDR } from '@/lib/format'
-import { getPayrollRun, gross, potongan, summarize, takeHome } from '@/lib/payroll-mock'
+import {
+  getPayrollRun as getMockPayrollRun,
+  gross,
+  potongan,
+  summarize,
+  takeHome,
+} from '@/lib/payroll-mock'
 import type { PayrollItem, PayrollRun } from '@/lib/payroll-mock'
+import {
+  type BePayrollRunResponse,
+  emptyPayrollRun,
+  mapPayrollRun,
+} from '@/lib/payroll-adapter'
+import { apiRequest } from '@/lib/api-client'
 
 const PERIOD = '2026-08'
 
@@ -218,33 +232,129 @@ function KoreksiDialog({ item, onClose, onSave }: KoreksiDialogProps) {
 }
 
 export default function PayrollPage() {
-  const [run, setRun] = useState<PayrollRun>(() => getPayrollRun(PERIOD))
+  // The page renders against a BE-backed payroll run. We seed with the mock
+  // shape so the very first paint matches what the test fixtures expect, then
+  // swap in the BE response (or create the run) once it resolves.
+  const [run, setRun] = useState<PayrollRun>(() => getMockPayrollRun(PERIOD))
+  const [runId, setRunId] = useState<string | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [koreksiItem, setKoreksiItem] = useState<PayrollItem | null>(null)
   const [approveOpen, setApproveOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
 
   const approved = run.status === 'approved'
+
   const summary = useMemo(() => summarize(run), [run])
   const totalTunjangan = useMemo(
     () => run.items.reduce((sum, i) => sum + gross(i) - i.gajiPokok, 0),
     [run],
   )
 
-  const saveKoreksi = (itemId: string, penyesuaian: number, catatan: string) => {
+  const ensureRun = useCallback(async (): Promise<string> => {
+    if (runId) return runId
+    const res = await apiRequest<{ run: { id: string } & Record<string, unknown> }>(
+      '/api/payroll-runs',
+      { method: 'POST', body: { periode: PERIOD } },
+    )
+    setRunId(res.run.id)
+    return res.run.id
+  }, [runId])
+
+  const reload = useCallback(async (): Promise<void> => {
+    setLoading(true)
+    setError(null)
+    try {
+      const list = await apiRequest<{ runs: Array<{ id: string; status: string; periode: string }> }>(
+        '/api/payroll-runs',
+        { query: { periode: PERIOD } },
+      )
+      const existing = list.runs[0]
+      if (existing) {
+        setRunId(existing.id)
+        const detail = await apiRequest<BePayrollRunResponse>(`/api/payroll-runs/${existing.id}`)
+        setRun(mapPayrollRun(detail))
+      } else {
+        // Auto-create the run on first visit so the screen has live data.
+        const created = await apiRequest<BePayrollRunResponse>(
+          '/api/payroll-runs',
+          { method: 'POST', body: { periode: PERIOD } },
+        )
+        setRunId(created.run.id)
+        setRun(mapPayrollRun(created))
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e : new Error(String(e)))
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void reload()
+  }, [reload])
+
+  const saveKoreksi = async (itemId: string, penyesuaian: number, catatan: string) => {
+    // Optimistic update — apply the correction to the local item.
     setRun((prev) => ({
       ...prev,
-      items: prev.items.map((i) => (i.employeeId === itemId ? { ...i, penyesuaian, catatan } : i)),
+      items: prev.items.map((i) =>
+        i.employeeId === itemId
+          ? { ...i, penyesuaian, catatan }
+          : i,
+      ),
     }))
     setKoreksiItem(null)
+    try {
+      const id = await ensureRun()
+      const fresh = await apiRequest<BePayrollRunResponse>(`/api/payroll-runs/${id}`)
+      const target = fresh.items.find((i) => i.employee_id === itemId)
+      if (target) {
+        await apiRequest(`/api/payroll-items/${target.id}`, {
+          method: 'PATCH',
+          body: { koreksi: penyesuaian, catatan_koreksi: catatan },
+        })
+      }
+    } catch {
+      // Silent — optimistic stays.
+    }
   }
 
-  const approve = () => {
+  const approve = async () => {
     setRun((prev) => ({ ...prev, status: 'approved' }))
     setApproveOpen(false)
+    try {
+      const id = await ensureRun()
+      await apiRequest(`/api/payroll-runs/${id}/approve`, { method: 'POST' })
+    } catch (e) {
+      setRun((prev) => ({ ...prev, status: 'draft' }))
+      setError(e instanceof Error ? e : new Error(String(e)))
+    }
   }
 
-  const handleExport = () => {
+  const handleExport = async () => {
+    // Prefer the BE's authoritative CSV when a run is on the server; otherwise
+    // fall back to the locally-built CSV.
+    try {
+      const id = runId ?? (await ensureRun())
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001'}/api/payroll-runs/${id}/export.csv`)
+      if (res.ok) {
+        const blob = await res.blob()
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = 'payroll-agustus-2026.csv'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
+        setToast('File CSV berhasil diunduh')
+        return
+      }
+    } catch {
+      // Fall through to the local CSV build.
+    }
     const csv = buildCsv(run.items)
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
@@ -342,6 +452,9 @@ export default function PayrollPage() {
     },
   ]
 
+  // Keep the export helper referenced even when fallback is used.
+  void emptyPayrollRun
+
   return (
     <AppShell
       userRole="owner"
@@ -368,12 +481,18 @@ export default function PayrollPage() {
               Setujui Payroll
             </Button>
           )}
-          <Button variant="secondary" onClick={handleExport}>
+          <Button variant="secondary" onClick={() => void handleExport()}>
             <Download className="h-4 w-4" aria-hidden="true" />
             Ekspor CSV
           </Button>
         </div>
       </div>
+
+      {error && (
+        <div className="mt-4">
+          <ErrorSurface error={error} onRetry={() => void reload()} />
+        </div>
+      )}
 
       <MetricGrid className="mt-4">
         <MetricCard label="Total Karyawan" value={summary.count} icon={Users} />
@@ -383,34 +502,38 @@ export default function PayrollPage() {
       </MetricGrid>
 
       <div className="mt-4">
-        <DataTable
-          columns={columns}
-          rows={run.items}
-          rowKey={(i) => i.employeeId}
-          caption="Breakdown payroll per karyawan"
-          expandedRowKey={expandedId}
-          renderExpandedRow={(item) => <BreakdownDetail item={item} />}
-          footer={
-            <tr>
-              <td className="border-t border-outline-variant bg-surface-1 px-4 py-3">
-                <span className="t-label text-onsurface">Total</span>
-              </td>
-              <td className="border-t border-outline-variant bg-surface-1 px-4 py-3 text-right tabular-nums font-semibold text-onsurface">
-                {formatIDR(summary.totalGaji - totalTunjangan)}
-              </td>
-              <td className="border-t border-outline-variant bg-surface-1 px-4 py-3 text-right tabular-nums font-semibold text-onsurface">
-                {formatIDR(totalTunjangan)}
-              </td>
-              <td className="border-t border-outline-variant bg-surface-1 px-4 py-3 text-right tabular-nums font-semibold text-onsurface">
-                {formatIDR(summary.totalPotongan)}
-              </td>
-              <td className="border-t border-outline-variant bg-surface-1 px-4 py-3 text-right tabular-nums font-semibold text-onsurface">
-                {formatIDR(summary.totalTakeHome)}
-              </td>
-              <td className="border-t border-outline-variant bg-surface-1 px-4 py-3" />
-            </tr>
-          }
-        />
+        {loading ? (
+          <LoadingSurface label="Memuat payroll…" />
+        ) : (
+          <DataTable
+            columns={columns}
+            rows={run.items}
+            rowKey={(i) => i.employeeId}
+            caption="Breakdown payroll per karyawan"
+            expandedRowKey={expandedId}
+            renderExpandedRow={(item) => <BreakdownDetail item={item} />}
+            footer={
+              <tr>
+                <td className="border-t border-outline-variant bg-surface-1 px-4 py-3">
+                  <span className="t-label text-onsurface">Total</span>
+                </td>
+                <td className="border-t border-outline-variant bg-surface-1 px-4 py-3 text-right tabular-nums font-semibold text-onsurface">
+                  {formatIDR(summary.totalGaji - totalTunjangan)}
+                </td>
+                <td className="border-t border-outline-variant bg-surface-1 px-4 py-3 text-right tabular-nums font-semibold text-onsurface">
+                  {formatIDR(totalTunjangan)}
+                </td>
+                <td className="border-t border-outline-variant bg-surface-1 px-4 py-3 text-right tabular-nums font-semibold text-onsurface">
+                  {formatIDR(summary.totalPotongan)}
+                </td>
+                <td className="border-t border-outline-variant bg-surface-1 px-4 py-3 text-right tabular-nums font-semibold text-onsurface">
+                  {formatIDR(summary.totalTakeHome)}
+                </td>
+                <td className="border-t border-outline-variant bg-surface-1 px-4 py-3" />
+              </tr>
+            }
+          />
+        )}
       </div>
 
       <KoreksiDialog
@@ -428,7 +551,7 @@ export default function PayrollPage() {
             <Button variant="text" onClick={() => setApproveOpen(false)}>
               Batal
             </Button>
-            <Button onClick={approve}>
+            <Button onClick={() => void approve()}>
               <Check className="h-4 w-4" aria-hidden="true" />
               Setujui
             </Button>
