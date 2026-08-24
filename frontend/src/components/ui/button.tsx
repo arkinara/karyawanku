@@ -25,21 +25,21 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
  */
 const base = cn(
   'inline-flex items-center justify-center gap-2 rounded-full',
-  'font-medium text-label-lg whitespace-nowrap select-none',
-  'transition-all duration-m3-short ease-m3-standard',
+  'font-medium text-sm whitespace-nowrap select-none',
+  'transition-all duration-fast ease-standard',
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
-  'focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+  'focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
   'active:scale-[0.98]',
   'disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none disabled:active:scale-100',
 )
 
 const variants: Record<ButtonVariant, string> = {
-  primary: 'bg-primary text-on-primary shadow-elevation-1 hover:opacity-90 hover:shadow-elevation-2',
-  secondary: 'bg-secondary text-on-secondary hover:opacity-90',
-  tonal: 'bg-secondary-container text-on-secondary-container hover:bg-surface-container-high',
+  primary: 'bg-primary text-primary-on shadow-e1 hover:opacity-90 hover:shadow-e2',
+  secondary: 'bg-surface-2 text-onsurface hover:opacity-90',
+  tonal: 'bg-primary-container text-primary-oncontainer hover:bg-surface-3',
   text: 'bg-transparent text-primary hover:bg-primary/10',
-  danger: 'bg-destructive text-destructive-foreground hover:opacity-90',
-  icon: 'bg-surface-container text-foreground hover:bg-surface-container-high',
+  danger: 'bg-danger-container text-danger-on hover:opacity-90',
+  icon: 'bg-surface-2 text-onsurface hover:bg-surface-3',
 }
 
 /** Label buttons get horizontal padding; the icon variant stays square. */

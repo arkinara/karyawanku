@@ -5,46 +5,70 @@ import { cn } from '@/lib/cn'
 
 export type MetricTrend = 'up' | 'down' | 'flat'
 
+export interface MetricDelta {
+  /** Bahasa Indonesia — e.g. "+12%", "4 poin vs rata-rata". */
+  value: string
+  trend: MetricTrend
+}
+
 export interface MetricCardProps extends HTMLAttributes<HTMLDivElement> {
   /** Bahasa Indonesia — e.g. "Total Karyawan". */
   label: string
   value: string | number
-  /** Change versus the previous period — e.g. "+12%". */
-  delta?: string
+  /** Lucide icon rendered in the trailing tile. */
   icon?: LucideIcon
-  trend?: MetricTrend
+  delta?: MetricDelta
+  /** Small helper text under the value — e.g. "11 aktif · 1 nonaktif". */
+  caption?: string
+  /** Inline unit next to the value — e.g. "/12", "jt". */
+  unit?: string
 }
 
 /** Trend owns the delta color only; the value stays neutral so it reads first. */
 const trendColors: Record<MetricTrend, string> = {
-  up: 'text-emerald-600 dark:text-emerald-400',
-  down: 'text-rose-600 dark:text-rose-400',
-  flat: 'text-muted-foreground',
+  up: 'text-success',
+  down: 'text-danger',
+  flat: 'text-onsurface-variant',
 }
 
 export const MetricCard = forwardRef<HTMLDivElement, MetricCardProps>(
-  ({ label, value, delta, icon: Icon, trend = 'flat', className, ...props }, ref) => (
+  ({ label, value, icon: Icon, delta, caption, unit, className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn('bg-card text-card-foreground border border-border/40 rounded-2xl p-5', className)}
+      className={cn(
+        'rounded-2xl border border-outline-variant bg-surface p-5 shadow-e1',
+        className,
+      )}
       {...props}
     >
       <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-medium text-muted-foreground">{label}</p>
+        <p className="text-sm font-medium text-onsurface-variant">{label}</p>
 
         {Icon && (
           <span
             aria-hidden="true"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container text-primary-oncontainer"
           >
             <Icon className="h-4 w-4" />
           </span>
         )}
       </div>
 
-      <p className="mt-2 text-3xl font-bold leading-tight text-foreground">{value}</p>
+      <p className="mt-2 text-[27px] font-bold leading-[1.1] tracking-tight tabular-nums text-onsurface">
+        {value}
+        {unit && <span className="text-[15px] font-medium text-onsurface-variant">{unit}</span>}
+      </p>
 
-      {delta && <p className={cn('mt-1 text-xs font-medium', trendColors[trend])}>{delta}</p>}
+      {(caption || delta) && (
+        <p className="mt-1 text-xs text-onsurface-variant">
+          {caption}
+          {delta && (
+            <span className={cn('ml-1 font-semibold', trendColors[delta.trend])}>
+              {delta.value}
+            </span>
+          )}
+        </p>
+      )}
     </div>
   ),
 )

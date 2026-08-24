@@ -82,3 +82,65 @@ dengan fallback light. Diterapkan sebagai class `.dark` pada `<html>`
 - `src/lib/nav-config.ts` — model navigasi (owner/employee) + metadata org/user.
 - `src/app/globals.css` — ProMax tokens (light/dark) + base + typography + shell CSS.
 - `tailwind.config.ts` — token bridge `hsl(var(--…))` per `kk-tailwind.js`.
+
+## Components (ticket #41 — shared primitives)
+
+Empat pola yang dipakai berulang di Dashboard/Payroll/Directory, dibangun satu
+kali sebagai komponen reusable, semua memakai token ProMax dari
+`tailwind.config.ts`.
+
+### PriorityBanner (`src/components/ui/priority-banner.tsx`)
+Banner alert prioritas dengan icon-tile kiri, konten tengah, CTA trailing.
+Variant `warning`/`info`/`danger` mengganti container + border-left token.
+```tsx
+<PriorityBanner
+  variant="warning"
+  title="2 pengajuan cuti menunggu keputusan Anda"
+  description="Paling lama menunggu 2 hari."
+  icon={AlertTriangle}
+  action={{ label: 'Tinjau', href: '/cuti' }}
+/>
+```
+
+### MetricCard + MetricGrid (`src/components/dashboard/`)
+Kartu angka ringkasan (value 27px tabular-nums + icon-tile + caption/delta) dan
+grid 4-up-nya (`grid-cols-1 sm:grid-cols-2 xl:grid-cols-4`). Delta up/down/flat
+memakai `text-success`/`text-danger`/`text-onsurface-variant`.
+```tsx
+<MetricGrid>
+  <MetricCard label="Total Karyawan" value={12} icon={Users}
+    delta={{ value: '+1 bulan ini', trend: 'up' }} />
+  <MetricCard label="Hadir hari ini" value={10} icon={CheckCircle2} unit="/12" />
+</MetricGrid>
+```
+
+### DataTable (`src/components/ui/data-table.tsx`)
+Tabel sticky-header, kolom sortable (chevron asc/desc), kolom numerik
+(`numeric` → rata kanan + tabular-nums), footer totals, dan empty state.
+```tsx
+<DataTable
+  columns={[
+    { key: 'nama', label: 'Nama' },
+    { key: 'gaji', label: 'Gaji', numeric: true, sortable: true },
+  ]}
+  rows={rows}
+  rowKey={(r) => r.id}
+  footer={<tr><td>Total</td><td>8000</td></tr>}
+/>
+```
+
+### SegmentedControl (`src/components/ui/segmented-control.tsx`)
+Filter pill-row (role tab), option aktif `bg-primary text-primary-on`, sisanya
+`text-onsurface-variant hover:bg-surface-2`. Navigasi arrow key kiri/kanan,
+`aria-selected` pada option aktif, count opsional sebagai chip kecil.
+```tsx
+<SegmentedControl
+  options={[
+    { value: 'today', label: 'Hari ini' },
+    { value: 'week', label: '7 hari', count: 5 },
+    { value: 'month', label: '30 hari' },
+  ]}
+  value={range}
+  onChange={setRange}
+/>
+```
