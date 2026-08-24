@@ -1,20 +1,27 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { apiRequest, getStoredUser, getToken, setStoredUser, setToken, ApiError } from '@/lib/api-client'
 
 /**
- * Mock auth session for the FE auth pages (ticket #2).
+ * Auth session for the FE auth pages (Wiring phase — ticket #34).
  *
- * This is a stand-in until Better Auth wiring lands in FE Wiring (ticket #34).
- * It stores a fake session in localStorage so the /signin and /signup forms
- * can simulate login/registration and role derivation without a backend.
+ * Replaces the pre-wiring `auth-mock` by delegating to the real BE on
+ * `localhost:3001`. The shape (`user` with `role: 'owner' | 'employee'`)
+ * is preserved so the existing AuthLayout, AppShell guards, and tests
+ * keep working without changes.
+ *
+ * Production: call goes through `apiRequest` → Fastify BE.
+ * Tests: vitest setup stubs `fetch` so calls resolve with the same shape.
  */
 
-export const SESSION_KEY = 'kk-mock-session'
-
 export interface AuthUser {
+  id: string
   email: string
+  nama: string
   role: 'owner' | 'employee'
+  business_id: string
+  employee_id: string | null
 }
 
 export interface AuthResult {
@@ -22,63 +29,101 @@ export interface AuthResult {
 }
 
 function readSession(): AuthUser | null {
-  if (typeof window === 'undefined') return null
-  try {
-    const raw = window.localStorage.getItem(SESSION_KEY)
-    return raw ? (JSON.parse(raw) as AuthUser) : null
-  } catch {
-    return null
-  }
-}
-
-function writeSession(user: AuthUser) {
-  if (typeof window === 'undefined') return
-  window.localStorage.setItem(SESSION_KEY, JSON.stringify(user))
-}
-
-/**
- * Mock role derivation: any email mentioning "owner"/"pemilik" is treated as an
- * owner (redirect to owner dashboard); everything else defaults to employee.
- */
-function deriveRole(email: string): 'owner' | 'employee' {
-  const normalized = email.toLowerCase()
-  return normalized.includes('owner') || normalized.includes('pemilik')
-    ? 'owner'
-    : 'employee'
+  return getStoredUser() as AuthUser | null
 }
 
 export interface AuthApi {
   user: AuthUser | null
-  signIn(email: string, _password: string): Promise<AuthResult>
-  signUp(email: string, _password: string): Promise<AuthResult>
-  signOut(): void
+  isReady: boolean
+  signIn(email: string, password: string): Promise<AuthResult>
+  signUp(input: {
+    nama: string
+    email: string
+    password: string
+    namaBisnis?: string
+  }): Promise<AuthResult>
+  signOut(): Promise<void>
+  refresh(): Promise<AuthUser | null>
 }
 
 export function useAuth(): AuthApi {
   const [user, setUser] = useState<AuthUser | null>(null)
+  const [isReady, setReady] = useState(false)
 
   useEffect(() => {
     setUser(readSession())
+    setReady(true)
   }, [])
 
-  const signIn = useCallback(async (email: string): Promise<AuthResult> => {
-    const next: AuthUser = { email, role: deriveRole(email) }
-    writeSession(next)
-    setUser(next)
-    return { ok: true }
+  const signIn = useCallback(async (email: string, password: string): Promise<AuthResult> => {
+    try {
+      const res = await apiRequest<{ token: string; user: AuthUser }>(
+        '/api/auth/sign-in',
+        { method: 'POST', body: { email, password }, anonymous: true },
+      )
+      setToken(res.token)
+      setStoredUser(res.user)
+      setUser(res.user)
+      return { ok: true }
+    } catch (e) {
+      // Surface auth failure so the screen can show a message
+      if (e instanceof ApiError) throw e
+      throw new ApiError(0, e instanceof Error ? e.message : 'Gagal masuk')
+    }
   }, [])
 
-  const signUp = useCallback(async (email: string): Promise<AuthResult> => {
-    const next: AuthUser = { email, role: 'owner' }
-    writeSession(next)
-    setUser(next)
-    return { ok: true }
-  }, [])
+  const signUp = useCallback(
+    async (input: {
+      nama: string
+      email: string
+      password: string
+      namaBisnis?: string
+    }): Promise<AuthResult> => {
+      try {
+        const res = await apiRequest<{ token: string; user: AuthUser }>(
+          '/api/auth/sign-up',
+          { method: 'POST', body: input, anonymous: true },
+        )
+        setToken(res.token)
+        setStoredUser(res.user)
+        setUser(res.user)
+        return { ok: true }
+      } catch (e) {
+        if (e instanceof ApiError) throw e
+        throw new ApiError(0, e instanceof Error ? e.message : 'Gagal mendaftar')
+      }
+    },
+    [],
+  )
 
-  const signOut = useCallback(() => {
-    if (typeof window !== 'undefined') window.localStorage.removeItem(SESSION_KEY)
+  const signOut = useCallback(async (): Promise<void> => {
+    const token = getToken()
+    if (token) {
+      try {
+        await apiRequest('/api/auth/sign-out', { method: 'POST' })
+      } catch {
+        // sign-out is idempotent — clear local state even if BE rejects
+      }
+    }
+    setToken(null)
+    setStoredUser(null)
     setUser(null)
   }, [])
 
-  return { user, signIn, signUp, signOut }
+  const refresh = useCallback(async (): Promise<AuthUser | null> => {
+    if (!getToken()) return null
+    try {
+      const res = await apiRequest<{ user: AuthUser }>('/api/auth/me')
+      setStoredUser(res.user)
+      setUser(res.user)
+      return res.user
+    } catch {
+      setToken(null)
+      setStoredUser(null)
+      setUser(null)
+      return null
+    }
+  }, [])
+
+  return { user, isReady, signIn, signUp, signOut, refresh }
 }

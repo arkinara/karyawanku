@@ -24,8 +24,8 @@ export interface ApiUser {
   nama: string
   email: string
   role: 'owner' | 'employee'
-  status: 'aktif' | 'nonaktif'
-  employee_id: string | null
+  status?: 'aktif' | 'nonaktif'
+  employee_id?: string | null
 }
 
 export class ApiError extends Error {

@@ -27,6 +27,7 @@ export default function SignInPage() {
   const [touched, setTouched] = useState({ email: false, password: false })
   const [submitted, setSubmitted] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
 
   const emailError = submitted || touched.email ? validateEmail(email) : undefined
   const passwordError =
@@ -41,11 +42,18 @@ export default function SignInPage() {
     const hasError = Boolean(validateEmail(email) || password === '')
     setSubmitted(true)
     setTouched({ email: true, password: true })
+    setFormError(null)
     if (hasError) return
 
     setBusy(true)
-    await Promise.all([signIn(email, password), new Promise((r) => setTimeout(r, 1000))])
-    router.push('/dashboard')
+    try {
+      await signIn(email, password)
+      router.push('/dashboard')
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Masuk gagal')
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -91,6 +99,15 @@ export default function SignInPage() {
             </a>
           }
         />
+
+        {formError && (
+          <p
+            role="alert"
+            className="t-body-sm rounded-xl border border-danger/40 bg-danger-container/30 px-3 py-2 text-danger"
+          >
+            {formError}
+          </p>
+        )}
 
         <Button type="submit" size="lg" className="mt-2 w-full" aria-busy={busy} disabled={busy}>
           {busy ? (

@@ -55,6 +55,7 @@ export default function SignUpPage() {
   })
   const [submitted, setSubmitted] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
 
   const namaError = submitted || touched.nama ? validateNama(nama) : undefined
   const emailError = submitted || touched.email ? validateEmail(email) : undefined
@@ -71,11 +72,18 @@ export default function SignUpPage() {
     )
     setSubmitted(true)
     setTouched({ nama: true, email: true, password: true, confirm: true })
+    setFormError(null)
     if (hasError) return
 
     setBusy(true)
-    await Promise.all([signUp(email, password), new Promise((r) => setTimeout(r, 1500))])
-    router.push('/onboarding')
+    try {
+      await signUp({ nama, email, password, namaBisnis: 'Bisnis ' + nama })
+      router.push('/onboarding')
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Pendaftaran gagal')
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -142,6 +150,15 @@ export default function SignUpPage() {
           onBlur={() => setTouched((t) => ({ ...t, confirm: true }))}
           error={confirmError}
         />
+
+        {formError && (
+          <p
+            role="alert"
+            className="t-body-sm rounded-xl border border-danger/40 bg-danger-container/30 px-3 py-2 text-danger"
+          >
+            {formError}
+          </p>
+        )}
 
         <Button type="submit" size="lg" className="mt-2 w-full" aria-busy={busy} disabled={busy}>
           {busy ? (
