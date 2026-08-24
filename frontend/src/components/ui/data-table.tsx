@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { ChevronDown, ChevronUp, ChevronsUpDown } from 'lucide-react'
 import { cn } from '@/lib/cn'
@@ -30,6 +30,10 @@ export interface DataTableProps<T> {
   emptyState?: ReactNode
   /** Totals row, e.g. a `<tr>` with `<td>` cells. */
   footer?: ReactNode
+  /** Row key of the currently expanded row (`null` = none). */
+  expandedRowKey?: string | null
+  /** Rendered in a full-width row under the expanded row, e.g. per-component breakdown. */
+  renderExpandedRow?: (row: T) => ReactNode
   className?: string
 }
 
@@ -52,6 +56,8 @@ export function DataTable<T>({
   caption,
   emptyState,
   footer,
+  expandedRowKey,
+  renderExpandedRow,
   className,
 }: DataTableProps<T>) {
   const [sort, setSort] = useState<{ key: string; dir: 'asc' | 'desc' } | null>(null)
@@ -141,26 +147,38 @@ export function DataTable<T>({
             </tr>
           </thead>
           <tbody>
-            {sorted.map((row) => (
-              <tr
-                key={rowKey(row)}
-                className="transition-colors duration-fast ease-standard hover:bg-surface-1"
-              >
-                {columns.map((col) => (
-                  <td
-                    key={col.key}
-                    className={cn(
-                      'border-b border-outline-variant px-4 py-3 align-middle',
-                      col.numeric && 'tabular-nums',
-                      alignClass[col.align ?? (col.numeric ? 'right' : 'left')],
-                      col.width,
-                    )}
-                  >
-                    {col.render ? col.render(row) : ((row as Record<string, unknown>)[col.key] as ReactNode)}
-                  </td>
-                ))}
-              </tr>
-            ))}
+            {sorted.map((row) => {
+              const key = rowKey(row)
+              return (
+                <Fragment key={key}>
+                  <tr className="transition-colors duration-fast ease-standard hover:bg-surface-1">
+                    {columns.map((col) => (
+                      <td
+                        key={col.key}
+                        className={cn(
+                          'border-b border-outline-variant px-4 py-3 align-middle',
+                          col.numeric && 'tabular-nums',
+                          alignClass[col.align ?? (col.numeric ? 'right' : 'left')],
+                          col.width,
+                        )}
+                      >
+                        {col.render ? col.render(row) : ((row as Record<string, unknown>)[col.key] as ReactNode)}
+                      </td>
+                    ))}
+                  </tr>
+                  {expandedRowKey === key && renderExpandedRow && (
+                    <tr>
+                      <td
+                        colSpan={columns.length}
+                        className="border-b border-outline-variant bg-surface-1/60 px-4 py-4"
+                      >
+                        {renderExpandedRow(row)}
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              )
+            })}
           </tbody>
           {footer && <tfoot>{footer}</tfoot>}
         </table>
