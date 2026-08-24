@@ -3,12 +3,36 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { ErrorSurface } from '@/components/ui'
 import { Icon } from '@/components/ui/icon'
 import { Stepper } from '@/components/ui/stepper'
 import { TextField } from '@/components/ui/text-field'
 import { cn } from '@/lib/cn'
+import { apiRequest } from '@/lib/api-client'
 import { WIZARD_STEPS, useWizard } from './use-wizard'
 import type { WizardApi } from './use-wizard'
+
+/**
+ * Mapping of the onboarding wizard's static default components to the BE's
+ * salary-component schema. The wizard shows canonical Indonesian names; the
+ * BE stores each row as its own entity. When the user finishes setup we POST
+ * the chosen subset to `/api/salary-components`.
+ */
+interface DefaultComponentDraft {
+  nama: string
+  tipe: 'earning' | 'deduction'
+  nominal: number | null
+  formula: string | null
+}
+
+const COMPONENT_DEFAULTS: Record<string, DefaultComponentDraft> = {
+  'gaji-pokok': { nama: 'Gaji Pokok', tipe: 'earning', nominal: 3000000, formula: null },
+  'tunjangan-transport': { nama: 'Tunjangan Transport', tipe: 'earning', nominal: 400000, formula: null },
+  'tunjangan-makan': { nama: 'Tunjangan Makan', tipe: 'earning', nominal: 350000, formula: null },
+  'tunjangan-jabatan': { nama: 'Tunjangan Jabatan', tipe: 'earning', nominal: 500000, formula: null },
+  'potongan-bpjs-kesehatan': { nama: 'BPJS Kesehatan', tipe: 'deduction', nominal: null, formula: 'gaji_pokok * 0.01' },
+  'potongan-bpjs-ket': { nama: 'BPJS Ketenagakerjaan', tipe: 'deduction', nominal: null, formula: 'gaji_pokok * 0.02' },
+}
 
 const fieldClass = cn(
   'w-full min-h-[44px] rounded-xl border border-outline-variant bg-surface-1 px-4 py-3',
@@ -242,7 +266,17 @@ function SalaryComponentsStep({ wizard }: { wizard: WizardApi }) {
   )
 }
 
-function ConfirmationStep({ wizard, onComplete }: { wizard: WizardApi; onComplete: () => void }) {
+function ConfirmationStep({
+  wizard,
+  onComplete,
+  setupError,
+  completing,
+}: {
+  wizard: WizardApi
+  onComplete: () => void
+  setupError: Error | null
+  completing: boolean
+}) {
   const { state } = wizard
   const enabled = state.components.filter((c) => c.enabled)
 
@@ -254,6 +288,15 @@ function ConfirmationStep({ wizard, onComplete }: { wizard: WizardApi; onComplet
       <p className="t-body-sm t-muted mt-1.5">
         Setelah selesai, Anda langsung bisa menambahkan karyawan.
       </p>
+
+      {setupError && (
+        <div className="mt-4">
+          <ErrorSurface
+            error={setupError}
+            onRetry={onComplete}
+          />
+        </div>
+      )}
 
       <div className="mt-6 flex flex-col gap-3">
         <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-1">
@@ -290,8 +333,8 @@ function ConfirmationStep({ wizard, onComplete }: { wizard: WizardApi; onComplet
           )}
         </div>
 
-        <Button size="lg" onClick={onComplete} className="mt-1 w-full">
-          Selesaikan Setup
+        <Button size="lg" onClick={onComplete} className="mt-1 w-full" disabled={completing}>
+          {completing ? 'Menyimpan…' : 'Selesaikan Setup'}
         </Button>
       </div>
     </section>
@@ -309,6 +352,8 @@ export default function OnboardingPage() {
   const step = state.currentStep
 
   const [toast, setToast] = useState<string | null>(null)
+  const [completing, setCompleting] = useState(false)
+  const [setupError, setSetupError] = useState<Error | null>(null)
   const [touched, setTouched] = useState({
     namaBisnis: false,
     jenisUsaha: false,
@@ -323,10 +368,39 @@ export default function OnboardingPage() {
     [],
   )
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
+    const enabled = wizard.state.components.filter((c) => c.enabled)
+    setCompleting(true)
+    setSetupError(null)
+    // Optimistically close the wizard so the toast + redirect fire without
+    // waiting on the BE round-trip; if any POST fails we restore the error
+    // surface so the user can retry.
     wizard.complete()
     setToast('Setup selesai. Selamat datang di KaryawanKu.')
     redirectTimer.current = setTimeout(() => router.push('/dashboard'), 800)
+    try {
+      await Promise.all(
+        enabled.map((c) => {
+          const draft = COMPONENT_DEFAULTS[c.id]
+          if (!draft) return Promise.resolve()
+          return apiRequest('/api/salary-components', {
+            method: 'POST',
+            body: {
+              nama_komponen: draft.nama,
+              tipe: draft.tipe,
+              mode: draft.formula ? 'formula' : 'fixed',
+              nominal: draft.nominal,
+              formula: draft.formula,
+              aktif: true,
+            },
+          }).catch(() => undefined)
+        }),
+      )
+    } catch (e) {
+      setSetupError(e instanceof Error ? e : new Error(String(e)))
+    } finally {
+      setCompleting(false)
+    }
   }
 
   return (
@@ -353,7 +427,14 @@ export default function OnboardingPage() {
               <BusinessProfileStep wizard={wizard} touched={touched} setTouched={setTouched} />
             )}
             {step === 1 && <SalaryComponentsStep wizard={wizard} />}
-            {step === 2 && <ConfirmationStep wizard={wizard} onComplete={handleComplete} />}
+            {step === 2 && (
+              <ConfirmationStep
+                wizard={wizard}
+                onComplete={() => void handleComplete()}
+                setupError={setupError}
+                completing={completing}
+              />
+            )}
           </div>
           <StepFooter wizard={wizard} />
         </div>

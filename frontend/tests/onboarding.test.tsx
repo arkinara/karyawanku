@@ -12,6 +12,21 @@ vi.mock('next/navigation', () => ({
 beforeEach(() => {
   localStorage.clear()
   pushMock.mockClear()
+  // Default stub: salary-components POST returns success so onboarding can
+  // complete and show the toast. Individual tests can override.
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url.includes('/api/salary-components') && (init?.method ?? 'GET') === 'POST') {
+        return new Response(JSON.stringify({ component: { id: 'mock' } }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+      return new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } })
+    }),
+  )
 })
 
 function fillStep1() {
