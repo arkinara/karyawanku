@@ -30,7 +30,7 @@ export interface EmployeeDetail {
   customFields: CustomField[]
 }
 
-const EMPLOYEES: EmployeeDetail[] = [
+export const EMPLOYEES: EmployeeDetail[] = [
   {
     id: '1',
     nik: 'KRY-001',
