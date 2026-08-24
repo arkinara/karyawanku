@@ -49,7 +49,15 @@ src/
     salary-components.ts   # CRUD komponen gaji + preview formula
     salary-assignments.ts  # penugasan komponen gaji ke karyawan
     attendance.ts      # clock-in/out, list, aggregate bulanan, manual (owner)
-tests/            # vitest: auth, users, employees, employees-import, schema, salary-components, salary-assignments, attendance-*
+    leave-types.ts     # CRUD jenis cuti (owner) + seed default
+    leave-balances.ts  # saldo cuti per karyawan/tahun + reset tahunan
+    leave-requests.ts  # pengajuan cuti (karyawan) + approve/reject (owner)
+  lib/
+    auth.ts            # hash/verify password, JWT, requireAuth/requireOwner
+    errors.ts          # ApiError + turunannya
+    attendance-status.ts # hitung status hadir/telat + late_minutes dari jam shift
+    leave-reset.ts     # hitung kuota cuti tahunan (masa kerja) + reset tahunan
+tests/            # vitest: auth, users, employees, employees-import, schema, salary-components, salary-assignments, attendance-*, leave-*
 drizzle/          # file migrasi SQL (generated)
 data/             # file DB lokal (git-ignored)
 ```
@@ -91,8 +99,22 @@ Prefix: `/api`
 | GET | `/attendance/aggregate/:employeeId?period=YYYY-MM` | Owner / karyawan terkait | Rekap bulanan `{ hadir, telat, absen, izin, total_late_minutes }` |
 | POST | `/attendance/manual` | Owner | Entri/koreksi manual (upsert by `employee_id`+`tanggal`) |
 | PATCH | `/attendance/:id` | Owner | Koreksi subset field catatan absensi |
+| GET | `/leave-types` | Owner | Daftar jenis cuti (seed default otomatis: Tahunan 12/carry-over 5, Sakit 5, Izin 3, Melahirkan 90) |
+| POST | `/leave-types` | Owner | Buat jenis cuti (`nama_jenis_cuti`, `default_kuota_hari`, `kebijakan_sisa`, `carry_over_max_days`) |
+| PATCH | `/leave-types/:id` | Owner | Update subset field jenis cuti |
+| DELETE | `/leave-types/:id` | Owner | Soft-delete jenis cuti (set `aktif=false`) → `{ ok: true }` |
+| GET | `/leave-balances?employee_id=&tahun=` | Owner / karyawan terkait | Saldo cuti per tahun (auto-create bila belum ada); employee hanya saldo sendiri |
+| PATCH | `/leave-balances/:id` | Owner | Penyesuaian saldo (`kuota_hari` / `terpakai_hari`) |
+| POST | `/admin/leave-reset` | Owner | Reset tahunan saldo cuti (`{ tahun? }`), idempoten, carry-over/hangus per kebijakan |
+| POST | `/leave-requests` | Karyawan / Owner | Ajukan cuti (`leave_type_id`, `tanggal_mulai`, `tanggal_selesai`, `alasan`), status default `pending`, divalidasi vs sisa kuota |
+| GET | `/leave-requests?status=&employee_id=` | Owner / Karyawan | Riwayat pengajuan cuti (owner semua di bisnis; karyawan milik sendiri) |
+| GET | `/leave-requests/:id` | Owner / karyawan terkait | Detail pengajuan cuti |
+| PATCH | `/leave-requests/:id/approve` | Owner | Setujui cuti (status → `disetujui`, tambah `terpakai_hari`, catat approver) |
+| PATCH | `/leave-requests/:id/reject` | Owner | Tolak cuti (status → `ditolak`, tanpa ubah saldo) |
 
 Catatan absensi: status `hadir`/`telat` dihitung otomatis dari `jam_mulai` shift (shift_assignments) saat clock-in, fallback `08:00` bila tak ada shift. `client_timestamp` (untuk kasus offline) divalidasi tidak boleh di masa depan. Owner boleh clock-in/out atas nama karyawan lain via `employee_id`; employee hanya untuk dirinya sendiri.
+
+Catatan cuti: saldo cuti dibuat otomatis saat pertama kali di-query per tahun. Kuota cuti tahunan mengikuti UU Cipta Kerja — masa kerja ≥ 1 tahun mendapat `default_kuota_hari` penuh (12), masa kerja < 1 tahun diprorata (`default_kuota_hari × bulan kerja / 12`). Sisa tahun lalu dipindah ke tahun baru bila `kebijakan_sisa='carry-over'` (maks `carry_over_max_days`), hangus bila `hangus`. `POST /admin/leave-reset` memicu reset tahunan secara manual (cron menyusul) dan idempoten — tidak menggandakan baris saldo.
 
 Catatan: saat `POST/PATCH /users` mengirim `employee_id`, sistem memvalidasi karyawan tsb ada di bisnis yang sama.
 

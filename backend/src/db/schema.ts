@@ -151,6 +151,7 @@ export const leaveTypes = sqliteTable(
     default_kuota_hari: integer('default_kuota_hari').notNull().default(12),
     kebijakan_sisa: text('kebijakan_sisa', { enum: leavePolicyValues }).notNull().default('hangus'),
     carry_over_max_days: integer('carry_over_max_days'),
+    aktif: integer('aktif', { mode: 'boolean' }).notNull().default(true),
   },
   (table) => [index('leave_types_business_id_idx').on(table.business_id)],
 )

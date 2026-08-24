@@ -1,0 +1,1 @@
+ALTER TABLE `leave_types` ADD `aktif` integer DEFAULT true NOT NULL;
