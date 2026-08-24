@@ -1,3 +1,6 @@
+'use client'
+
+import { useTheme } from 'next-themes'
 import type { UserMeta } from '@/lib/nav-config'
 import { Icon } from '@/components/ui/icon'
 import { Avatar } from '@/components/ui/avatar'
@@ -20,6 +23,10 @@ export interface AppBarProps {
  * this so it stays the first focusable element.
  */
 export function AppBar({ title, subtitle, user, onMenu, menuExpanded = false }: AppBarProps) {
+  const { resolvedTheme, setTheme } = useTheme()
+  const dark = resolvedTheme === 'dark'
+  const next = dark ? 'terang' : 'gelap'
+
   return (
     <header className="appbar">
       {onMenu && (
@@ -40,9 +47,14 @@ export function AppBar({ title, subtitle, user, onMenu, menuExpanded = false }: 
         {subtitle != null && <p className="t-caption truncate">{subtitle}</p>}
       </div>
 
-      {/* Theme toggle is a placeholder; real logic lands in ticket #40. */}
-      <button type="button" className="appbar-action" aria-label="Ganti tampilan" title="Tampilan">
-        <Icon name="sun" size={19} />
+      <button
+        type="button"
+        className="appbar-action"
+        onClick={() => setTheme(dark ? 'light' : 'dark')}
+        aria-label={`Ganti ke tampilan ${next}`}
+        title={`Tampilan ${next}`}
+      >
+        <Icon name={dark ? 'sun' : 'moon'} size={19} />
       </button>
 
       <button

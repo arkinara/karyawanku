@@ -18,8 +18,10 @@ const themeScript = `(function(){try{var q=new URLSearchParams(location.search).
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="id" suppressHydrationWarning>
-      <body className="font-sans antialiased bg-surface-1 text-on-surface">
+      <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
+      <body className="font-sans antialiased bg-surface-1 text-on-surface">
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
