@@ -45,7 +45,9 @@ src/
     users.ts      # CRUD user (owner only)
     employees.ts        # CRUD karyawan (owner / self)
     employees-import.ts # import CSV: preview + commit
-tests/            # vitest: auth, users, employees, employees-import, schema
+    salary-components.ts   # CRUD komponen gaji + preview formula
+    salary-assignments.ts  # penugasan komponen gaji ke karyawan
+tests/            # vitest: auth, users, employees, employees-import, schema, salary-components, salary-assignments
 drizzle/          # file migrasi SQL (generated)
 data/             # file DB lokal (git-ignored)
 ```
@@ -71,6 +73,15 @@ Prefix: `/api`
 | DELETE | `/employees/:id` | Owner | Soft-delete (status → nonaktif) |
 | POST | `/employees/import/preview` | Owner | Upload CSV (max 5 MB), kembalikan rows + detected headers + suggested mapping |
 | POST | `/employees/import/commit` | Owner | Buat banyak karyawan valid sekaligus (transaksi), `{ created, skipped, errors }` |
+| GET | `/salary-components?active=true` | Owner | Daftar komponen gaji (scoped bisnis; default termasuk nonaktif, filter `active=true`) |
+| POST | `/salary-components` | Owner | Buat komponen gaji (`nama_komponen`, `tipe`, `nominal`/`formula`, `aktif`) |
+| POST | `/salary-components/preview-formula` | Owner | Evaluasi formula terhadap `{ formula, variables }` → `{ result }` |
+| PATCH | `/salary-components/:id` | Owner | Update subset field + toggle `aktif` (soft, tanpa hapus histori) |
+| DELETE | `/salary-components/:id` | Owner | Soft-delete (set `aktif=false`) → `{ ok: true }` |
+| GET | `/employees/:employeeId/salary-assignments?includeInactive=true` | Owner / karyawan terkait | Daftar penugasan komponen gaji + detail komponen (`nilai_efektif`) |
+| POST | `/employees/:employeeId/salary-assignments` | Owner | Tugaskan komponen gaji ke karyawan (opsional `override_nominal`, cek duplikat aktif → 409) |
+| PATCH | `/salary-assignments/:id` | Owner | Update `override_nominal` / toggle `aktif` |
+| DELETE | `/salary-assignments/:id` | Owner | Soft-delete penugasan (set `aktif=false`) → `{ ok: true }` |
 
 Catatan: saat `POST/PATCH /users` mengirim `employee_id`, sistem memvalidasi karyawan tsb ada di bisnis yang sama.
 
