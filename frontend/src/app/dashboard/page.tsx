@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   AlertTriangle,
   Calendar,
@@ -16,13 +17,17 @@ import {
   AppShell,
   Avatar,
   Button,
+  ErrorSurface,
   Icon,
+  LoadingSurface,
   PriorityBanner,
   SegmentedControl,
   StatusChip,
 } from '@/components/ui'
 import { MetricCard } from '@/components/dashboard/metric-card'
 import { MetricGrid } from '@/components/dashboard/metric-grid'
+import { apiRequest, ApiError, getStoredUser } from '@/lib/api-client'
+import { formatIDR } from '@/lib/format'
 
 const RANGES = [
   { value: 'today', label: 'Hari ini' },
@@ -30,86 +35,143 @@ const RANGES = [
   { value: 'month', label: '30 hari' },
 ]
 
-const METRICS = [
-  {
-    label: 'Total karyawan',
-    value: 12,
-    icon: Users,
-    caption: '11 aktif · 1 nonaktif',
-    delta: { value: '+1 bulan ini', trend: 'up' as const },
-  },
-  {
-    label: 'Hadir hari ini',
-    value: 10,
-    unit: '/12',
-    icon: CheckCircle2,
-    caption: '83% kehadiran',
-    delta: { value: '+4 poin vs rata-rata', trend: 'up' as const },
-  },
-  {
-    label: 'Cuti menunggu',
-    value: 2,
-    icon: Calendar,
-    caption: '1 tahunan · 1 sakit',
-    delta: { value: '−1 dari kemarin', trend: 'down' as const },
-  },
-  {
-    label: 'Gaji bulan ini',
-    value: 'Rp 28.500.000',
-    icon: Wallet,
-    caption: 'Agustus 2026 · estimasi',
-  },
-]
+interface OwnerDashboard {
+  today_attendance: { hadir: number; telat: number; absen: number; izin: number }
+  pending_leaves: Array<{
+    id: string
+    employee: { nama: string }
+    leave_type: string
+    tanggal_mulai: string
+    tanggal_selesai: string
+    alasan: string
+    created_at: string | number
+  }>
+  upcoming_shifts: Array<{
+    employee: { nama: string; avatar: string | null }
+    shift: string
+    tanggal: string
+    jam_mulai: string
+    jam_selesai: string
+  }>
+  payroll_summary: {
+    current_month_total: number
+    current_month_take_home: number
+    last_run_periode: string | null
+  }
+  metrics: { total_karyawan: number; total_aktif: number }
+}
 
-const ATTENDANCE_STATS = [
-  { count: 10, label: 'Hadir', variant: 'success' as const },
-  { count: 2, label: 'Telat', variant: 'warning' as const },
-  { count: 0, label: 'Absen', variant: 'danger' as const },
-  { count: 0, label: 'Izin', variant: 'info' as const },
-]
+function todayIso(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
 
-const PENDING_LEAVE = [
-  {
-    name: 'Siti Nurhaliza',
-    role: 'Kasir',
-    type: 'Cuti Tahunan',
-    variant: 'info' as const,
-    range: '22 – 23 Agustus 2026',
-    days: '2 hari',
-  },
-  {
-    name: 'Budi Prasetyo',
-    role: 'Barista',
-    type: 'Izin Sakit',
-    variant: 'warning' as const,
-    range: '20 Agustus 2026',
-    days: '1 hari',
-  },
-]
+function indonesianDate(iso = todayIso()): string {
+  const [y, m, d] = iso.split('-')
+  const date = new Date(Number(y), Number(m) - 1, Number(d))
+  return date.toLocaleDateString('id-ID', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+}
 
-const QUICK_ACTIONS = [
-  { label: 'Rekap absensi', icon: Clock, href: '/attendance' },
-  { label: 'Tambah karyawan', icon: Plus, href: '/employees' },
-  { label: 'Jalankan payroll', icon: Wallet, href: '/payroll' },
-]
+function formatIdr(n: number): string {
+  return formatIDR(n)
+}
 
 export default function DashboardPage() {
+  const router = useRouter()
   const [range, setRange] = useState('today')
+  const [data, setData] = useState<OwnerDashboard | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
+
+  const user = getStoredUser()
+  const greeting = user?.nama ? `Selamat pagi, ${user.nama}` : 'Selamat pagi, Pak Darmawan'
+
+  const reload = async (): Promise<void> => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await apiRequest<OwnerDashboard>('/api/dashboard')
+      setData(res)
+    } catch (e) {
+      setError(e instanceof Error ? e : new Error(String(e)))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!user) return
+    void reload()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const attendanceStats = useMemo(() => {
+    const t = data?.today_attendance ?? { hadir: 0, telat: 0, absen: 0, izin: 0 }
+    return [
+      { count: t.hadir, label: 'Hadir', variant: 'success' as const },
+      { count: t.telat, label: 'Telat', variant: 'warning' as const },
+      { count: t.absen, label: 'Absen', variant: 'danger' as const },
+      { count: t.izin, label: 'Izin', variant: 'info' as const },
+    ]
+  }, [data])
+
+  const metrics = useMemo(() => {
+    const total = data?.metrics.total_karyawan ?? 0
+    const aktif = data?.metrics.total_aktif ?? 0
+    const att = data?.today_attendance ?? { hadir: 0, telat: 0, absen: 0, izin: 0 }
+    const hadirToday = att.hadir
+    const payrollTotal = data?.payroll_summary.current_month_total ?? 0
+    const leavesPending = data?.pending_leaves.length ?? 0
+    return [
+      {
+        label: 'Total karyawan',
+        value: total,
+        icon: Users,
+        caption: `${aktif} aktif · ${total - aktif} nonaktif`,
+        delta: { value: `${total} total`, trend: 'flat' as const },
+      },
+      {
+        label: 'Hadir hari ini',
+        value: hadirToday,
+        unit: total > 0 ? `/${total}` : undefined,
+        icon: CheckCircle2,
+        caption: total > 0 ? `${Math.round((hadirToday / total) * 100)}% kehadiran` : 'Belum ada data',
+        delta: { value: `${att.telat} telat`, trend: 'flat' as const },
+      },
+      {
+        label: 'Cuti menunggu',
+        value: leavesPending,
+        icon: Calendar,
+        caption: data?.pending_leaves[0]?.leave_type ?? 'Tidak ada pengajuan',
+        delta: { value: `${leavesPending} pending`, trend: 'flat' as const },
+      },
+      {
+        label: 'Gaji bulan ini',
+        value: formatIdr(payrollTotal),
+        icon: Wallet,
+        caption: data?.payroll_summary.last_run_periode
+          ? `Run terakhir ${data.payroll_summary.last_run_periode}`
+          : 'Belum ada run bulan ini',
+      },
+    ]
+  }, [data])
 
   return (
     <AppShell
       userRole="owner"
       activeNav="dashboard"
-      title="Selamat pagi, Pak Darmawan"
-      subtitle="Warung Kopi Nusantara · Rabu, 19 Agustus 2026"
+      title={greeting}
+      subtitle={`Warung Kopi Nusantara · ${indonesianDate()}`}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="t-h1">Ringkasan hari ini</h1>
-          <p className="t-caption mt-1">
-            Rabu, 19 Agustus 2026 · data terakhir masuk{' '}
-            <time dateTime="2026-08-19T08:12">08:12 WIB</time>
-          </p>
+          <p className="t-caption mt-1">{indonesianDate()}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <SegmentedControl
@@ -125,131 +187,168 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="mt-4">
-        <PriorityBanner
-          variant="warning"
-          icon={AlertTriangle}
-          title="2 pengajuan cuti menunggu keputusan Anda"
-          description="Paling lama menunggu 2 hari. Karyawan tidak bisa mengatur jadwal sebelum disetujui."
-          action={{ label: 'Tinjau', href: '/leave' }}
-        />
-      </div>
-
-      <MetricGrid className="mt-4">
-        {METRICS.map((m) => (
-          <MetricCard
-            key={m.label}
-            label={m.label}
-            value={m.value}
-            unit={m.unit}
-            icon={m.icon}
-            caption={m.caption}
-            delta={m.delta}
-          />
-        ))}
-      </MetricGrid>
-
-      <div className="mt-4 grid gap-4 xl:grid-cols-2">
-        <section
-          className="rounded-2xl border border-outline-variant bg-surface shadow-e1"
-          aria-labelledby="h-attendance"
-        >
-          <div className="flex items-center justify-between border-b border-outline-variant px-5 py-4">
-            <div>
-              <h2 className="t-h2" id="h-attendance">
-                Kehadiran Hari Ini
-              </h2>
-              <p className="t-caption mt-0.5">Shift Pagi · 07:00 mulai</p>
-            </div>
-            <Button variant="text" size="sm">
-              Semua
-            </Button>
-          </div>
-
-          <div className="p-5">
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {ATTENDANCE_STATS.map((s) => (
-                <div
-                  key={s.label}
-                  className="flex flex-col items-start gap-2 rounded-xl bg-surface-2 p-3"
-                >
-                  <StatusChip variant={s.variant} label={s.label} />
-                  <p className="text-[22px] font-bold leading-none tabular-nums text-onsurface">
-                    {s.count}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section
-          className="rounded-2xl border border-outline-variant bg-surface shadow-e1"
-          aria-labelledby="h-leave"
-        >
-          <div className="flex items-center justify-between border-b border-outline-variant px-5 py-4">
-            <div>
-              <h2 className="t-h2" id="h-leave">
-                Cuti Menunggu Persetujuan
-              </h2>
-              <p className="t-caption mt-0.5">2 pengajuan · urut dari yang paling lama</p>
-            </div>
-            <Button variant="text" size="sm">
-              Lihat semua
-            </Button>
-          </div>
-
-          <ul className="divide-y divide-outline-variant">
-            {PENDING_LEAVE.map((l) => (
-              <li key={l.name} className="flex items-center gap-3 p-5">
-                <Avatar name={l.name} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="t-h3">{l.name}</p>
-                    <StatusChip variant={l.variant} label={l.type} />
-                    <span className="t-caption">{l.role}</span>
-                  </div>
-                  <p className="t-body-sm mt-1 tabular-nums">
-                    {l.range} · <span className="font-semibold">{l.days}</span>
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <Button variant="tonal" size="sm">
-                    Setujui
-                  </Button>
-                  <Button variant="text" size="sm">
-                    Tolak
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      </div>
-
-      <section className="mt-4" aria-labelledby="h-quick">
-        <h2 className="t-h2" id="h-quick">
-          Aksi cepat
-        </h2>
-        <div className="mt-3 grid gap-3 sm:grid-cols-3">
-          {QUICK_ACTIONS.map((a) => {
-            const IconCmp = a.icon
-            return (
-              <a
-                key={a.label}
-                href={a.href}
-                className="flex items-center gap-3 rounded-2xl border border-outline-variant bg-card p-4 transition hover:shadow-e2"
-              >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container text-primary-oncontainer">
-                  <IconCmp className="h-4 w-4" />
-                </span>
-                <span className="min-w-0 flex-1 truncate font-medium">{a.label}</span>
-                <ChevronRight className="h-4 w-4 shrink-0 text-onsurface-variant" />
-              </a>
-            )
-          })}
+      {loading && !data && (
+        <div className="mt-4">
+          <LoadingSurface label="Memuat ringkasan…" />
         </div>
-      </section>
+      )}
+
+      {error && (
+        <div className="mt-4">
+          <ErrorSurface error={error} onRetry={reload} />
+        </div>
+      )}
+
+      {data && (
+        <>
+          {data.pending_leaves.length > 0 && (
+            <div className="mt-4">
+              <PriorityBanner
+                variant="warning"
+                icon={AlertTriangle}
+                title={`${data.pending_leaves.length} pengajuan cuti menunggu keputusan Anda`}
+                description={`Paling lama menunggu ${
+                  data.pending_leaves.length > 0 ? 'beberapa hari' : '0 hari'
+                }. Karyawan tidak bisa mengatur jadwal sebelum disetujui.`}
+                action={{ label: 'Tinjau', href: '/leave' }}
+              />
+            </div>
+          )}
+
+          <MetricGrid className="mt-4">
+            {metrics.map((m) => (
+              <MetricCard
+                key={m.label}
+                label={m.label}
+                value={m.value}
+                unit={m.unit}
+                icon={m.icon}
+                caption={m.caption}
+                delta={m.delta}
+              />
+            ))}
+          </MetricGrid>
+
+          <div className="mt-4 grid gap-4 xl:grid-cols-2">
+            <section
+              className="rounded-2xl border border-outline-variant bg-surface shadow-e1"
+              aria-labelledby="h-attendance"
+            >
+              <div className="flex items-center justify-between border-b border-outline-variant px-5 py-4">
+                <div>
+                  <h2 className="t-h2" id="h-attendance">
+                    Kehadiran Hari Ini
+                  </h2>
+                  <p className="t-caption mt-0.5">Shift Pagi · 07:00 mulai</p>
+                </div>
+                <Button variant="text" size="sm" onClick={() => router.push('/attendance')}>
+                  Semua
+                </Button>
+              </div>
+
+              <div className="p-5">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {attendanceStats.map((s) => (
+                    <div
+                      key={s.label}
+                      className="flex flex-col items-start gap-2 rounded-xl bg-surface-2 p-3"
+                    >
+                      <StatusChip variant={s.variant} label={s.label} />
+                      <p className="text-[22px] font-bold leading-none tabular-nums text-onsurface">
+                        {s.count}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            <section
+              className="rounded-2xl border border-outline-variant bg-surface shadow-e1"
+              aria-labelledby="h-leave"
+            >
+              <div className="flex items-center justify-between border-b border-outline-variant px-5 py-4">
+                <div>
+                  <h2 className="t-h2" id="h-leave">
+                    Cuti Menunggu Persetujuan
+                  </h2>
+                  <p className="t-caption mt-0.5">
+                    {data.pending_leaves.length} pengajuan · urut dari yang paling lama
+                  </p>
+                </div>
+                <Button variant="text" size="sm" onClick={() => router.push('/leave')}>
+                  Lihat semua
+                </Button>
+              </div>
+
+              <ul className="divide-y divide-outline-variant">
+                {data.pending_leaves.slice(0, 5).map((l) => (
+                  <li key={l.id} className="flex items-center gap-3 p-5">
+                    <Avatar name={l.employee.nama} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="t-h3">{l.employee.nama}</p>
+                        <StatusChip
+                          variant={l.leave_type.toLowerCase().includes('sakit') ? 'warning' : 'info'}
+                          label={l.leave_type}
+                        />
+                      </div>
+                      <p className="t-body-sm mt-1 tabular-nums">
+                        {l.tanggal_mulai} – {l.tanggal_selesai}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <Button
+                        variant="tonal"
+                        size="sm"
+                        onClick={() => router.push('/leave')}
+                      >
+                        Setujui
+                      </Button>
+                      <Button variant="text" size="sm" onClick={() => router.push('/leave')}>
+                        Tolak
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+                {data.pending_leaves.length === 0 && (
+                  <li className="p-5 text-center text-on-surface-variant">
+                    Tidak ada cuti menunggu saat ini.
+                  </li>
+                )}
+              </ul>
+            </section>
+          </div>
+
+          <section className="mt-4" aria-labelledby="h-quick">
+            <h2 className="t-h2" id="h-quick">
+              Aksi cepat
+            </h2>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              {[
+                { label: 'Rekap absensi', icon: Clock, href: '/attendance' },
+                { label: 'Tambah karyawan', icon: Plus, href: '/employees' },
+                { label: 'Jalankan payroll', icon: Wallet, href: '/payroll' },
+              ].map((a) => {
+                const IconCmp = a.icon
+                return (
+                  <a
+                    key={a.label}
+                    href={a.href}
+                    className="flex items-center gap-3 rounded-2xl border border-outline-variant bg-card p-4 transition hover:shadow-e2"
+                  >
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container text-primary-oncontainer">
+                      <IconCmp className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0 flex-1 truncate font-medium">{a.label}</span>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-onsurface-variant" />
+                  </a>
+                )
+              })}
+            </div>
+          </section>
+        </>
+      )}
     </AppShell>
   )
 }
