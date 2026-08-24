@@ -7,12 +7,15 @@ import {
   Button,
   DataTable,
   Dialog,
+  ErrorSurface,
+  LoadingSurface,
   SegmentedControl,
   StatusChip,
   TextField,
 } from '@/components/ui'
 import type { DataTableColumn } from '@/components/ui'
 import { cn } from '@/lib/cn'
+import { apiRequest } from '@/lib/api-client'
 import { formatIDR } from '@/lib/format'
 
 type ComponentType = 'earning' | 'deduction'
@@ -21,25 +24,15 @@ type ValueMode = 'fixed' | 'formula'
 
 interface SalaryComponent {
   id: string
-  nama: string
+  business_id?: string
+  nama_komponen: string
   tipe: ComponentType
   mode: ValueMode
   /** Fixed nominal in IDR, or the base rate for formula components. */
   nominal: number | null
-  formula?: string
-  status: ComponentStatus
+  formula: string | null
+  aktif: boolean
 }
-
-const MOCK_COMPONENTS: SalaryComponent[] = [
-  { id: 'sc-1', nama: 'Gaji Pokok', tipe: 'earning', mode: 'fixed', nominal: 3500000, status: 'aktif' },
-  { id: 'sc-2', nama: 'Tunjangan Transport', tipe: 'earning', mode: 'fixed', nominal: 400000, status: 'aktif' },
-  { id: 'sc-3', nama: 'Tunjangan Makan', tipe: 'earning', mode: 'fixed', nominal: 350000, status: 'aktif' },
-  { id: 'sc-4', nama: 'Tunjangan Jabatan', tipe: 'earning', mode: 'fixed', nominal: 500000, status: 'aktif' },
-  { id: 'sc-5', nama: 'Lembur per Jam', tipe: 'earning', mode: 'formula', nominal: 25000, formula: 'jam_kerja * tarif_lembur', status: 'aktif' },
-  { id: 'sc-6', nama: 'BPJS Kesehatan', tipe: 'deduction', mode: 'formula', nominal: 35000, formula: 'gaji_pokok * 0.01', status: 'aktif' },
-  { id: 'sc-7', nama: 'BPJS Ketenagakerjaan', tipe: 'deduction', mode: 'formula', nominal: 70000, formula: 'gaji_pokok * 0.02', status: 'aktif' },
-  { id: 'sc-8', nama: 'PPh 21', tipe: 'deduction', mode: 'formula', nominal: 75000, formula: '(gaji_pokok * 12 - ptkp) * 0.05 / 12', status: 'nonaktif' },
-]
 
 /** Sample values the formula preview calculator evaluates against (mock). */
 const SAMPLE_VARIABLES: Array<{ key: string; label: string; value: number }> = [
@@ -265,12 +258,12 @@ function SalaryComponentDialog({
 
   useEffect(() => {
     if (!open) return
-    setNama(initial?.nama ?? '')
+    setNama(initial?.nama_komponen ?? '')
     setTipe(initial?.tipe ?? '')
     setMode(initial?.mode ?? 'fixed')
     setNominal(initial && initial.mode === 'fixed' ? String(initial.nominal ?? '') : '')
     setFormula(initial?.formula ?? '')
-    setStatus(initial?.status ?? 'aktif')
+    setStatus(initial?.aktif === false ? 'nonaktif' : 'aktif')
     setErrors({})
     setPreview(null)
     setPreviewRun(false)
@@ -285,7 +278,7 @@ function SalaryComponentDialog({
       errs.nama = 'Nama komponen wajib diisi'
     } else {
       const nameTaken = existingNames.some((n) => n.toLowerCase() === trimmedNama.toLowerCase())
-      const selfName = initial?.nama.toLowerCase() === trimmedNama.toLowerCase()
+      const selfName = initial?.nama_komponen.toLowerCase() === trimmedNama.toLowerCase()
       if (nameTaken && !selfName) errs.nama = 'Komponen dengan nama tersebut sudah ada'
     }
     if (!tipe) errs.tipe = 'Tipe komponen wajib dipilih'
@@ -323,12 +316,12 @@ function SalaryComponentDialog({
     if (Object.keys(errs).length > 0) return
     onSave({
       id: initial?.id ?? `sc-${Date.now()}`,
-      nama: nama.trim(),
+      nama_komponen: nama.trim(),
       tipe: tipe as ComponentType,
       mode,
       nominal: mode === 'fixed' ? parsedNominal : initial?.nominal ?? null,
-      formula: mode === 'formula' ? formula.trim() : undefined,
-      status,
+      formula: mode === 'formula' ? formula.trim() : null,
+      aktif: status === 'aktif',
     })
   }
 
@@ -489,11 +482,31 @@ const FILTER_OPTIONS = [
 ]
 
 export default function SalaryComponentsPage() {
-  const [components, setComponents] = useState<SalaryComponent[]>(MOCK_COMPONENTS)
+  const [components, setComponents] = useState<SalaryComponent[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
   const [filter, setFilter] = useState('all')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<SalaryComponent | null>(null)
   const [deleting, setDeleting] = useState<SalaryComponent | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  const reload = async (): Promise<void> => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await apiRequest<{ components: SalaryComponent[] }>('/api/salary-components')
+      setComponents(res.components)
+    } catch (e) {
+      setError(e instanceof Error ? e : new Error(String(e)))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void reload()
+  }, [])
 
   const filterOptions = useMemo(
     () =>
@@ -519,22 +532,40 @@ export default function SalaryComponentsPage() {
     setDialogOpen(true)
   }
 
-  const save = (component: SalaryComponent) => {
-    setComponents((prev) => {
-      const index = prev.findIndex((c) => c.id === component.id)
-      if (index === -1) return [...prev, component]
-      const next = [...prev]
-      next[index] = component
-      return next
-    })
-    setDialogOpen(false)
-    setEditing(null)
+  const save = async (component: SalaryComponent) => {
+    setSaving(true)
+    try {
+      const body = {
+        nama_komponen: component.nama_komponen,
+        tipe: component.tipe,
+        nominal: component.mode === 'fixed' ? component.nominal : null,
+        formula: component.mode === 'formula' ? component.formula : null,
+        aktif: component.aktif,
+      }
+      if (component.id.startsWith('sc-') && component.id.length < 16) {
+        await apiRequest('/api/salary-components', { method: 'POST', body })
+      } else {
+        await apiRequest(`/api/salary-components/${component.id}`, { method: 'PATCH', body })
+      }
+      setDialogOpen(false)
+      setEditing(null)
+      await reload()
+    } catch (e) {
+      setError(e instanceof Error ? e : new Error(String(e)))
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!deleting) return
-    setComponents((prev) => prev.filter((c) => c.id !== deleting.id))
-    setDeleting(null)
+    try {
+      await apiRequest(`/api/salary-components/${deleting.id}`, { method: 'DELETE' })
+      setDeleting(null)
+      await reload()
+    } catch (e) {
+      setError(e instanceof Error ? e : new Error(String(e)))
+    }
   }
 
   const columns: Array<DataTableColumn<SalaryComponent>> = [
@@ -544,7 +575,7 @@ export default function SalaryComponentsPage() {
       sortable: true,
       render: (c) => (
         <div>
-          <p className="font-medium text-onsurface">{c.nama}</p>
+          <p className="font-medium text-onsurface">{c.nama_komponen}</p>
           {c.mode === 'formula' && (
             <p className="text-xs text-onsurface-variant">Komponen formula</p>
           )}
@@ -580,7 +611,7 @@ export default function SalaryComponentsPage() {
       key: 'status',
       label: 'Status',
       render: (c) =>
-        c.status === 'aktif' ? (
+        c.aktif === true ? (
           <StatusChip variant="success" label="Aktif" />
         ) : (
           <StatusChip variant="neutral" label="Nonaktif" />
@@ -592,13 +623,13 @@ export default function SalaryComponentsPage() {
       align: 'right',
       render: (c) => (
         <div className="flex items-center justify-end gap-1">
-          <Button variant="icon" size="sm" aria-label={`Edit ${c.nama}`} onClick={() => openEdit(c)}>
+          <Button variant="icon" size="sm" aria-label={`Edit ${c.nama_komponen}`} onClick={() => openEdit(c)}>
             <Pencil className="h-4 w-4" />
           </Button>
           <Button
             variant="icon"
             size="sm"
-            aria-label={`Hapus ${c.nama}`}
+            aria-label={`Hapus ${c.nama_komponen}`}
             onClick={() => setDeleting(c)}
           >
             <Trash2 className="h-4 w-4" />
@@ -620,37 +651,46 @@ export default function SalaryComponentsPage() {
           <h1 className="t-h1">Komponen Gaji</h1>
           <p className="t-caption mt-1 tabular-nums">{components.length} komponen terdaftar</p>
         </div>
-        <Button onClick={openCreate}>
+        <Button onClick={openCreate} disabled={loading}>
           <Plus className="h-4 w-4" aria-hidden="true" />
           Tambah Komponen
         </Button>
       </div>
 
-      <div className="mt-4 space-y-3">
-        <SegmentedControl
-          options={filterOptions}
-          value={filter}
-          onChange={setFilter}
-          aria-label="Filter tipe komponen"
-        />
+      {loading && <div className="mt-4"><LoadingSurface label="Memuat komponen…" /></div>}
+      {error && (
+        <div className="mt-4">
+          <ErrorSurface error={error} onRetry={reload} />
+        </div>
+      )}
 
-        <DataTable
-          columns={columns}
-          rows={filtered}
-          rowKey={(c) => c.id}
-          caption="Daftar komponen gaji"
-          emptyState={
-            <div className="px-6 py-12 text-center text-sm text-onsurface-variant">
-              Tidak ada komponen untuk filter ini.
-            </div>
-          }
-        />
-      </div>
+      {!loading && !error && (
+        <div className="mt-4 space-y-3">
+          <SegmentedControl
+            options={filterOptions}
+            value={filter}
+            onChange={setFilter}
+            aria-label="Filter tipe komponen"
+          />
+
+          <DataTable
+            columns={columns}
+            rows={filtered}
+            rowKey={(c) => c.id}
+            caption="Daftar komponen gaji"
+            emptyState={
+              <div className="px-6 py-12 text-center text-sm text-onsurface-variant">
+                Tidak ada komponen untuk filter ini.
+              </div>
+            }
+          />
+        </div>
+      )}
 
       <SalaryComponentDialog
         open={dialogOpen}
         initial={editing}
-        existingNames={components.map((c) => c.nama)}
+        existingNames={components.map((c) => c.nama_komponen)}
         onClose={() => {
           setDialogOpen(false)
           setEditing(null)
@@ -662,7 +702,7 @@ export default function SalaryComponentsPage() {
         open={deleting !== null}
         onClose={() => setDeleting(null)}
         title="Hapus Komponen"
-        description={`Hapus komponen ${deleting?.nama}? Tindakan ini tidak bisa dibatalkan.`}
+        description={`Hapus komponen ${deleting?.nama_komponen}? Tindakan ini tidak bisa dibatalkan.`}
         footer={
           <>
             <Button variant="text" onClick={() => setDeleting(null)}>
