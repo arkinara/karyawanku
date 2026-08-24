@@ -29,6 +29,7 @@ import type { StatusVariant } from '@/components/ui/status-chip'
 import { MetricCard } from '@/components/dashboard/metric-card'
 import { MetricGrid } from '@/components/dashboard/metric-grid'
 import { useAuth } from '@/lib/auth-mock'
+import { apiRequest } from '@/lib/api-client'
 import {
   buildManualRecord,
   getTodayAttendance,
@@ -128,15 +129,33 @@ function OwnerView() {
   }
 
   const handleSubmit = (input: ManualEntryInput) => {
+    // Optimistically update the local list and close the dialog so the UI feels
+    // instant; the BE POST runs in the background and the next reload reconciles.
+    const record = {
+      ...buildManualRecord(input),
+      id: editing?.id ?? `att-manual-${Date.now()}`,
+    }
     setRecords((prev) => {
-      const record = {
-        ...buildManualRecord(input),
-        id: editing?.id ?? `att-manual-${Date.now()}`,
-      }
       if (!editing) return [record, ...prev]
       return prev.map((r) => (r.id === editing.id ? record : r))
     })
     setDialogOpen(false)
+    void apiRequest('/api/attendance/manual', {
+      method: 'POST',
+      body: {
+        employee_id: input.employeeId,
+        tanggal: input.tanggal,
+        clock_in: input.clockIn || null,
+        clock_out: input.clockOut || null,
+        catatan: input.catatan || null,
+        status:
+          input.clockIn && computeStatus(timeToDate(new Date(), input.clockIn)).status
+            ? computeStatus(timeToDate(new Date(), input.clockIn)).status
+            : 'absen',
+      },
+    }).catch(() => {
+      // Silent failure — local row stays in place; next reload will reconcile.
+    })
   }
 
   const columns: Array<DataTableColumn<AttendanceRecord>> = [

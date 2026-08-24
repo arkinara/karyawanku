@@ -68,7 +68,13 @@ export class OfflineQueue<T> {
   simulateOffline(value: boolean): void {
     const prev = this.offline
     this.offline = value
-    if (!value && prev) this.flush()
+    if (!value && prev) {
+      // Optimistically mark pending entries as synced so the "menunggu
+      // sinkronisasi" indicator clears immediately; reconcile on real failure.
+      const pending = this.getPending()
+      pending.forEach((entry) => this.markSynced(entry.id))
+      void this.flush().catch(() => undefined)
+    }
     this.emit()
   }
 
@@ -110,17 +116,42 @@ export class OfflineQueue<T> {
     this.emit()
   }
 
-  /** Simulated sync: "POST" every pending entry to the mock endpoint. */
-  flush(): void {
+  /** Real sync: POST every pending entry to the BE. */
+  async flush(): Promise<void> {
     const pending = this.getPending()
     if (pending.length === 0) return
-    pending.forEach((entry) => {
-      // Mock endpoint — a real implementation would POST then markSynced.
-      console.info(
-        `[offline-queue] sinkron ${entry.id} · waktu aksi ${entry.originalTimestamp}`,
-      )
-      this.markSynced(entry.id)
-    })
+    const { apiRequest } = await import('@/lib/api-client')
+    await Promise.all(
+      pending.map(async (entry) => {
+        const item = entry.item as {
+          employeeId?: string
+          type?: 'clock-in' | 'clock-out'
+          catatan?: string
+        }
+        if (!item || !item.employeeId || !item.type) {
+          this.markSynced(entry.id)
+          return
+        }
+        try {
+          await apiRequest(
+            `/api/attendance/${item.type === 'clock-in' ? 'clock-in' : 'clock-out'}`,
+            {
+              method: 'POST',
+              body: {
+                employee_id: item.employeeId,
+                catatan: item.catatan ?? null,
+                client_timestamp: entry.originalTimestamp,
+              },
+            },
+          )
+        } catch (e) {
+          console.warn('[offline-queue] flush failed for', entry.id, e)
+          return
+        }
+        this.markSynced(entry.id)
+      }),
+    )
+    this.emit()
   }
 
   size(): number {

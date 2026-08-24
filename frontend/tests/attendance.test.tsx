@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import AttendancePage from '@/app/attendance/page'
 import { computeStatus } from '@/lib/attendance-status'
@@ -8,6 +8,12 @@ import { OfflineQueue } from '@/lib/offline-queue'
 beforeEach(() => {
   window.localStorage.clear()
   window.history.replaceState(null, '', '/')
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () =>
+      new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    ),
+  )
 })
 
 describe('Attendance Page — Owner view', () => {
