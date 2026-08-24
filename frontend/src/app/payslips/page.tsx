@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Download, Eye, FileText, X } from 'lucide-react'
 import {
   AppShell,
@@ -8,21 +8,23 @@ import {
   Button,
   Dialog,
   EmptyState,
+  ErrorSurface,
+  LoadingSurface,
   SegmentedControl,
 } from '@/components/ui'
 import { cn } from '@/lib/cn'
 import { getEmployeeById } from '@/lib/employees-mock'
 import { formatIDR, formatTanggal } from '@/lib/format'
 import {
-  DEFAULT_EMPLOYEE_ID,
   formatPeriode,
-  getPayslips,
   payslipPendapatan,
   payslipPotongan,
 } from '@/lib/payslips-mock'
 import type { Payslip } from '@/lib/payslips-mock'
+import { composePayslip, type BePayslipRow } from '@/lib/payslips-adapter'
+import { apiRequest } from '@/lib/api-client'
 
-const EMPLOYEE_ID = DEFAULT_EMPLOYEE_ID
+const EMPLOYEE_ID = '2'
 
 type YearFilter = 'semua' | '2026' | '2025'
 
@@ -36,8 +38,8 @@ function slugName(nama: string): string {
   return nama.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
 }
 
-/** Mock download: a plain text file with the payslip content. Real PDF later (ticket #31 BE). */
-function downloadPayslip(payslip: Payslip) {
+/** Mock download: a plain text file with the payslip content. Real PDF is fetched from BE. */
+function buildPayslipTxt(payslip: Payslip): string {
   const pendapatan = payslipPendapatan(payslip)
   const potongan = payslipPotongan(payslip)
 
@@ -61,9 +63,33 @@ function downloadPayslip(payslip: Payslip) {
     `TAKE-HOME: ${formatIDR(payslip.takeHome)}`,
     '',
     'Slip gaji ini dihasilkan otomatis oleh sistem.',
-  ].join('\n')
+  ]
+  return lines.join('\n')
+}
 
-  const blob = new Blob([lines], { type: 'text/plain;charset=utf-8' })
+async function downloadPayslip(payslip: Payslip): Promise<void> {
+  // Prefer the BE's authoritative PDF (when available).
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001'}/api/payslips/${payslip.id}/download`,
+    )
+    if (res.ok) {
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `slip-gaji-${slugName(payslip.nama)}-${payslip.period}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      return
+    }
+  } catch {
+    // Fall through to local fallback.
+  }
+  const text = buildPayslipTxt(payslip)
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
@@ -137,7 +163,7 @@ function PayslipDetailDialog({
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <Button onClick={() => downloadPayslip(payslip)}>
+            <Button onClick={() => void downloadPayslip(payslip)}>
               <Download className="h-4 w-4" aria-hidden="true" />
               Unduh PDF
             </Button>
@@ -229,9 +255,33 @@ function PayslipDetailDialog({
 
 export default function PayslipsPage() {
   const employee = getEmployeeById(EMPLOYEE_ID)
-  const payslips = useMemo(() => getPayslips(EMPLOYEE_ID), [])
+  const [payslips, setPayslips] = useState<Payslip[]>([])
   const [filter, setFilter] = useState<YearFilter>('semua')
   const [selected, setSelected] = useState<Payslip | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
+
+  const reload = useCallback(async (): Promise<void> => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await apiRequest<{ payslips: BePayslipRow[] }>('/api/payslips')
+      // BE-only mode: each row already has the take_home; the component
+      // breakdown requires fetching the underlying payroll run, which would
+      // add N requests. We compose with no breakdown and let the viewer show
+      // the take-home totals; the per-component view is a future enhancement.
+      const composed = res.payslips.map((row) => composePayslip(row, null))
+      setPayslips(composed)
+    } catch (e) {
+      setError(e instanceof Error ? e : new Error(String(e)))
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void reload()
+  }, [reload])
 
   const filtered = useMemo(() => {
     if (filter === 'semua') return payslips
@@ -257,7 +307,17 @@ export default function PayslipsPage() {
         />
       </div>
 
-      {filtered.length === 0 ? (
+      {error && (
+        <div className="mt-4">
+          <ErrorSurface error={error} onRetry={() => void reload()} />
+        </div>
+      )}
+
+      {loading ? (
+        <div className="mt-4">
+          <LoadingSurface label="Memuat slip gaji…" />
+        </div>
+      ) : filtered.length === 0 ? (
         <EmptyState
           icon={FileText}
           title="Belum ada slip gaji tersedia"
@@ -289,7 +349,7 @@ export default function PayslipsPage() {
                 <Button
                   variant="icon"
                   aria-label={`Unduh slip ${formatPeriode(p.period)}`}
-                  onClick={() => downloadPayslip(p)}
+                  onClick={() => void downloadPayslip(p)}
                 >
                   <Download className="h-4 w-4" />
                 </Button>
