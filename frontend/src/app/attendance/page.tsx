@@ -20,6 +20,8 @@ import {
   DataTable,
   Dialog,
   EmptyState,
+  ErrorSurface,
+  LoadingSurface,
   SegmentedControl,
   StatusChip,
   TextField,
@@ -28,21 +30,18 @@ import type { DataTableColumn } from '@/components/ui'
 import type { StatusVariant } from '@/components/ui/status-chip'
 import { MetricCard } from '@/components/dashboard/metric-card'
 import { MetricGrid } from '@/components/dashboard/metric-grid'
-import { useAuth } from '@/lib/auth-mock'
-import { apiRequest } from '@/lib/api-client'
-import {
-  buildManualRecord,
-  getTodayAttendance,
-  summarizeAttendance,
-  timeToDate,
-} from '@/lib/attendance-mock'
-import type { AttendanceRecord, ManualEntryInput } from '@/lib/attendance-mock'
+import { useAuth } from '@/lib/auth-context'
+import { api } from '@/lib/api-client'
 import { computeStatus } from '@/lib/attendance-status'
 import type { AttendanceStatus } from '@/lib/attendance-status'
+import {
+  type BeAttendanceRecord,
+  type TeamAttendanceRow,
+  mapAttendanceRow,
+  toClockTime,
+} from '@/lib/attendance-adapter'
 import { OfflineQueue } from '@/lib/offline-queue'
 import type { QueuedItem } from '@/lib/offline-queue'
-import { EMPLOYEES } from '@/lib/employees-mock'
-import { NAV } from '@/lib/nav-config'
 import { cn } from '@/lib/cn'
 import { formatJam } from '@/lib/format'
 
@@ -52,6 +51,13 @@ interface ClockEventPayload {
   employeeId: string
   type: 'clock-in' | 'clock-out'
   catatan?: string
+}
+
+interface EmployeeBrief {
+  id: string
+  nama_lengkap: string
+  no_ktp: string
+  status: string
 }
 
 const RANGES = [
@@ -86,11 +92,22 @@ function readRoleParam(): Role | null {
   return role === 'owner' || role === 'employee' ? role : null
 }
 
-function toIsoToday(): string {
-  const date = new Date()
+function toIsoDate(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${date.getFullYear()}-${month}-${day}`
+}
+
+function toIsoToday(): string {
+  return toIsoDate(new Date())
+}
+
+/** Start date for the given range (today / week / month). */
+function rangeStart(range: string): string {
+  const d = new Date()
+  if (range === 'week') d.setDate(d.getDate() - 6)
+  if (range === 'month') d.setDate(d.getDate() - 29)
+  return toIsoDate(d)
 }
 
 function formatTodayLong(): string {
@@ -112,53 +129,89 @@ function TimeCell({ value }: { value: string | null }) {
 
 function OwnerView() {
   const [range, setRange] = useState('today')
-  const [records, setRecords] = useState<AttendanceRecord[]>(() => getTodayAttendance())
+  const [records, setRecords] = useState<TeamAttendanceRow[]>([])
+  const [employees, setEmployees] = useState<EmployeeBrief[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [editing, setEditing] = useState<AttendanceRecord | null>(null)
+  const [editing, setEditing] = useState<TeamAttendanceRow | null>(null)
 
-  const summary = useMemo(() => summarizeAttendance(records), [records])
+  const reload = async (): Promise<void> => {
+    setLoading(true)
+    setError(null)
+    try {
+      const empRes = await api.get<{ employees: EmployeeBrief[] }>('/api/employees', {
+        limit: 200,
+      })
+      setEmployees(empRes.employees)
+      const start = rangeStart(range)
+      const end = toIsoToday()
+      const rows = await Promise.all(
+        empRes.employees.map(async (emp) => {
+          try {
+            const att = await api.get<{ records: BeAttendanceRecord[] }>(
+              `/api/attendance/employee/${emp.id}`,
+              { start, end },
+            )
+            const todayRecord = att.records.find((r) => r.tanggal === end) ?? null
+            return mapAttendanceRow(emp, todayRecord, end)
+          } catch {
+            return mapAttendanceRow(emp, null, end)
+          }
+        }),
+      )
+      setRecords(rows)
+    } catch (e) {
+      setError(e instanceof Error ? e : new Error(String(e)))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void reload()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [range])
+
+  const summary = useMemo(() => {
+    const s = { hadir: 0, telat: 0, absen: 0, izin: 0 }
+    for (const r of records) s[r.status] += 1
+    return s
+  }, [records])
 
   const openManual = () => {
     setEditing(null)
     setDialogOpen(true)
   }
 
-  const openEdit = (record: AttendanceRecord) => {
+  const openEdit = (record: TeamAttendanceRow) => {
     setEditing(record)
     setDialogOpen(true)
   }
 
-  const handleSubmit = (input: ManualEntryInput) => {
-    // Optimistically update the local list and close the dialog so the UI feels
-    // instant; the BE POST runs in the background and the next reload reconciles.
-    const record = {
-      ...buildManualRecord(input),
-      id: editing?.id ?? `att-manual-${Date.now()}`,
-    }
-    setRecords((prev) => {
-      if (!editing) return [record, ...prev]
-      return prev.map((r) => (r.id === editing.id ? record : r))
-    })
+  const handleSubmit = async (input: {
+    employeeId: string
+    tanggal: string
+    clockIn: string
+    clockOut: string
+    catatan: string
+  }) => {
     setDialogOpen(false)
-    void apiRequest('/api/attendance/manual', {
-      method: 'POST',
-      body: {
+    try {
+      await api.post('/api/attendance/manual', {
         employee_id: input.employeeId,
         tanggal: input.tanggal,
         clock_in: input.clockIn || null,
         clock_out: input.clockOut || null,
         catatan: input.catatan || null,
-        status:
-          input.clockIn && computeStatus(timeToDate(new Date(), input.clockIn)).status
-            ? computeStatus(timeToDate(new Date(), input.clockIn)).status
-            : 'absen',
-      },
-    }).catch(() => {
-      // Silent failure — local row stays in place; next reload will reconcile.
-    })
+      })
+    } catch {
+      // Toast surfaces the failure; the list refetch below reconciles state.
+    }
+    void reload()
   }
 
-  const columns: Array<DataTableColumn<AttendanceRecord>> = [
+  const columns: Array<DataTableColumn<TeamAttendanceRow>> = [
     {
       key: 'nama',
       label: 'Nama',
@@ -168,7 +221,7 @@ function OwnerView() {
           <Avatar name={r.nama} size="sm" />
           <div className="min-w-0">
             <p className="truncate font-medium text-onsurface">{r.nama}</p>
-            <p className="truncate text-xs text-onsurface-variant">{r.jabatan}</p>
+            <p className="truncate text-xs text-onsurface-variant">{r.nik}</p>
           </div>
         </div>
       ),
@@ -248,6 +301,12 @@ function OwnerView() {
         </div>
       </div>
 
+      {error && (
+        <div className="mt-4">
+          <ErrorSurface error={error} onRetry={() => void reload()} />
+        </div>
+      )}
+
       <div data-testid="attendance-summary" className="mt-4">
         <MetricGrid>
           {summaryMetrics.map((m) => (
@@ -263,23 +322,28 @@ function OwnerView() {
       </div>
 
       <div className="mt-4">
-        <DataTable
-          columns={columns}
-          rows={records}
-          rowKey={(r) => r.id}
-          caption="Absensi hari ini"
-          emptyState={
-            <EmptyState
-              icon={Clock}
-              title="Belum ada absensi hari ini"
-              description="Absensi akan muncul di sini setelah karyawan clock in atau input manual."
-            />
-          }
-        />
+        {loading ? (
+          <LoadingSurface label="Memuat absensi…" />
+        ) : (
+          <DataTable
+            columns={columns}
+            rows={records}
+            rowKey={(r) => r.id}
+            caption="Absensi"
+            emptyState={
+              <EmptyState
+                icon={Clock}
+                title="Belum ada absensi"
+                description="Absensi akan muncul di sini setelah karyawan clock in atau input manual."
+              />
+            }
+          />
+        )}
       </div>
 
       <ManualEntryDialog
         open={dialogOpen}
+        employees={employees}
         initial={editing}
         onClose={() => setDialogOpen(false)}
         onSubmit={handleSubmit}
@@ -290,12 +354,19 @@ function OwnerView() {
 
 interface ManualEntryDialogProps {
   open: boolean
-  initial?: AttendanceRecord | null
+  employees: EmployeeBrief[]
+  initial?: TeamAttendanceRow | null
   onClose: () => void
-  onSubmit: (input: ManualEntryInput) => void
+  onSubmit: (input: {
+    employeeId: string
+    tanggal: string
+    clockIn: string
+    clockOut: string
+    catatan: string
+  }) => void | Promise<void>
 }
 
-function ManualEntryDialog({ open, initial, onClose, onSubmit }: ManualEntryDialogProps) {
+function ManualEntryDialog({ open, employees, initial, onClose, onSubmit }: ManualEntryDialogProps) {
   const [employeeId, setEmployeeId] = useState('')
   const [empQuery, setEmpQuery] = useState('')
   const [tanggal, setTanggal] = useState('')
@@ -304,7 +375,6 @@ function ManualEntryDialog({ open, initial, onClose, onSubmit }: ManualEntryDial
   const [catatan, setCatatan] = useState('')
   const [errors, setErrors] = useState<{ employee?: string; clockIn?: string }>({})
 
-  // Re-seed the form each time the dialog opens (create vs edit).
   useEffect(() => {
     if (!open) return
     setEmployeeId(initial?.employeeId ?? '')
@@ -316,21 +386,22 @@ function ManualEntryDialog({ open, initial, onClose, onSubmit }: ManualEntryDial
     setErrors({})
   }, [open, initial])
 
-  const activeEmployees = useMemo(() => EMPLOYEES.filter((e) => e.status === 'aktif'), [])
+  const activeEmployees = useMemo(() => employees.filter((e) => e.status === 'aktif'), [employees])
 
   const filtered = useMemo(() => {
     const query = empQuery.trim().toLowerCase()
     if (!query) return activeEmployees
     return activeEmployees.filter((e) =>
-      (e.nama + ' ' + e.nik + ' ' + e.jabatan).toLowerCase().includes(query),
+      (e.nama_lengkap + ' ' + e.no_ktp).toLowerCase().includes(query),
     )
   }, [empQuery, activeEmployees])
 
-  const selected = useMemo(() => EMPLOYEES.find((e) => e.id === employeeId), [employeeId])
-
   const preview = useMemo(() => {
     if (!clockIn) return null
-    return computeStatus(timeToDate(new Date(), clockIn))
+    const [hour, minute] = clockIn.split(':').map(Number)
+    const d = new Date()
+    d.setHours(hour, minute, 0, 0)
+    return computeStatus(d)
   }, [clockIn])
 
   const handleSubmit = (event: FormEvent) => {
@@ -388,9 +459,9 @@ function ManualEntryDialog({ open, initial, onClose, onSubmit }: ManualEntryDial
                         : 'text-onsurface hover:bg-surface-2',
                     )}
                   >
-                    <Avatar name={e.nama} size="sm" />
-                    <span className="min-w-0 truncate">{e.nama}</span>
-                    <span className="ml-auto shrink-0 text-xs text-onsurface-variant">{e.nik}</span>
+                    <Avatar name={e.nama_lengkap} size="sm" />
+                    <span className="min-w-0 truncate">{e.nama_lengkap}</span>
+                    <span className="ml-auto shrink-0 text-xs text-onsurface-variant">{e.no_ktp}</span>
                   </button>
                 </li>
               ))
@@ -466,65 +537,139 @@ function ManualEntryDialog({ open, initial, onClose, onSubmit }: ManualEntryDial
 }
 
 function EmployeeView() {
+  const { user } = useAuth()
+  const employeeId = user?.employee_id ?? null
+  const selfName = user?.nama ?? 'Karyawan'
+
   const queue = useMemo(() => new OfflineQueue<ClockEventPayload>(), [])
   const [entries, setEntries] = useState<QueuedItem<ClockEventPayload>[]>(() => queue.getAll())
-  const [offline, setOffline] = useState(() => queue.isOffline())
+  const [offline, setOffline] = useState<boolean>(() =>
+    typeof navigator !== 'undefined' ? !navigator.onLine : false,
+  )
   const [catatan, setCatatan] = useState('')
   const [now, setNow] = useState(() => new Date())
   const [error, setError] = useState('')
+  const [todayRecord, setTodayRecord] = useState<BeAttendanceRecord | null>(null)
+  const [history, setHistory] = useState<BeAttendanceRecord[]>([])
+  const [loaded, setLoaded] = useState(false)
+  const [loadError, setLoadError] = useState<Error | null>(null)
+
+  // Real online/offline tracking + auto-flush of the offline queue.
+  useEffect(() => {
+    const goOnline = () => {
+      setOffline(false)
+      if (queue.isOffline()) queue.simulateOffline(false) // flushes pending
+    }
+    const goOffline = () => {
+      setOffline(true)
+      if (!queue.isOffline()) queue.simulateOffline(true)
+    }
+    if (typeof navigator !== 'undefined' && !navigator.onLine) goOffline()
+    window.addEventListener('online', goOnline)
+    window.addEventListener('offline', goOffline)
+    return () => {
+      window.removeEventListener('online', goOnline)
+      window.removeEventListener('offline', goOffline)
+    }
+  }, [queue])
 
   useEffect(() => {
     const unsubscribe = queue.subscribe(() => {
       setEntries(queue.getAll())
-      setOffline(queue.isOffline())
     })
     return unsubscribe
   }, [queue])
 
-  // Live clock so the employee always sees the current time.
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
 
-  const selfName = NAV.employee.user.name
-  const self = useMemo(
-    () => EMPLOYEES.find((e) => e.nama === selfName) ?? EMPLOYEES[0],
-    [selfName],
+  const loadToday = async (): Promise<void> => {
+    if (!employeeId) return
+    try {
+      const [todayRes, histRes] = await Promise.all([
+        api.get<{ record: BeAttendanceRecord | null }>('/api/attendance/today'),
+        api.get<{ records: BeAttendanceRecord[] }>(`/api/attendance/employee/${employeeId}`),
+      ])
+      setTodayRecord(todayRes.record)
+      setHistory(histRes.records)
+    } catch (e) {
+      setLoadError(e instanceof Error ? e : new Error(String(e)))
+    } finally {
+      setLoaded(true)
+    }
+  }
+
+  useEffect(() => {
+    void loadToday()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [employeeId])
+
+  const pendingClockIns = useMemo(
+    () => entries.filter((e) => e.item.type === 'clock-in' && e.submittedAt === null).length,
+    [entries],
   )
-
-  const active = useMemo(() => {
-    const clockIns = entries.filter((e) => e.item.type === 'clock-in').length
-    const clockOuts = entries.filter((e) => e.item.type === 'clock-out').length
-    return clockIns > clockOuts
-  }, [entries])
-
+  const pendingClockOuts = useMemo(
+    () => entries.filter((e) => e.item.type === 'clock-out' && e.submittedAt === null).length,
+    [entries],
+  )
+  const active =
+    Boolean(todayRecord?.clock_in && !todayRecord?.clock_out) || pendingClockIns > pendingClockOuts
   const pendingCount = useMemo(
     () => entries.filter((e) => e.submittedAt === null).length,
     [entries],
   )
 
-  const clockIn = () => {
+  const submitClock = async (type: 'clock-in' | 'clock-out') => {
     setError('')
+    if (!employeeId) {
+      setError('Akun tidak terhubung ke data karyawan.')
+      return
+    }
+    if (!offline) {
+      try {
+        await api.post(`/api/attendance/${type}`, {
+          employee_id: employeeId,
+          client_timestamp: new Date().toISOString(),
+          catatan: type === 'clock-in' ? catatan.trim() || undefined : undefined,
+        })
+        setCatatan('')
+        await loadToday()
+        return
+      } catch (e) {
+        // Network failure — fall through to the offline queue.
+        if (e instanceof Error && e.message.includes('terhubung')) {
+          // offline
+        } else {
+          setError(e instanceof Error ? e.message : 'Gagal mencatat absensi')
+          return
+        }
+      }
+    }
+    queue.enqueue({
+      employeeId,
+      type,
+      catatan: type === 'clock-in' ? catatan.trim() || undefined : undefined,
+    })
+    setCatatan('')
+    setOffline(true)
+  }
+
+  const clockIn = () => {
     if (active) {
       setError('Sudah ada sesi aktif. Double clock in tidak diizinkan.')
       return
     }
-    queue.enqueue({
-      employeeId: self.id,
-      type: 'clock-in',
-      catatan: catatan.trim() || undefined,
-    })
-    setCatatan('')
+    void submitClock('clock-in')
   }
 
   const clockOut = () => {
-    setError('')
     if (!active) {
       setError('Belum ada sesi aktif. Clock in terlebih dahulu.')
       return
     }
-    queue.enqueue({ employeeId: self.id, type: 'clock-out' })
+    void submitClock('clock-out')
   }
 
   return (
@@ -536,6 +681,12 @@ function EmployeeView() {
         >
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
           {error}
+        </div>
+      )}
+
+      {loadError && (
+        <div className="mb-4">
+          <ErrorSurface error={loadError} onRetry={() => void loadToday()} />
         </div>
       )}
 
@@ -585,22 +736,21 @@ function EmployeeView() {
             </>
           )}
         </span>
-        <Button variant="text" size="sm" onClick={() => queue.simulateOffline(!offline)}>
-          {offline ? 'Kembali online' : 'Simulasi offline'}
-        </Button>
       </div>
 
       <section className="mt-6" aria-labelledby="h-log">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 id="h-log" className="t-h2">
-            Absensi Hari Ini
+            Absensi Hari Ini — {selfName}
           </h2>
           {pendingCount > 0 && (
             <StatusChip variant="warning" label={`${pendingCount} menunggu sinkronisasi`} />
           )}
         </div>
 
-        {entries.length === 0 ? (
+        {!loaded ? (
+          <LoadingSurface label="Memuat absensi…" />
+        ) : entries.length === 0 && history.length === 0 && !todayRecord ? (
           <EmptyState
             icon={Clock}
             title="Belum ada absensi hari ini"
@@ -642,6 +792,20 @@ function EmployeeView() {
                 </li>
               )
             })}
+            {todayRecord && todayRecord.clock_in && (
+              <li className="flex items-center gap-3 rounded-xl border border-outline-variant bg-surface px-4 py-3">
+                <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full bg-success" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-onsurface">Clock In (tersimpan)</p>
+                  {todayRecord.catatan && (
+                    <p className="truncate text-xs text-onsurface-variant">{todayRecord.catatan}</p>
+                  )}
+                </div>
+                <time dateTime={todayRecord.clock_in} className="text-sm tabular-nums text-onsurface-variant">
+                  {toClockTime(todayRecord.clock_in)} WIB
+                </time>
+              </li>
+            )}
           </ul>
         )}
       </section>
@@ -660,7 +824,7 @@ export default function AttendancePage() {
         userRole="employee"
         activeNav="attendance"
         title="Absensi"
-        subtitle={NAV.employee.user.name}
+        subtitle={user?.nama ?? 'Karyawan'}
       >
         <EmployeeView />
       </AppShell>

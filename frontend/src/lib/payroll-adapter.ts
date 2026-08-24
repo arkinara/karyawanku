@@ -1,5 +1,5 @@
 /**
- * KaryawanKu — payroll adapter (BE snake_case → FE camelCase).
+ * KaryawanKu — payroll domain types + helpers + BE mappers (snake_case → camelCase).
  *
  * The BE payroll-run response shape:
  *   {
@@ -17,17 +17,82 @@
  *     }]
  *   }
  *
- * The FE `PayrollItem` (see payroll-mock.ts) wants:
+ * The FE `PayrollItem` shape wants:
  *   { employeeId, nik, nama, jabatan, gajiPokok, tunjangan[], potongan[],
  *     penyesuaian, catatan }
  *
  * The adapter reconstructs the tunjangan/potongan arrays from
- * `detail_breakdown`, falls back to aggregated rows when the breakdown is
- * missing, and joins the static employees mock for `nik`/`jabatan`.
+ * `detail_breakdown`, and falls back to aggregated rows when the breakdown is
+ * missing. Pure domain helpers (`gross`, `potongan`, `takeHome`, `summarize`)
+ * live here so no mock module is needed.
  */
 
-import { EMPLOYEES } from '@/lib/employees-mock'
-import type { PayrollItem, PayrollRun, PayrollRunStatus } from '@/lib/payroll-mock'
+export type PayrollRunStatus = 'draft' | 'approved'
+
+export interface PayrollComponentRow {
+  /** Component name from the salary catalog, e.g. "Tunjangan Transport". */
+  nama: string
+  nominal: number
+}
+
+export interface PayrollItem {
+  employeeId: string
+  nik: string
+  nama: string
+  jabatan: string
+  gajiPokok: number
+  tunjangan: PayrollComponentRow[]
+  potongan: PayrollComponentRow[]
+  /** Manual correction (e.g. lembur belum tercatat) — can be negative. */
+  penyesuaian: number
+  catatan: string
+}
+
+export interface PayrollRun {
+  period: string
+  status: PayrollRunStatus
+  items: PayrollItem[]
+  generatedAt: string
+}
+
+/** Gross pendapatan: gaji pokok + seluruh tunjangan. */
+export function gross(item: PayrollItem): number {
+  return item.gajiPokok + item.tunjangan.reduce((sum, t) => sum + t.nominal, 0)
+}
+
+/** Total potongan: BPJS + PPh 21. */
+export function potongan(item: PayrollItem): number {
+  return item.potongan.reduce((sum, p) => sum + p.nominal, 0)
+}
+
+/** Take-home including any manual correction. */
+export function takeHome(item: PayrollItem): number {
+  return gross(item) - potongan(item) + item.penyesuaian
+}
+
+export interface PayrollSummary {
+  count: number
+  totalGaji: number
+  totalPotongan: number
+  totalTakeHome: number
+}
+
+export function summarize(run: Pick<PayrollRun, 'items'>): PayrollSummary {
+  return run.items.reduce(
+    (acc, item) => {
+      acc.count += 1
+      acc.totalGaji += gross(item)
+      acc.totalPotongan += potongan(item)
+      acc.totalTakeHome += takeHome(item)
+      return acc
+    },
+    { count: 0, totalGaji: 0, totalPotongan: 0, totalTakeHome: 0 },
+  )
+}
+
+/* ------------------------------------------------------------------ *
+ * BE wire types + mappers
+ * ------------------------------------------------------------------ */
 
 export interface BePayrollRun {
   id: string
@@ -92,7 +157,6 @@ function asComponents(value: unknown): BreakdownComponent[] {
 }
 
 function mapItem(be: BePayrollItem): PayrollItem {
-  const emp = EMPLOYEES.find((e) => e.id === be.employee_id)
   const breakdown = be.detail_breakdown ?? {}
   const tunjangan = asComponents(breakdown.tunjangan)
   const potongan = asComponents(breakdown.potongan)
@@ -122,9 +186,9 @@ function mapItem(be: BePayrollItem): PayrollItem {
 
   return {
     employeeId: be.employee_id,
-    nik: emp?.nik ?? '',
-    nama: be.employee.nama_lengkap ?? emp?.nama ?? 'Karyawan',
-    jabatan: emp?.jabatan ?? '-',
+    nik: '',
+    nama: be.employee.nama_lengkap ?? 'Karyawan',
+    jabatan: '-',
     gajiPokok: be.gaji_pokok,
     tunjangan: tunjanganRows,
     potongan: potonganRows,

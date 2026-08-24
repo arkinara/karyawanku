@@ -14,7 +14,7 @@ import {
   LoadingSurface,
   StatusChip,
 } from '@/components/ui'
-import { useAuth } from '@/lib/auth-mock'
+import { useAuth } from '@/lib/auth-context'
 import { EMPLOYEES } from '@/lib/employees-mock'
 import { NAV } from '@/lib/nav-config'
 import { cn } from '@/lib/cn'

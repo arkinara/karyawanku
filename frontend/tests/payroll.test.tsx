@@ -455,7 +455,13 @@ describe('Payroll Run Page', () => {
     expect(screen.getByRole('button', { name: 'Detail Budi Santoso' })).toBeEnabled()
   })
 
-  it('Ekspor CSV memicu unduhan dan menampilkan toast', async () => {
+  it('tombol Ekspor CSV nonaktif saat run masih draft', async () => {
+    renderPage()
+    await waitFor(() => expect(screen.getByText('Budi Santoso')).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: /Ekspor CSV/ })).toBeDisabled()
+  })
+
+  it('Ekspor CSV pada run disetujui memicu unduhan dari API dan menampilkan toast', async () => {
     let downloaded: HTMLAnchorElement | null = null
     const clickSpy = vi
       .spyOn(HTMLAnchorElement.prototype, 'click')
@@ -468,14 +474,20 @@ describe('Payroll Run Page', () => {
     })
 
     renderPage()
-    await waitFor(() => expect(screen.getByText('Budi Santoso')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Setujui Payroll' })).toBeInTheDocument())
+
+    // Approve first — export is only allowed for approved runs.
+    fireEvent.click(screen.getByRole('button', { name: 'Setujui Payroll' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Setujui' }))
+    await waitFor(() => expect(screen.getByText('Disetujui')).toBeInTheDocument())
+
     fireEvent.click(screen.getByRole('button', { name: /Ekspor CSV/ }))
 
     await waitFor(() => {
       expect(clickSpy).toHaveBeenCalled()
     })
     expect(downloaded).not.toBeNull()
-    expect(downloaded!.download).toBe('payroll-agustus-2026.csv')
+    expect(downloaded!.download).toBe('payroll-2026-08.csv')
     expect(downloaded!.href).toBeTruthy()
     expect(screen.getByRole('status')).toHaveTextContent('File CSV berhasil diunduh')
 

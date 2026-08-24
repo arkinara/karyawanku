@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 import { ThemeProvider } from 'next-themes'
 import { ThemeSync } from '@/components/ui/theme-sync'
+import { ToastProvider } from '@/components/ui/toast'
+import { AuthProvider } from '@/lib/auth-context'
 
 export const metadata: Metadata = {
   title: 'KaryawanKu',
@@ -30,7 +32,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           disableTransitionOnChange
         >
           <ThemeSync />
-          {children}
+          <AuthProvider>
+            <ToastProvider>{children}</ToastProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

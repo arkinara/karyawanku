@@ -69,10 +69,8 @@ export class OfflineQueue<T> {
     const prev = this.offline
     this.offline = value
     if (!value && prev) {
-      // Optimistically mark pending entries as synced so the "menunggu
-      // sinkronisasi" indicator clears immediately; reconcile on real failure.
-      const pending = this.getPending()
-      pending.forEach((entry) => this.markSynced(entry.id))
+      // Coming back online: real sync to the BE (marks pending as synced on
+      // success so we never drop entries or double-submit).
       void this.flush().catch(() => undefined)
     }
     this.emit()
@@ -120,7 +118,7 @@ export class OfflineQueue<T> {
   async flush(): Promise<void> {
     const pending = this.getPending()
     if (pending.length === 0) return
-    const { apiRequest } = await import('@/lib/api-client')
+    const { api } = await import('@/lib/api-client')
     await Promise.all(
       pending.map(async (entry) => {
         const item = entry.item as {
@@ -133,15 +131,12 @@ export class OfflineQueue<T> {
           return
         }
         try {
-          await apiRequest(
+          await api.post(
             `/api/attendance/${item.type === 'clock-in' ? 'clock-in' : 'clock-out'}`,
             {
-              method: 'POST',
-              body: {
-                employee_id: item.employeeId,
-                catatan: item.catatan ?? null,
-                client_timestamp: entry.originalTimestamp,
-              },
+              employee_id: item.employeeId,
+              catatan: item.catatan ?? null,
+              client_timestamp: entry.originalTimestamp,
             },
           )
         } catch (e) {

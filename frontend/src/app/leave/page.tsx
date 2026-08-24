@@ -23,24 +23,23 @@ import {
 import type { DataTableColumn } from '@/components/ui'
 import { MetricCard } from '@/components/dashboard/metric-card'
 import { MetricGrid } from '@/components/dashboard/metric-grid'
-import { useAuth } from '@/lib/auth-mock'
-import { EMPLOYEES } from '@/lib/employees-mock'
+import { useAuth } from '@/lib/auth-context'
+import { formatTanggal } from '@/lib/format'
+import { cn } from '@/lib/cn'
+import { api } from '@/lib/api-client'
 import {
   JENIS_BALANCE,
   JENIS_LABEL,
   hitungDurasi,
   leaveBalanceSisa,
   summarizeLeave,
-} from '@/lib/leave-mock'
-import type { LeaveBalance, LeaveRequest, LeaveStatus, LeaveType } from '@/lib/leave-mock'
-import { NAV } from '@/lib/nav-config'
-import { formatTanggal } from '@/lib/format'
-import { cn } from '@/lib/cn'
-import { apiRequest } from '@/lib/api-client'
-import {
   type BeLeaveBalanceResponse,
   type BeLeaveRequest,
   type BeLeaveTypeListResponse,
+  type LeaveBalance,
+  type LeaveRequest,
+  type LeaveStatus,
+  type LeaveType,
   mapLeaveBalances,
   mapLeaveRequests,
 } from '@/lib/leave-adapter'
@@ -123,7 +122,7 @@ function OwnerView() {
     setLoading(true)
     setError(null)
     try {
-      const res = await apiRequest<{ requests: BeLeaveRequest[] }>('/api/leave-requests')
+      const res = await api.get<{ requests: BeLeaveRequest[] }>('/api/leave-requests')
       setRequests(mapLeaveRequests(res.requests))
     } catch (e) {
       setError(e instanceof Error ? e : new Error(String(e)))
@@ -170,10 +169,10 @@ function OwnerView() {
     )
     setDecision(null)
     try {
-      await apiRequest(`/api/leave-requests/${request.id}/${action === 'approve' ? 'approve' : 'reject'}`, {
-        method: 'PATCH',
-        body: { catatan_approver: catatan.trim() || null },
-      })
+      await api.patch(
+        `/api/leave-requests/${request.id}/${action === 'approve' ? 'approve' : 'reject'}`,
+        { catatan_approver: catatan.trim() || null },
+      )
     } catch {
       // Silent — local update stands.
     }
@@ -501,6 +500,7 @@ function DecisionDialog({ open, request, action, onClose, onConfirm }: DecisionD
 }
 
 function EmployeeView() {
+  const { user } = useAuth()
   const [requests, setRequests] = useState<LeaveRequest[]>([])
   const [balance, setBalance] = useState<LeaveBalance>({
     tahunan: { kuota: 0, terpakai: 0 },
@@ -512,20 +512,23 @@ function EmployeeView() {
   const [error, setError] = useState<Error | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
 
-  const selfName = NAV.employee.user.name
   const self = useMemo(
-    () => EMPLOYEES.find((e) => e.nama === selfName) ?? EMPLOYEES[0],
-    [selfName],
+    () => ({ id: user?.employee_id ?? '', nama: user?.nama ?? 'Karyawan', jabatan: '—' }),
+    [user],
   )
 
   const reload = async (): Promise<void> => {
     setLoading(true)
     setError(null)
     try {
+      const tahun = new Date().getFullYear()
       const [reqRes, balRes, typesRes] = await Promise.all([
-        apiRequest<{ requests: BeLeaveRequest[] }>('/api/leave-requests'),
-        apiRequest<BeLeaveBalanceResponse>('/api/leave-balances'),
-        apiRequest<BeLeaveTypeListResponse>('/api/leave-types'),
+        api.get<{ requests: BeLeaveRequest[] }>('/api/leave-requests'),
+        api.get<BeLeaveBalanceResponse>('/api/leave-balances', {
+          employee_id: user?.employee_id,
+          tahun,
+        }),
+        api.get<BeLeaveTypeListResponse>('/api/leave-types'),
       ])
       setRequests(mapLeaveRequests(reqRes.requests))
       setBalance(mapLeaveBalances(balRes))
@@ -564,14 +567,11 @@ function EmployeeView() {
     setRequests((prev) => [optimistic, ...prev])
     setDialogOpen(false)
     try {
-      await apiRequest('/api/leave-requests', {
-        method: 'POST',
-        body: {
-          leave_type_id: input.leaveTypeId,
-          tanggal_mulai: input.tanggalMulai,
-          tanggal_selesai: input.tanggalSelesai,
-          alasan: input.alasan.trim(),
-        },
+      await api.post('/api/leave-requests', {
+        leave_type_id: input.leaveTypeId,
+        tanggal_mulai: input.tanggalMulai,
+        tanggal_selesai: input.tanggalSelesai,
+        alasan: input.alasan.trim(),
       })
       void reload()
     } catch {
@@ -914,7 +914,7 @@ export default function LeavePage() {
         userRole="employee"
         activeNav="leave"
         title="Cuti"
-        subtitle={NAV.employee.user.name}
+        subtitle={user?.nama ?? 'Karyawan'}
       >
         <EmployeeView />
       </AppShell>

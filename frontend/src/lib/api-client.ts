@@ -172,3 +172,104 @@ export function clearSession(): void {
   setToken(null)
   setStoredUser(null)
 }
+
+/* ------------------------------------------------------------------ *
+ * Error event bus (for the global error toast).
+ * ------------------------------------------------------------------ */
+
+type ErrorListener = (error: ApiError) => void
+
+const errorListeners = new Set<ErrorListener>()
+
+/** Subscribe to API failures. Returns an unsubscribe function. */
+export function onApiError(listener: ErrorListener): () => void {
+  errorListeners.add(listener)
+  return () => errorListeners.delete(listener)
+}
+
+function notifyError(error: ApiError): void {
+  errorListeners.forEach((listener) => {
+    try {
+      listener(error)
+    } catch {
+      // listener must never break the request pipeline
+    }
+  })
+}
+
+/**
+ * Map a transport failure (status 0) to a friendly Bahasa message.
+ * Non-zero statuses keep the server-provided message (which the BE already
+ * localises); status 0 means the network is unreachable.
+ */
+export function errorMessage(error: ApiError): string {
+  if (error.status === 0) return 'Tidak terhubung ke server'
+  if (error.status === 401) return 'Sesi berakhir, silakan masuk ulang'
+  if (error.status >= 500) return 'Gagal memuat data'
+  return error.message || 'Gagal memuat data'
+}
+
+/* ------------------------------------------------------------------ *
+ * `api` — ergonomic singleton facade over `apiRequest`.
+ * ------------------------------------------------------------------ */
+
+function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
+  return apiRequest<T>(path, opts).catch((e: unknown) => {
+    if (e instanceof ApiError) notifyError(e)
+    throw e
+  })
+}
+
+export interface ApiClient {
+  get<T = unknown>(path: string, query?: RequestOptions['query']): Promise<T>
+  post<T = unknown>(path: string, body?: unknown): Promise<T>
+  patch<T = unknown>(path: string, body?: unknown): Promise<T>
+  delete<T = unknown>(path: string): Promise<T>
+  upload<T = unknown>(path: string, formData: FormData): Promise<T>
+  download(path: string, query?: RequestOptions['query']): Promise<Blob>
+}
+
+export const api: ApiClient = {
+  get<T>(path: string, query?: RequestOptions['query']) {
+    return request<T>(path, { method: 'GET', query })
+  },
+  post<T>(path: string, body?: unknown) {
+    return request<T>(path, { method: 'POST', body })
+  },
+  patch<T>(path: string, body?: unknown) {
+    return request<T>(path, { method: 'PATCH', body })
+  },
+  delete<T>(path: string) {
+    return request<T>(path, { method: 'DELETE' })
+  },
+  upload<T>(path: string, formData: FormData) {
+    return request<T>(path, { method: 'POST', body: formData })
+  },
+  async download(path: string, query?: RequestOptions['query']): Promise<Blob> {
+    const url = buildUrl(path, query)
+    const headers: Record<string, string> = { Accept: 'application/octet-stream' }
+    const token = getToken()
+    if (token) headers.Authorization = `Bearer ${token}`
+    let res: Response
+    try {
+      res = await fetch(url, { method: 'GET', headers })
+    } catch (e) {
+      const err = new ApiError(0, e instanceof Error ? e.message : 'Gagal menghubungi server')
+      notifyError(err)
+      throw err
+    }
+    if (!res.ok) {
+      let message = `Permintaan gagal (${res.status})`
+      try {
+        const body = (await res.json()) as { error?: { message?: string } }
+        message = body.error?.message ?? message
+      } catch {
+        // non-JSON error body — keep default
+      }
+      const err = new ApiError(res.status, message)
+      notifyError(err)
+      throw err
+    }
+    return res.blob()
+  },
+}

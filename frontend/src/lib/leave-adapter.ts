@@ -1,14 +1,110 @@
 /**
- * KaryawanKu — leave mappers (BE snake_case → FE camelCase).
+ * KaryawanKu — leave domain types, helpers + BE mappers (snake_case → camelCase).
  *
- * The BE serialises leave rows with `tanggal_mulai`, `leave_type_id`, etc.;
- * the FE type (`LeaveRequest` in `leave-mock.ts`) is camelCase. We map here
- * so the page can keep using its existing types without copy/paste churn.
+ * The FE leave page consumes the Fastify BE (`/api/leave-requests`,
+ * `/api/leave-balances`, `/api/leave-types`) and maps every row to a shared
+ * camelCase `LeaveRequest` shape. Domain constants (`JENIS_LABEL`,
+ * `JENIS_BALANCE`) and pure helpers (`hitungDurasi`, `leaveBalanceSisa`,
+ * `summarizeLeave`) live here too so no mock module is needed.
  */
 
-import type { LeaveRequest, LeaveStatus } from '@/lib/leave-mock'
-import { EMPLOYEES } from '@/lib/employees-mock'
-import { hitungDurasi } from '@/lib/leave-mock'
+/* ------------------------------------------------------------------ *
+ * Leave domain (FE types + constants + helpers)
+ * ------------------------------------------------------------------ */
+
+export type LeaveStatus = 'pending' | 'approved' | 'rejected'
+
+export type LeaveType = 'tahunan' | 'sakit' | 'izin' | 'melahirkan' | 'penting'
+
+export interface LeaveRequest {
+  id: string
+  employeeId: string
+  nama: string
+  jabatan: string
+  jenis: LeaveType
+  /** YYYY-MM-DD */
+  tanggalMulai: string
+  /** YYYY-MM-DD (>= tanggalMulai) */
+  tanggalSelesai: string
+  /** Number of calendar days covered, inclusive. */
+  durasi: number
+  alasan: string
+  status: LeaveStatus
+  /** Approver note — only set once the request is processed. */
+  catatan: string
+}
+
+export interface LeaveBalanceItem {
+  kuota: number
+  terpakai: number
+}
+
+export interface LeaveBalance {
+  tahunan: LeaveBalanceItem
+  sakit: LeaveBalanceItem
+  izin: LeaveBalanceItem
+}
+
+/** Bahasa Indonesia label per leave type — the only wordings used in UI. */
+export const JENIS_LABEL: Record<LeaveType, string> = {
+  tahunan: 'Cuti Tahunan',
+  sakit: 'Cuti Sakit',
+  izin: 'Cuti Izin',
+  melahirkan: 'Cuti Melahirkan',
+  penting: 'Cuti Penting',
+}
+
+/** The three balance-tracked types (others have no annual quota). */
+export const JENIS_BALANCE: readonly LeaveType[] = ['tahunan', 'sakit', 'izin']
+
+export function leaveBalanceSisa(balance: LeaveBalance, jenis: LeaveType): number {
+  if (!JENIS_BALANCE.includes(jenis)) return Infinity
+  const item = balance[jenis as keyof LeaveBalance]
+  return item.kuota - item.terpakai
+}
+
+/** Inclusive calendar-day count between two YYYY-MM-DD dates. */
+export function hitungDurasi(mulai: string, selesai: string): number {
+  const start = new Date(`${mulai}T00:00:00`)
+  const end = new Date(`${selesai}T00:00:00`)
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 0
+  const diff = end.getTime() - start.getTime()
+  return Math.max(0, Math.round(diff / 86400000) + 1)
+}
+
+export interface LeaveSummary {
+  pending: number
+  approvedThisMonth: number
+  rejectedThisMonth: number
+}
+
+function pad(n: number): string {
+  return String(n).padStart(2, '0')
+}
+
+function isSameMonth(date: string, month: number, year: number): boolean {
+  return date.startsWith(`${year}-${pad(month + 1)}`)
+}
+
+/** Owner dashboard metrics — this-month counts only count processed requests. */
+export function summarizeLeave(requests: LeaveRequest[], now: Date = new Date()): LeaveSummary {
+  const month = now.getMonth()
+  const year = now.getFullYear()
+  const summary: LeaveSummary = { pending: 0, approvedThisMonth: 0, rejectedThisMonth: 0 }
+  for (const r of requests) {
+    if (r.status === 'pending') summary.pending += 1
+    else if (r.status === 'approved' && isSameMonth(r.tanggalMulai, month, year)) {
+      summary.approvedThisMonth += 1
+    } else if (r.status === 'rejected' && isSameMonth(r.tanggalMulai, month, year)) {
+      summary.rejectedThisMonth += 1
+    }
+  }
+  return summary
+}
+
+/* ------------------------------------------------------------------ *
+ * BE wire types + mappers
+ * ------------------------------------------------------------------ */
 
 export interface BeLeaveRequest {
   id: string
@@ -37,7 +133,7 @@ const STATUS_MAP: Record<BeLeaveRequest['status'], LeaveStatus> = {
  * `LeaveType` enum used by the existing UI. Falls back to the slugged form
  * when the BE name doesn't match a known label (e.g. admin-renamed types).
  */
-function findLeaveTypeIdByName(name: string): import('@/lib/leave-mock').LeaveType {
+export function findLeaveTypeIdByName(name: string): LeaveType {
   const lower = name.toLowerCase()
   if (lower.includes('tahunan')) return 'tahunan'
   if (lower.includes('sakit')) return 'sakit'
@@ -48,12 +144,11 @@ function findLeaveTypeIdByName(name: string): import('@/lib/leave-mock').LeaveTy
 }
 
 export function mapLeaveRequest(be: BeLeaveRequest): LeaveRequest {
-  const emp = EMPLOYEES.find((e) => e.id === be.employee_id)
   return {
     id: be.id,
     employeeId: be.employee_id,
-    nama: be.employee_name || emp?.nama || 'Karyawan',
-    jabatan: emp?.jabatan ?? '—',
+    nama: be.employee_name || 'Karyawan',
+    jabatan: '—',
     jenis: findLeaveTypeIdByName(be.leave_type_name),
     tanggalMulai: be.tanggal_mulai,
     tanggalSelesai: be.tanggal_selesai,
@@ -86,8 +181,8 @@ export interface BeLeaveBalanceResponse {
 }
 
 /** Convert BE `leave-balances` response into the FE `LeaveBalance` shape. */
-export function mapLeaveBalances(be: BeLeaveBalanceResponse): import('@/lib/leave-mock').LeaveBalance {
-  const balance: import('@/lib/leave-mock').LeaveBalance = {
+export function mapLeaveBalances(be: BeLeaveBalanceResponse): LeaveBalance {
+  const balance: LeaveBalance = {
     tahunan: { kuota: 0, terpakai: 0 },
     sakit: { kuota: 0, terpakai: 0 },
     izin: { kuota: 0, terpakai: 0 },
@@ -114,7 +209,7 @@ export interface BeLeaveTypeListResponse {
   leave_types: BeLeaveType[]
 }
 
-export function mapLeaveType(be: BeLeaveType): { id: string; name: string; jenis: import('@/lib/leave-mock').LeaveType } {
+export function mapLeaveType(be: BeLeaveType): { id: string; name: string; jenis: LeaveType } {
   return {
     id: be.id,
     name: be.nama_jenis_cuti,

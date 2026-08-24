@@ -9,16 +9,67 @@ mengikuti spesifikasi `../docs/UX-SPEC.md` (ProMax).
 npm install
 ```
 
-## Menjalankan
+## Environment
+
+FE membaca backend dari `NEXT_PUBLIC_API_BASE_URL` (default
+`http://localhost:3001`). Salin `.env.example` menjadi `.env.local` jika perlu
+mengganti host:
 
 ```bash
-npm run dev        # dev server → http://localhost:3000
+cp .env.example .env.local   # opsional — default sudah menunjuk ke localhost:3001
 ```
+
+## Menjalankan kedua server
+
+Backend (Fastify) dan frontend (Next.js) dijalankan berdampingan:
+
+```bash
+# terminal 1 — backend
+cd ../backend
+npm install
+npm run db:migrate   # sekali, siapkan database SQLite
+npm run db:seed      # sekali, data contoh (owner@usaha.com / password123)
+npm run dev          # → http://localhost:3001
+
+# terminal 2 — frontend
+cd ../frontend
+npm run dev          # → http://localhost:3000
+```
+
+Buka `http://localhost:3000`, lalu `Masuk` sebagai `owner@usaha.com`.
 
 Halaman demo shell:
 - `/` — landing (pilih role)
 - `/dashboard` — shell owner (`AppShell userRole="owner"`)
 - `/beranda` — shell employee (`AppShell userRole="employee"`)
+
+## Wiring (tickets #34–#38)
+
+Semua halaman memakai API nyata lewat client tunggal di
+`src/lib/api-client.ts` — tidak ada mock data untuk Employee Directory,
+Attendance, Leave, Payroll Run, dan Dashboard.
+
+- **API client** — `api.get/post/patch/delete/upload/download` menempel
+  `Authorization: Bearer <token>` dari `localStorage['kk-token']`, base URL dari
+  `NEXT_PUBLIC_API_BASE_URL`, melempar `ApiError` (status + pesan Bahasa) pada
+  non-2xx, dan menyalurkan error ke event-bus global untuk toast.
+- **Auth** — `src/lib/auth-context.tsx` (`useAuth`) memanggil
+  `/api/auth/sign-in`, `/api/auth/sign-up`, `/api/auth/sign-out`, dan
+  merehidrasi sesi dari `/api/auth/me` saat halaman dimuat.
+- **Endpoints yang dikonsumsi per halaman**:
+  | Halaman | Endpoint BE |
+  |---|---|
+  | Dashboard | `GET /api/dashboard` |
+  | Karyawan | `GET /api/employees`, `PATCH /api/employees/:id` |
+  | Absensi | `POST /api/attendance/clock-in|clock-out`, `GET /api/attendance/today`, `GET /api/attendance/employee/:id`, `POST /api/attendance/manual` |
+  | Cuti | `GET /api/leave-requests`, `POST /api/leave-requests`, `PATCH /api/leave-requests/:id/approve|reject`, `GET /api/leave-balances`, `GET /api/leave-types` |
+  | Payroll | `GET|POST /api/payroll-runs`, `GET /api/payroll-runs/:id`, `PATCH /api/payroll-items/:id`, `POST /api/payroll-runs/:id/approve`, `GET /api/payroll-runs/:id/export.csv` |
+- **Offline** — clock in/out yang gagal karena koneksi di-queue di
+  `src/lib/offline-queue.ts` (localStorage) dan auto-flush saat event `online`.
+- **Toast error global** — `src/components/ui/toast.tsx` (`ToastProvider` di
+  `app/layout.tsx`) memantau event-bus API client dan menampilkan pesan Bahasa
+  ("Gagal memuat data", "Gagal menyimpan", "Tidak terhubung ke server"),
+  auto-dismiss 4 detik.
 
 ## Build produksi
 

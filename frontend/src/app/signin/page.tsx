@@ -8,7 +8,7 @@ import { AuthLayout } from '@/components/auth/auth-layout'
 import { PasswordField } from '@/components/auth/password-field'
 import { Button } from '@/components/ui/button'
 import { TextField } from '@/components/ui/text-field'
-import { useAuth } from '@/lib/auth-mock'
+import { useAuth } from '@/lib/auth-context'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 

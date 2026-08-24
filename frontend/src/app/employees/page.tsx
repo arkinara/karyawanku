@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Pencil, Plus, Search, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Pencil, Plus, Power, Search, Trash2 } from 'lucide-react'
 import {
   AppShell,
   Avatar,
@@ -16,7 +16,7 @@ import {
 } from '@/components/ui'
 import type { DataTableColumn } from '@/components/ui'
 import type { StatusVariant } from '@/components/ui/status-chip'
-import { apiRequest } from '@/lib/api-client'
+import { api } from '@/lib/api-client'
 import { formatTanggal } from '@/lib/format'
 
 type EmployeeStatus = 'aktif' | 'nonaktif'
@@ -67,21 +67,51 @@ const KONTRAK_VALUES: Record<string, JenisKontrak | undefined> = {
 }
 
 export default function EmployeesPage() {
+  const [all, setAll] = useState<Employee[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
+  const [togglingId, setTogglingId] = useState<string | null>(null)
   const [error, setError] = useState<Error | null>(null)
   const [query, setQuery] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [status, setStatus] = useState<'all' | EmployeeStatus>('all')
   const [kontrak, setKontrak] = useState<string>('Semua')
 
+  const kontrakValue = KONTRAK_VALUES[kontrak]
+
+  // Debounce the search box so we don't hammer the API per keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 300)
+    return () => clearTimeout(t)
+  }, [query])
+
+  // Full (unfiltered) snapshot for the Semua/Aktif/Nonaktif chip counts.
+  useEffect(() => {
+    let cancelled = false
+    api
+      .get<{ employees: Employee[] }>('/api/employees', { limit: 200 })
+      .then((res) => {
+        if (!cancelled) setAll(res.employees)
+      })
+      .catch(() => {
+        // count snapshot is best-effort; the table fetch reports errors
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Server-side query: search + filters become real query params.
   const reload = async (): Promise<void> => {
     setLoading(true)
     setError(null)
     try {
-      const res = await apiRequest<{ employees: Employee[]; total: number }>(
-        '/api/employees',
-        { query: { limit: 200 } },
-      )
+      const res = await api.get<{ employees: Employee[] }>('/api/employees', {
+        limit: 200,
+        search: debouncedQuery.trim() || undefined,
+        jenis_kontrak: kontrakValue || undefined,
+        status: status === 'all' ? undefined : status,
+      })
       setEmployees(res.employees)
     } catch (e) {
       setError(e instanceof Error ? e : new Error(String(e)))
@@ -92,15 +122,26 @@ export default function EmployeesPage() {
 
   useEffect(() => {
     void reload()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedQuery, status, kontrakValue])
+
+  // The BE supports status/kontrak filtering; `search` is also forwarded, but
+  // as a safety net for older BE versions we post-filter the search term here.
+  const filtered = useMemo(() => {
+    const term = debouncedQuery.trim().toLowerCase()
+    if (!term) return employees
+    return employees.filter((e) =>
+      (e.nama_lengkap + ' ' + e.no_ktp + ' ' + e.jenis_kontrak).toLowerCase().includes(term),
+    )
+  }, [employees, debouncedQuery])
 
   const counts = useMemo(() => {
     return {
-      all: employees.length,
-      aktif: employees.filter((e) => e.status === 'aktif').length,
-      nonaktif: employees.filter((e) => e.status === 'nonaktif').length,
+      all: all.length,
+      aktif: all.filter((e) => e.status === 'aktif').length,
+      nonaktif: all.filter((e) => e.status === 'nonaktif').length,
     }
-  }, [employees])
+  }, [all])
 
   const STATUS_OPTIONS = [
     { value: 'all', label: 'Semua', count: counts.all },
@@ -108,30 +149,27 @@ export default function EmployeesPage() {
     { value: 'nonaktif', label: 'Nonaktif', count: counts.nonaktif },
   ]
 
-  const filtered = useMemo(() => {
-    const term = query.trim().toLowerCase()
-    const kontrakValue = KONTRAK_VALUES[kontrak]
-    return employees.filter((e) => {
-      const okStatus = status === 'all' || e.status === status
-      const okKontrak = !kontrakValue || e.jenis_kontrak === kontrakValue
-      const hay = (
-        e.nama_lengkap +
-        ' ' +
-        e.no_ktp +
-        ' ' +
-        e.jenis_kontrak
-      ).toLowerCase()
-      const okQuery = !term || hay.includes(term)
-      return okStatus && okKontrak && okQuery
-    })
-  }, [employees, query, status, kontrak])
-
   const hasFilter = query.trim() !== '' || status !== 'all' || kontrak !== 'Semua'
 
   const resetAll = () => {
     setQuery('')
     setStatus('all')
     setKontrak('Semua')
+  }
+
+  const toggleStatus = async (e: Employee): Promise<void> => {
+    const next: EmployeeStatus = e.status === 'aktif' ? 'nonaktif' : 'aktif'
+    setTogglingId(e.id)
+    setError(null)
+    try {
+      await api.patch(`/api/employees/${e.id}`, { status: next })
+      // Re-sync from the server so the row reflects the authoritative status.
+      await reload()
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error(String(err)))
+    } finally {
+      setTogglingId(null)
+    }
   }
 
   const columns: Array<DataTableColumn<Employee>> = [
@@ -185,6 +223,17 @@ export default function EmployeesPage() {
       align: 'right',
       render: (e) => (
         <div className="flex items-center justify-end gap-1">
+          <Button
+            variant="icon"
+            size="sm"
+            aria-label={`${e.status === 'aktif' ? 'Nonaktifkan' : 'Aktifkan'} ${e.nama_lengkap}`}
+            aria-busy={togglingId === e.id}
+            disabled={togglingId !== null}
+            onClick={() => void toggleStatus(e)}
+            title={e.status === 'aktif' ? 'Nonaktifkan' : 'Aktifkan'}
+          >
+            <Power className="h-4 w-4" />
+          </Button>
           <Button variant="icon" size="sm" aria-label={`Edit ${e.nama_lengkap}`}>
             <Pencil className="h-4 w-4" />
           </Button>
@@ -206,7 +255,7 @@ export default function EmployeesPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="t-h1">Daftar Karyawan</h1>
-          <p className="t-caption mt-1">{employees.length} karyawan terdaftar</p>
+          <p className="t-caption mt-1">{all.length} karyawan terdaftar</p>
         </div>
         <a
           href="/employees/new"
@@ -217,55 +266,56 @@ export default function EmployeesPage() {
         </a>
       </div>
 
-      {loading && <div className="mt-4"><LoadingSurface label="Memuat karyawan…" /></div>}
       {error && (
         <div className="mt-4">
           <ErrorSurface error={error} onRetry={reload} />
         </div>
       )}
 
-      {!loading && !error && (
-        <div className="mt-4 space-y-3">
-          <SearchBar
-            value={query}
-            onChange={setQuery}
-            placeholder="Cari nama, NIK, atau jenis kontrak…"
-            aria-label="Cari karyawan"
+      <div className="mt-4 space-y-3">
+        <SearchBar
+          value={query}
+          onChange={setQuery}
+          placeholder="Cari nama, NIK, atau jenis kontrak…"
+          aria-label="Cari karyawan"
+        />
+
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <SegmentedControl
+            options={STATUS_OPTIONS}
+            value={status}
+            onChange={(v) => setStatus(v as 'all' | EmployeeStatus)}
+            aria-label="Filter status"
           />
+        </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <SegmentedControl
-              options={STATUS_OPTIONS}
-              value={status}
-              onChange={(v) => setStatus(v as 'all' | EmployeeStatus)}
-              aria-label="Filter status"
-            />
-          </div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <label className="flex items-center gap-2 text-sm text-onsurface-variant">
+            <span className="t-caption">Jenis kontrak</span>
+            <select
+              value={kontrak}
+              onChange={(e) => setKontrak(e.target.value)}
+              aria-label="Jenis kontrak"
+              className="h-9 min-w-[140px] rounded-full border border-outline-variant bg-surface-1 px-3 text-sm text-onsurface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              {KONTRAK_OPTIONS.map((k) => (
+                <option key={k} value={k}>
+                  {k}
+                </option>
+              ))}
+            </select>
+          </label>
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <label className="flex items-center gap-2 text-sm text-onsurface-variant">
-              <span className="t-caption">Jenis kontrak</span>
-              <select
-                value={kontrak}
-                onChange={(e) => setKontrak(e.target.value)}
-                aria-label="Jenis kontrak"
-                className="h-9 min-w-[140px] rounded-full border border-outline-variant bg-surface-1 px-3 text-sm text-onsurface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                {KONTRAK_OPTIONS.map((k) => (
-                  <option key={k} value={k}>
-                    {k}
-                  </option>
-                ))}
-              </select>
-            </label>
+          {hasFilter && (
+            <Button variant="text" size="sm" onClick={resetAll}>
+              Reset filter
+            </Button>
+          )}
+        </div>
 
-            {hasFilter && (
-              <Button variant="text" size="sm" onClick={resetAll}>
-                Reset filter
-              </Button>
-            )}
-          </div>
-
+        {loading ? (
+          <LoadingSurface label="Memuat karyawan…" />
+        ) : (
           <DataTable
             columns={columns}
             rows={filtered}
@@ -284,36 +334,36 @@ export default function EmployeesPage() {
               />
             }
           />
+        )}
 
-          <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-onsurface-variant">
-            <p className="t-caption tabular-nums">
-              Menampilkan 1-{filtered.length} dari {filtered.length}
-            </p>
-            <div className="flex items-center gap-3">
-              <label className="t-caption flex items-center gap-2">
-                Baris per halaman
-                <select
-                  defaultValue="10"
-                  className="h-9 rounded-full border border-outline-variant bg-surface-1 px-3 text-sm text-onsurface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="10">10</option>
-                  <option value="25">25</option>
-                  <option value="50">50</option>
-                </select>
-              </label>
-              <div className="flex items-center gap-1">
-                <Button variant="icon" size="sm" disabled aria-label="Halaman sebelumnya">
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span className="t-caption px-2 tabular-nums">1 / 1</span>
-                <Button variant="icon" size="sm" disabled aria-label="Halaman berikutnya">
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-onsurface-variant">
+          <p className="t-caption tabular-nums">
+            Menampilkan 1-{filtered.length} dari {filtered.length}
+          </p>
+          <div className="flex items-center gap-3">
+            <label className="t-caption flex items-center gap-2">
+              Baris per halaman
+              <select
+                defaultValue="10"
+                className="h-9 rounded-full border border-outline-variant bg-surface-1 px-3 text-sm text-onsurface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+              </select>
+            </label>
+            <div className="flex items-center gap-1">
+              <Button variant="icon" size="sm" disabled aria-label="Halaman sebelumnya">
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="t-caption px-2 tabular-nums">1 / 1</span>
+              <Button variant="icon" size="sm" disabled aria-label="Halaman berikutnya">
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </div>
-      )}
+      </div>
     </AppShell>
   )
 }

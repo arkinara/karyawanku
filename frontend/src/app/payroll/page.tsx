@@ -18,53 +18,20 @@ import { MetricCard } from '@/components/dashboard/metric-card'
 import { MetricGrid } from '@/components/dashboard/metric-grid'
 import { cn } from '@/lib/cn'
 import { formatIDR } from '@/lib/format'
+import { api } from '@/lib/api-client'
 import {
-  getPayrollRun as getMockPayrollRun,
   gross,
   potongan,
   summarize,
   takeHome,
-} from '@/lib/payroll-mock'
-import type { PayrollItem, PayrollRun } from '@/lib/payroll-mock'
-import {
   type BePayrollRunResponse,
+  type PayrollItem,
+  type PayrollRun,
   emptyPayrollRun,
   mapPayrollRun,
 } from '@/lib/payroll-adapter'
-import { apiRequest } from '@/lib/api-client'
 
 const PERIOD = '2026-08'
-
-/** Semicolon-delimited CSV (Indonesian convention) with a UTF-8 BOM for Excel. */
-function buildCsv(items: PayrollItem[]): string {
-  const esc = (v: string | number) => {
-    const s = String(v)
-    return /[";,\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
-  }
-  const header = [
-    'Nama',
-    'NIK',
-    'Jabatan',
-    'Gaji Pokok',
-    'Tunjangan',
-    'BPJS Kesehatan',
-    'BPJS Ketenagakerjaan',
-    'PPh 21',
-    'Total Potongan',
-    'Take-Home',
-  ]
-  const rows = items.map((i) => [
-    i.nama,
-    i.nik,
-    i.jabatan,
-    i.gajiPokok,
-    gross(i) - i.gajiPokok,
-    ...i.potongan.map((p) => p.nominal),
-    potongan(i),
-    takeHome(i),
-  ])
-  return [header, ...rows].map((r) => r.map(esc).join(';')).join('\n')
-}
 
 /** Accepts comma decimals and a leading minus — e.g. "100000" or "-25.000". */
 function parsePenyesuaian(s: string): number | null {
@@ -235,7 +202,7 @@ export default function PayrollPage() {
   // The page renders against a BE-backed payroll run. We seed with the mock
   // shape so the very first paint matches what the test fixtures expect, then
   // swap in the BE response (or create the run) once it resolves.
-  const [run, setRun] = useState<PayrollRun>(() => getMockPayrollRun(PERIOD))
+  const [run, setRun] = useState<PayrollRun>(() => emptyPayrollRun(PERIOD))
   const [runId, setRunId] = useState<string | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [koreksiItem, setKoreksiItem] = useState<PayrollItem | null>(null)
@@ -254,10 +221,9 @@ export default function PayrollPage() {
 
   const ensureRun = useCallback(async (): Promise<string> => {
     if (runId) return runId
-    const res = await apiRequest<{ run: { id: string } & Record<string, unknown> }>(
-      '/api/payroll-runs',
-      { method: 'POST', body: { periode: PERIOD } },
-    )
+    const res = await api.post<{ run: { id: string } & Record<string, unknown> }>('/api/payroll-runs', {
+      periode: PERIOD,
+    })
     setRunId(res.run.id)
     return res.run.id
   }, [runId])
@@ -266,21 +232,20 @@ export default function PayrollPage() {
     setLoading(true)
     setError(null)
     try {
-      const list = await apiRequest<{ runs: Array<{ id: string; status: string; periode: string }> }>(
+      const list = await api.get<{ runs: Array<{ id: string; status: string; periode: string }> }>(
         '/api/payroll-runs',
-        { query: { periode: PERIOD } },
+        { periode: PERIOD },
       )
       const existing = list.runs[0]
       if (existing) {
         setRunId(existing.id)
-        const detail = await apiRequest<BePayrollRunResponse>(`/api/payroll-runs/${existing.id}`)
+        const detail = await api.get<BePayrollRunResponse>(`/api/payroll-runs/${existing.id}`)
         setRun(mapPayrollRun(detail))
       } else {
         // Auto-create the run on first visit so the screen has live data.
-        const created = await apiRequest<BePayrollRunResponse>(
-          '/api/payroll-runs',
-          { method: 'POST', body: { periode: PERIOD } },
-        )
+        const created = await api.post<BePayrollRunResponse>('/api/payroll-runs', {
+          periode: PERIOD,
+        })
         setRunId(created.run.id)
         setRun(mapPayrollRun(created))
       }
@@ -308,12 +273,12 @@ export default function PayrollPage() {
     setKoreksiItem(null)
     try {
       const id = await ensureRun()
-      const fresh = await apiRequest<BePayrollRunResponse>(`/api/payroll-runs/${id}`)
+      const fresh = await api.get<BePayrollRunResponse>(`/api/payroll-runs/${id}`)
       const target = fresh.items.find((i) => i.employee_id === itemId)
       if (target) {
-        await apiRequest(`/api/payroll-items/${target.id}`, {
-          method: 'PATCH',
-          body: { koreksi: penyesuaian, catatan_koreksi: catatan },
+        await api.patch(`/api/payroll-items/${target.id}`, {
+          koreksi: penyesuaian,
+          catatan_koreksi: catatan,
         })
       }
     } catch {
@@ -326,7 +291,7 @@ export default function PayrollPage() {
     setApproveOpen(false)
     try {
       const id = await ensureRun()
-      await apiRequest(`/api/payroll-runs/${id}/approve`, { method: 'POST' })
+      await api.post(`/api/payroll-runs/${id}/approve`)
     } catch (e) {
       setRun((prev) => ({ ...prev, status: 'draft' }))
       setError(e instanceof Error ? e : new Error(String(e)))
@@ -334,38 +299,24 @@ export default function PayrollPage() {
   }
 
   const handleExport = async () => {
-    // Prefer the BE's authoritative CSV when a run is on the server; otherwise
-    // fall back to the locally-built CSV.
-    try {
-      const id = runId ?? (await ensureRun())
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001'}/api/payroll-runs/${id}/export.csv`)
-      if (res.ok) {
-        const blob = await res.blob()
-        const url = URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = url
-        link.download = 'payroll-agustus-2026.csv'
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        URL.revokeObjectURL(url)
-        setToast('File CSV berhasil diunduh')
-        return
-      }
-    } catch {
-      // Fall through to the local CSV build.
+    if (!runId || !approved) {
+      setToast('Ekspor hanya tersedia untuk payroll yang sudah disetujui')
+      return
     }
-    const csv = buildCsv(run.items)
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = 'payroll-agustus-2026.csv'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
-    setToast('File CSV berhasil diunduh')
+    try {
+      const blob = await api.download(`/api/payroll-runs/${runId}/export.csv`)
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `payroll-${PERIOD}.csv`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      setToast('File CSV berhasil diunduh')
+    } catch {
+      setToast('Gagal mengunduh file')
+    }
   }
 
   const toggleExpand = (item: PayrollItem) => {
@@ -452,9 +403,6 @@ export default function PayrollPage() {
     },
   ]
 
-  // Keep the export helper referenced even when fallback is used.
-  void emptyPayrollRun
-
   return (
     <AppShell
       userRole="owner"
@@ -481,7 +429,7 @@ export default function PayrollPage() {
               Setujui Payroll
             </Button>
           )}
-          <Button variant="secondary" onClick={() => void handleExport()}>
+          <Button variant="secondary" disabled={!approved} onClick={() => void handleExport()}>
             <Download className="h-4 w-4" aria-hidden="true" />
             Ekspor CSV
           </Button>
