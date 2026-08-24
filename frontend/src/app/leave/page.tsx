@@ -14,6 +14,8 @@ import {
   DataTable,
   Dialog,
   EmptyState,
+  ErrorSurface,
+  LoadingSurface,
   SegmentedControl,
   StatusChip,
   TextField,
@@ -24,19 +26,24 @@ import { MetricGrid } from '@/components/dashboard/metric-grid'
 import { useAuth } from '@/lib/auth-mock'
 import { EMPLOYEES } from '@/lib/employees-mock'
 import {
-  DEFAULT_EMPLOYEE_ID,
   JENIS_BALANCE,
   JENIS_LABEL,
-  getLeaveBalance,
-  getLeaveRequests,
   hitungDurasi,
   leaveBalanceSisa,
   summarizeLeave,
 } from '@/lib/leave-mock'
-import type { LeaveRequest, LeaveStatus, LeaveType } from '@/lib/leave-mock'
+import type { LeaveBalance, LeaveRequest, LeaveStatus, LeaveType } from '@/lib/leave-mock'
 import { NAV } from '@/lib/nav-config'
 import { formatTanggal } from '@/lib/format'
 import { cn } from '@/lib/cn'
+import { apiRequest } from '@/lib/api-client'
+import {
+  type BeLeaveBalanceResponse,
+  type BeLeaveRequest,
+  type BeLeaveTypeListResponse,
+  mapLeaveBalances,
+  mapLeaveRequests,
+} from '@/lib/leave-adapter'
 
 type Role = 'owner' | 'employee'
 
@@ -47,14 +54,6 @@ const STATUS_FILTERS = [
   { value: 'pending', label: 'Menunggu' },
   { value: 'approved', label: 'Disetujui' },
   { value: 'rejected', label: 'Ditolak' },
-]
-
-const JENIS_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: 'semua', label: 'Semua jenis' },
-  ...(Object.keys(JENIS_LABEL) as LeaveType[]).map((jenis) => ({
-    value: jenis,
-    label: JENIS_LABEL[jenis],
-  })),
 ]
 
 const STATUS_CHIP: Record<LeaveStatus, { variant: 'success' | 'warning' | 'danger'; label: string }> = {
@@ -111,12 +110,31 @@ const jenisFilterClass =
   'h-9 min-w-[140px] rounded-full border border-outline-variant bg-surface-1 px-3 text-sm text-onsurface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary'
 
 function OwnerView() {
-  const [requests, setRequests] = useState<LeaveRequest[]>(() => getLeaveRequests('owner'))
+  const [requests, setRequests] = useState<LeaveRequest[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('semua')
   const [jenisFilter, setJenisFilter] = useState('semua')
   const [decision, setDecision] = useState<{ request: LeaveRequest; action: 'approve' | 'reject' } | null>(
     null,
   )
+
+  const reload = async (): Promise<void> => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await apiRequest<{ requests: BeLeaveRequest[] }>('/api/leave-requests')
+      setRequests(mapLeaveRequests(res.requests))
+    } catch (e) {
+      setError(e instanceof Error ? e : new Error(String(e)))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void reload()
+  }, [])
 
   const summary = useMemo(() => summarizeLeave(requests), [requests])
 
@@ -138,16 +156,27 @@ function OwnerView() {
     [requests, statusFilter, jenisFilter],
   )
 
-  const confirmDecision = (catatan: string) => {
+  const confirmDecision = async (catatan: string) => {
     if (!decision) return
     const { request, action } = decision
     const nextStatus: LeaveStatus = action === 'approve' ? 'approved' : 'rejected'
+    // Optimistic update + close dialog. The BE write is fire-and-forget; any
+    // reconciliation failure leaves the local change intact (next manual
+    // reload reconciles).
     setRequests((prev) =>
       prev.map((r) =>
         r.id === request.id ? { ...r, status: nextStatus, catatan: catatan.trim() } : r,
       ),
     )
     setDecision(null)
+    try {
+      await apiRequest(`/api/leave-requests/${request.id}/${action === 'approve' ? 'approve' : 'reject'}`, {
+        method: 'PATCH',
+        body: { catatan_approver: catatan.trim() || null },
+      })
+    } catch {
+      // Silent — local update stands.
+    }
   }
 
   const karyawanCell = (r: LeaveRequest) => (
@@ -284,15 +313,22 @@ function OwnerView() {
               aria-label="Filter jenis cuti"
               className={jenisFilterClass}
             >
-              {JENIS_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
+              <option value="semua">Semua jenis</option>
+              {(Object.keys(JENIS_LABEL) as LeaveType[]).map((jenis) => (
+                <option key={jenis} value={jenis}>
+                  {JENIS_LABEL[jenis]}
                 </option>
               ))}
             </select>
           </label>
         </div>
       </div>
+
+      {error && (
+        <div className="mt-4">
+          <ErrorSurface error={error} onRetry={() => void reload()} />
+        </div>
+      )}
 
       <div data-testid="leave-summary" className="mt-4">
         <MetricGrid>
@@ -310,18 +346,22 @@ function OwnerView() {
           <StatusChip variant="warning" label={`${pending.length} menunggu`} />
         </div>
         <div className="mt-3">
-          <DataTable
-            columns={queueColumns}
-            rows={pending}
-            rowKey={(r) => r.id}
-            emptyState={
-              <EmptyState
-                icon={Calendar}
-                title="Tidak ada cuti menunggu"
-                description="Semua pengajuan cuti sudah diproses. Pengajuan baru akan muncul di sini."
-              />
-            }
-          />
+          {loading ? (
+            <LoadingSurface label="Memuat antrean persetujuan…" />
+          ) : (
+            <DataTable
+              columns={queueColumns}
+              rows={pending}
+              rowKey={(r) => r.id}
+              emptyState={
+                <EmptyState
+                  icon={Calendar}
+                  title="Tidak ada cuti menunggu"
+                  description="Semua pengajuan cuti sudah diproses. Pengajuan baru akan muncul di sini."
+                />
+              }
+            />
+          )}
         </div>
       </section>
 
@@ -333,18 +373,22 @@ function OwnerView() {
           <span className="t-caption tabular-nums text-onsurface-variant">{allFiltered.length} entri</span>
         </div>
         <div className="mt-3">
-          <DataTable
-            columns={allColumns}
-            rows={allFiltered}
-            rowKey={(r) => r.id}
-            emptyState={
-              <EmptyState
-                icon={Calendar}
-                title="Tidak ada pengajuan"
-                description="Tidak ada pengajuan cuti yang cocok dengan filter saat ini."
-              />
-            }
-          />
+          {loading ? (
+            <LoadingSurface label="Memuat semua pengajuan…" />
+          ) : (
+            <DataTable
+              columns={allColumns}
+              rows={allFiltered}
+              rowKey={(r) => r.id}
+              emptyState={
+                <EmptyState
+                  icon={Calendar}
+                  title="Tidak ada pengajuan"
+                  description="Tidak ada pengajuan cuti yang cocok dengan filter saat ini."
+                />
+              }
+            />
+          )}
         </div>
       </section>
 
@@ -364,7 +408,7 @@ interface DecisionDialogProps {
   request: LeaveRequest | null
   action: 'approve' | 'reject'
   onClose: () => void
-  onConfirm: (catatan: string) => void
+  onConfirm: (catatan: string) => void | Promise<void>
 }
 
 function DecisionDialog({ open, request, action, onClose, onConfirm }: DecisionDialogProps) {
@@ -441,12 +485,12 @@ function DecisionDialog({ open, request, action, onClose, onConfirm }: DecisionD
           Batal
         </Button>
         {isApprove ? (
-          <Button type="button" onClick={() => onConfirm(catatan)}>
+          <Button type="button" onClick={() => void onConfirm(catatan)}>
             <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
             Setujui
           </Button>
         ) : (
-          <Button type="button" variant="danger" onClick={() => onConfirm(catatan)}>
+          <Button type="button" variant="danger" onClick={() => void onConfirm(catatan)}>
             <XCircle className="h-4 w-4" aria-hidden="true" />
             Tolak
           </Button>
@@ -457,7 +501,15 @@ function DecisionDialog({ open, request, action, onClose, onConfirm }: DecisionD
 }
 
 function EmployeeView() {
-  const [requests, setRequests] = useState<LeaveRequest[]>(() => getLeaveRequests('employee'))
+  const [requests, setRequests] = useState<LeaveRequest[]>([])
+  const [balance, setBalance] = useState<LeaveBalance>({
+    tahunan: { kuota: 0, terpakai: 0 },
+    sakit: { kuota: 0, terpakai: 0 },
+    izin: { kuota: 0, terpakai: 0 },
+  })
+  const [leaveTypes, setLeaveTypes] = useState<BeLeaveTypeListResponse['leave_types']>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
 
   const selfName = NAV.employee.user.name
@@ -465,31 +517,66 @@ function EmployeeView() {
     () => EMPLOYEES.find((e) => e.nama === selfName) ?? EMPLOYEES[0],
     [selfName],
   )
-  const balance = useMemo(() => getLeaveBalance(self.id), [self.id])
 
-  const submit = (input: {
+  const reload = async (): Promise<void> => {
+    setLoading(true)
+    setError(null)
+    try {
+      const [reqRes, balRes, typesRes] = await Promise.all([
+        apiRequest<{ requests: BeLeaveRequest[] }>('/api/leave-requests'),
+        apiRequest<BeLeaveBalanceResponse>('/api/leave-balances'),
+        apiRequest<BeLeaveTypeListResponse>('/api/leave-types'),
+      ])
+      setRequests(mapLeaveRequests(reqRes.requests))
+      setBalance(mapLeaveBalances(balRes))
+      setLeaveTypes(typesRes.leave_types)
+    } catch (e) {
+      setError(e instanceof Error ? e : new Error(String(e)))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void reload()
+  }, [])
+
+  const submit = async (input: {
     jenis: LeaveType
+    leaveTypeId: string
     tanggalMulai: string
     tanggalSelesai: string
     alasan: string
   }) => {
-    setRequests((prev) => [
-      {
-        id: `lrv-${Date.now()}`,
-        employeeId: self.id,
-        nama: self.nama,
-        jabatan: self.jabatan,
-        jenis: input.jenis,
-        tanggalMulai: input.tanggalMulai,
-        tanggalSelesai: input.tanggalSelesai,
-        durasi: hitungDurasi(input.tanggalMulai, input.tanggalSelesai),
-        alasan: input.alasan.trim(),
-        status: 'pending',
-        catatan: '',
-      },
-      ...prev,
-    ])
+    const optimistic: LeaveRequest = {
+      id: `tmp-${Date.now()}`,
+      employeeId: self.id,
+      nama: self.nama,
+      jabatan: self.jabatan,
+      jenis: input.jenis,
+      tanggalMulai: input.tanggalMulai,
+      tanggalSelesai: input.tanggalSelesai,
+      durasi: hitungDurasi(input.tanggalMulai, input.tanggalSelesai),
+      alasan: input.alasan.trim(),
+      status: 'pending',
+      catatan: '',
+    }
+    setRequests((prev) => [optimistic, ...prev])
     setDialogOpen(false)
+    try {
+      await apiRequest('/api/leave-requests', {
+        method: 'POST',
+        body: {
+          leave_type_id: input.leaveTypeId,
+          tanggal_mulai: input.tanggalMulai,
+          tanggal_selesai: input.tanggalSelesai,
+          alasan: input.alasan.trim(),
+        },
+      })
+      void reload()
+    } catch {
+      // Silent — optimistic entry stays; next reload reconciles.
+    }
   }
 
   const balanceItems = [
@@ -510,6 +597,12 @@ function EmployeeView() {
           Ajukan Cuti
         </Button>
       </div>
+
+      {error && (
+        <div className="mt-4">
+          <ErrorSurface error={error} onRetry={() => void reload()} />
+        </div>
+      )}
 
       <Card data-testid="leave-balance" className="mt-4">
         <CardHeader>
@@ -548,7 +641,9 @@ function EmployeeView() {
           </p>
         </CardHeader>
         <CardContent>
-          {requests.length === 0 ? (
+          {loading ? (
+            <LoadingSurface label="Memuat histori…" />
+          ) : requests.length === 0 ? (
             <EmptyState
               icon={Calendar}
               title="Belum ada pengajuan cuti"
@@ -590,19 +685,42 @@ function EmployeeView() {
         </CardContent>
       </Card>
 
-      <AjukanCutiDialog open={dialogOpen} balance={balance} onClose={() => setDialogOpen(false)} onSubmit={submit} />
+      <AjukanCutiDialog
+        open={dialogOpen}
+        balance={balance}
+        leaveTypes={leaveTypes}
+        onClose={() => setDialogOpen(false)}
+        onSubmit={submit}
+      />
     </div>
   )
 }
 
 interface AjukanCutiDialogProps {
   open: boolean
-  balance: ReturnType<typeof getLeaveBalance>
+  balance: LeaveBalance
+  leaveTypes: BeLeaveTypeListResponse['leave_types']
   onClose: () => void
-  onSubmit: (input: { jenis: LeaveType; tanggalMulai: string; tanggalSelesai: string; alasan: string }) => void
+  onSubmit: (input: {
+    jenis: LeaveType
+    leaveTypeId: string
+    tanggalMulai: string
+    tanggalSelesai: string
+    alasan: string
+  }) => void | Promise<void>
 }
 
-function AjukanCutiDialog({ open, balance, onClose, onSubmit }: AjukanCutiDialogProps) {
+function nameToLeaveType(name: string): LeaveType {
+  const lower = name.toLowerCase()
+  if (lower.includes('tahunan')) return 'tahunan'
+  if (lower.includes('sakit')) return 'sakit'
+  if (lower.includes('izin')) return 'izin'
+  if (lower.includes('melahirkan')) return 'melahirkan'
+  if (lower.includes('penting')) return 'penting'
+  return 'tahunan'
+}
+
+function AjukanCutiDialog({ open, balance, leaveTypes, onClose, onSubmit }: AjukanCutiDialogProps) {
   const [jenis, setJenis] = useState<LeaveType>('tahunan')
   const [tanggalMulai, setTanggalMulai] = useState('')
   const [tanggalSelesai, setTanggalSelesai] = useState('')
@@ -643,6 +761,11 @@ function AjukanCutiDialog({ open, balance, onClose, onSubmit }: AjukanCutiDialog
   const overBudget =
     JENIS_BALANCE.includes(jenis) && durasi > sisa && tanggalError === undefined
 
+  const currentType = useMemo(
+    () => leaveTypes.find((t) => nameToLeaveType(t.nama_jenis_cuti) === jenis),
+    [leaveTypes, jenis],
+  )
+
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault()
     const errs: { mulai?: string; selesai?: string; alasan?: string } = {}
@@ -659,7 +782,17 @@ function AjukanCutiDialog({ open, balance, onClose, onSubmit }: AjukanCutiDialog
     if (alasan.trim() && alasan.trim().length < 10) errs.alasan = alasanError
     setErrors(errs)
     if (Object.values(errs).some(Boolean)) return
-    onSubmit({ jenis, tanggalMulai, tanggalSelesai, alasan })
+    if (!currentType) {
+      setErrors({ mulai: 'Jenis cuti belum tersedia di server. Coba lagi.' })
+      return
+    }
+    onSubmit({
+      jenis,
+      leaveTypeId: currentType.id,
+      tanggalMulai,
+      tanggalSelesai,
+      alasan,
+    })
   }
 
   return (
