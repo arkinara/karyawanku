@@ -38,16 +38,18 @@ src/
     migrate.ts    # drizzle-kit push
     seed.ts       # data demo
   lib/
-    auth.ts       # hash/verify password, JWT, requireAuth/requireOwner
-    errors.ts     # ApiError + turunannya
+    auth.ts            # hash/verify password, JWT, requireAuth/requireOwner
+    errors.ts          # ApiError + turunannya
+    attendance-status.ts # hitung status hadir/telat + late_minutes dari jam shift
   routes/
-    auth.ts       # POST sign-up/sign-in/sign-out, GET me
-    users.ts      # CRUD user (owner only)
-    employees.ts        # CRUD karyawan (owner / self)
+    auth.ts            # POST sign-up/sign-in/sign-out, GET me
+    users.ts           # CRUD user (owner only)
+    employees.ts       # CRUD karyawan (owner / self)
     employees-import.ts # import CSV: preview + commit
     salary-components.ts   # CRUD komponen gaji + preview formula
     salary-assignments.ts  # penugasan komponen gaji ke karyawan
-tests/            # vitest: auth, users, employees, employees-import, schema, salary-components, salary-assignments
+    attendance.ts      # clock-in/out, list, aggregate bulanan, manual (owner)
+tests/            # vitest: auth, users, employees, employees-import, schema, salary-components, salary-assignments, attendance-*
 drizzle/          # file migrasi SQL (generated)
 data/             # file DB lokal (git-ignored)
 ```
@@ -82,6 +84,15 @@ Prefix: `/api`
 | POST | `/employees/:employeeId/salary-assignments` | Owner | Tugaskan komponen gaji ke karyawan (opsional `override_nominal`, cek duplikat aktif → 409) |
 | PATCH | `/salary-assignments/:id` | Owner | Update `override_nominal` / toggle `aktif` |
 | DELETE | `/salary-assignments/:id` | Owner | Soft-delete penugasan (set `aktif=false`) → `{ ok: true }` |
+| POST | `/attendance/clock-in` | Karyawan / Owner | Clock-in: `{ employee_id?, catatan?, client_timestamp? }`, hitung status + late_minutes otomatis dari shift |
+| POST | `/attendance/clock-out` | Karyawan / Owner | Clock-out: `{ employee_id?, client_timestamp? }`, catat waktu keluar |
+| GET | `/attendance/today` | Karyawan / Owner | Absensi hari ini milik user |
+| GET | `/attendance/employee/:employeeId?start=&end=` | Owner / karyawan terkait | Daftar absensi (filter rentang tanggal) |
+| GET | `/attendance/aggregate/:employeeId?period=YYYY-MM` | Owner / karyawan terkait | Rekap bulanan `{ hadir, telat, absen, izin, total_late_minutes }` |
+| POST | `/attendance/manual` | Owner | Entri/koreksi manual (upsert by `employee_id`+`tanggal`) |
+| PATCH | `/attendance/:id` | Owner | Koreksi subset field catatan absensi |
+
+Catatan absensi: status `hadir`/`telat` dihitung otomatis dari `jam_mulai` shift (shift_assignments) saat clock-in, fallback `08:00` bila tak ada shift. `client_timestamp` (untuk kasus offline) divalidasi tidak boleh di masa depan. Owner boleh clock-in/out atas nama karyawan lain via `employee_id`; employee hanya untuk dirinya sendiri.
 
 Catatan: saat `POST/PATCH /users` mengirim `employee_id`, sistem memvalidasi karyawan tsb ada di bisnis yang sama.
 

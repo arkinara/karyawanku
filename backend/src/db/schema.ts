@@ -249,7 +249,10 @@ export const attendanceRecords = sqliteTable(
     status: text('status', { enum: attendanceStatuses }).notNull().default('hadir'),
     late_minutes: integer('late_minutes').notNull().default(0),
   },
-  (table) => [index('attendance_records_employee_idx').on(table.employee_id)],
+  (table) => [
+    index('attendance_records_employee_idx').on(table.employee_id),
+    uniqueIndex('attendance_records_employee_tanggal_unique').on(table.employee_id, table.tanggal),
+  ],
 )
 
 export const payrollRuns = sqliteTable(

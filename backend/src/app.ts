@@ -9,6 +9,7 @@ import employeesRoutes from './routes/employees.js'
 import employeesImportRoutes from './routes/employees-import.js'
 import salaryComponentsRoutes from './routes/salary-components.js'
 import salaryAssignmentsRoutes from './routes/salary-assignments.js'
+import attendanceRoutes from './routes/attendance.js'
 import { ApiError } from './lib/errors.js'
 
 export function buildApp(): FastifyInstance {
@@ -25,6 +26,7 @@ export function buildApp(): FastifyInstance {
       await api.register(employeesRoutes)
       await api.register(salaryComponentsRoutes)
       await api.register(salaryAssignmentsRoutes)
+      await api.register(attendanceRoutes)
     },
     { prefix: '/api' },
   )

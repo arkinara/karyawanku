@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `attendance_records_employee_tanggal_unique` ON `attendance_records` (`employee_id`,`tanggal`);
