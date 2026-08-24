@@ -44,7 +44,7 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
         <label
           htmlFor={id}
           className={cn(
-            'text-label-lg text-foreground',
+            't-label text-onsurface',
             disabled && 'opacity-50 cursor-not-allowed',
           )}
         >
@@ -68,12 +68,12 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
           aria-invalid={hasError || undefined}
           aria-describedby={message ? messageId : undefined}
           className={cn(
-            'w-full min-h-touch px-4 py-3 rounded-xl',
-            'bg-surface-container-high border border-border text-foreground',
-            'placeholder:text-muted-foreground outline-none transition-colors',
+            'w-full min-h-[44px] px-4 py-3 rounded-xl',
+            'bg-surface-1 border border-outline-variant text-onsurface',
+            'placeholder:text-onsurface-variant outline-none transition-colors',
             'focus:border-primary focus:ring-1 focus:ring-primary',
-            hasError && 'border-destructive bg-destructive/5 focus:border-destructive focus:ring-destructive',
-            disabled && 'opacity-50 cursor-not-allowed bg-surface-container-low',
+            hasError && 'border-danger bg-danger/5 focus:border-danger focus:ring-danger',
+            disabled && 'opacity-50 cursor-not-allowed',
           )}
           {...props}
         />
@@ -83,7 +83,7 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
             id={messageId}
             className={cn(
               'text-body-sm',
-              hasError ? 'text-destructive' : 'text-muted-foreground',
+              hasError ? 'text-danger' : 'text-onsurface-variant',
             )}
           >
             {message}
