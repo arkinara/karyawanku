@@ -12,6 +12,7 @@ import {
 } from '../db/schema.js'
 import { currentUser, requireAuth, requireOwner } from '../lib/auth.js'
 import { ApiError, ConflictError } from '../lib/errors.js'
+import { generatePayslipsForRun } from '../lib/payslip-generator.js'
 import {
   computePayrollItem,
   type AttendanceAggregate,
@@ -21,6 +22,33 @@ import {
 const createRunSchema = z.object({
   periode: z.string().regex(/^\d{4}-\d{2}$/, 'periode wajib berformat YYYY-MM'),
 })
+
+const correctionSchema = z.object({
+  koreksi: z.number().finite(),
+  catatan_koreksi: z.string().trim().max(500).optional(),
+})
+
+function recomputeRunTotals(db: ReturnType<typeof getDb>['db'], runId: string): void {
+  const items = db.select().from(payrollItems).where(eq(payrollItems.payroll_run_id, runId)).all()
+  let totalGaji = 0
+  let totalPotongan = 0
+  let totalTakeHome = 0
+  for (const it of items) {
+    totalGaji += it.gaji_pokok + it.total_tunjangan
+    totalPotongan += it.total_bpjs_kesehatan + it.total_bpjs_tk + it.pph21
+    totalTakeHome += it.take_home
+  }
+  db.update(payrollRuns)
+    .set({ total_gaji: totalGaji, total_potongan: totalPotongan, take_home: totalTakeHome })
+    .where(eq(payrollRuns.id, runId))
+    .run()
+}
+
+function baseTakeHome(item: { gaji_pokok: number; total_tunjangan: number; total_bpjs_kesehatan: number; total_bpjs_tk: number; pph21: number }): number {
+  return Math.round(
+    item.gaji_pokok + item.total_tunjangan - (item.total_bpjs_kesehatan + item.total_bpjs_tk + item.pph21),
+  )
+}
 
 function parseDetailBreakdown(raw: string | null): Record<string, unknown> | null {
   if (!raw) return null
@@ -239,5 +267,101 @@ export default async function payrollRunsRoutes(app: FastifyInstance): Promise<v
     }
     const items = serializeItems(db, run.id, user.employee_id)
     return { run, items }
+  })
+
+  app.patch('/payroll-items/:id', { preHandler: requireOwner }, async (req) => {
+    const parsed = correctionSchema.safeParse(req.body)
+    if (!parsed.success) {
+      throw new ApiError(422, 'Data koreksi tidak valid', parsed.error.flatten())
+    }
+    const { koreksi, catatan_koreksi } = parsed.data
+    const user = currentUser(req)
+    const { id } = req.params as { id: string }
+    const { db } = getDb()
+
+    const item = db.select().from(payrollItems).where(eq(payrollItems.id, id)).get()
+    if (!item) {
+      throw new ApiError(404, 'Item payroll tidak ditemukan')
+    }
+    const run = db.select().from(payrollRuns).where(eq(payrollRuns.id, item.payroll_run_id)).get()
+    if (!run || run.business_id !== user.business_id) {
+      throw new ApiError(404, 'Item payroll tidak ditemukan')
+    }
+    if (run.status !== 'draft') {
+      throw new ConflictError('Koreksi hanya dapat dilakukan saat run masih berstatus draft')
+    }
+
+    const newTakeHome = Math.round(baseTakeHome(item) + koreksi)
+    db.update(payrollItems)
+      .set({
+        koreksi,
+        catatan_koreksi: catatan_koreksi ?? item.catatan_koreksi ?? null,
+        take_home: newTakeHome,
+      })
+      .where(eq(payrollItems.id, item.id))
+      .run()
+
+    recomputeRunTotals(db, run.id)
+    const updated = db.select().from(payrollItems).where(eq(payrollItems.id, item.id)).get()
+    const emp = db.select().from(employees).where(eq(employees.id, item.employee_id)).get()
+    return {
+      ...updated,
+      detail_breakdown: parseDetailBreakdown(updated?.detail_breakdown ?? null),
+      employee: { id: item.employee_id, nama_lengkap: emp?.nama_lengkap ?? null },
+    }
+  })
+
+  app.post('/payroll-runs/:id/approve', { preHandler: requireOwner }, async (req) => {
+    const user = currentUser(req)
+    const { id } = req.params as { id: string }
+    const { db } = getDb()
+
+    const run = db.select().from(payrollRuns).where(eq(payrollRuns.id, id)).get()
+    if (!run || run.business_id !== user.business_id) {
+      throw new ApiError(404, 'Run payroll tidak ditemukan')
+    }
+    if (run.status === 'disetujui') {
+      throw new ConflictError('Run payroll sudah disetujui')
+    }
+    if (run.status === 'locked') {
+      throw new ConflictError('Run payroll sudah dikunci dan tidak dapat diubah')
+    }
+
+    db.update(payrollRuns)
+      .set({
+        status: 'disetujui',
+        approved_at: new Date(),
+        approved_by_user_id: user.id,
+      })
+      .where(eq(payrollRuns.id, run.id))
+      .run()
+
+    await generatePayslipsForRun(run.id)
+
+    const updatedRun = db.select().from(payrollRuns).where(eq(payrollRuns.id, run.id)).get()
+    const items = serializeItems(db, run.id)
+    return { run: updatedRun, items, payslips_generated: true }
+  })
+
+  app.post('/payroll-runs/:id/lock', { preHandler: requireOwner }, async (req) => {
+    const user = currentUser(req)
+    const { id } = req.params as { id: string }
+    const { db } = getDb()
+
+    const run = db.select().from(payrollRuns).where(eq(payrollRuns.id, id)).get()
+    if (!run || run.business_id !== user.business_id) {
+      throw new ApiError(404, 'Run payroll tidak ditemukan')
+    }
+    if (run.status !== 'disetujui') {
+      throw new ConflictError('Run hanya dapat dikunci setelah disetujui')
+    }
+
+    db.update(payrollRuns)
+      .set({ status: 'locked' })
+      .where(eq(payrollRuns.id, run.id))
+      .run()
+
+    const updatedRun = db.select().from(payrollRuns).where(eq(payrollRuns.id, run.id)).get()
+    return { run: updatedRun }
   })
 }

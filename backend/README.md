@@ -55,7 +55,9 @@ src/
     shifts.ts          # CRUD shift template (owner, business-scoped, soft-delete)
     shift-assignments.ts # penugasan shift per karyawan/tanggal + upcoming 3 hari
     roster-publish.ts  # publish/unpublish roster shift secara batch (owner)
-    payroll-runs.ts    # buat run payroll draft + hitung gaji/BPJS/PPh21 per karyawan
+    payroll-runs.ts    # buat run payroll draft + hitung gaji/BPJS/PPh21 per karyawan + koreksi/approve/lock
+    payslips.ts        # daftar & unduh slip gaji PDF (owner semua, karyawan miliknya)
+    payroll-export.ts  # ekspor rekap payroll ke CSV / XLSX (owner)
   lib/
     auth.ts            # hash/verify password, JWT, requireAuth/requireOwner
     errors.ts          # ApiError + turunannya
@@ -64,9 +66,12 @@ src/
     bpjs.ts            # kalkulasi BPJS Kesehatan + Ketenagakerjaan dari gaji pokok
     pph21.ts           # kalkulasi PPh21 progresif (PTKP + lapisan tarif)
     payroll.ts         # engine komputasi payroll per karyawan (gaji/BPJS/PPh21/take-home)
-tests/            # vitest: auth, users, employees, employees-import, schema, salary-components, salary-assignments, attendance-*, leave-*, shifts, shift-assignments, roster-publish, payroll-runs, bpjs, pph21
+    payslip-pdf.ts     # generator PDF slip gaji (pdfkit) → Buffer
+    payslip-store.ts   # simpan/baca file PDF slip gaji di filesystem
+    payslip-generator.ts # buat record payslips + generate PDF untuk seluruh item satu run
+tests/            # vitest: auth, users, employees, employees-import, schema, salary-components, salary-assignments, attendance-*, leave-*, shifts, shift-assignments, roster-publish, payroll-runs, payroll-approval, payslips, payroll-export, bpjs, pph21
 drizzle/          # file migrasi SQL (generated)
-data/             # file DB lokal (git-ignored)
+data/             # file DB lokal (git-ignored) + data/payslips/ (PDF slip gaji, git-ignored)
 ```
 
 ## Endpoint
@@ -132,12 +137,21 @@ Prefix: `/api`
 | POST | `/payroll-runs` | Owner | Buat run payroll draft: body `{ periode: 'YYYY-MM' }`, auto-buat `payroll_items` utk tiap karyawan `status=aktif`, hitung gaji pokok/tunjangan/BPJS/PPh21/take-home + `detail_breakdown` JSON. Duplikat periode → 409. Balas `{ run, items }` |
 | GET | `/payroll-runs?periode=` | Owner | Daftar run payroll di bisnis (opsional filter `periode`) |
 | GET | `/payroll-runs/:id` | Owner / karyawan terkait | Detail run + item; owner lihat semua, karyawan hanya item miliknya |
+| PATCH | `/payroll-items/:id` | Owner | Koreksi item payroll saat `status=draft`: body `{ koreksi, catatan_koreksi? }`; `koreksi` ditambahkan ke `take_home`. Setelah approve/lock → 409 |
+| POST | `/payroll-runs/:id/approve` | Owner | Setujui run: `draft → disetujui`, set `approved_at` + `approved_by_user_id`, generate slip PDF per item. Re-approve → 409 (tanpa duplikasi payslip) |
+| POST | `/payroll-runs/:id/lock` | Owner | Kunci run setelah disetujui (`disetujui → locked`), menolak semua edit lanjutan |
+| GET | `/payslips` | Owner / Karyawan | Daftar slip gaji (owner semua di bisnis; karyawan hanya miliknya) |
+| GET | `/payslips/employee/:employeeId` | Owner / Karyawan terkait | Daftar slip gaji karyawan tertentu (owner bebas; karyawan hanya diri sendiri) |
+| GET | `/payslips/:id/download` | Owner / Karyawan terkait | Unduh PDF slip gaji (`Content-Type: application/pdf`, nama `slip-gaji-{nama}-{periode}.pdf`) |
+| GET | `/payroll-runs/:id/export.csv` | Owner | Ekspor rekap payroll CSV (BOM UTF-8) atau XLSX (`?format=xlsx`), termasuk baris total |
 
 Catatan absensi: status `hadir`/`telat` dihitung otomatis dari `jam_mulai` shift (shift_assignments) saat clock-in, fallback `08:00` bila tak ada shift. `client_timestamp` (untuk kasus offline) divalidasi tidak boleh di masa depan. Owner boleh clock-in/out atas nama karyawan lain via `employee_id`; employee hanya untuk dirinya sendiri.
 
 Catatan cuti: saldo cuti dibuat otomatis saat pertama kali di-query per tahun. Kuota cuti tahunan mengikuti UU Cipta Kerja — masa kerja ≥ 1 tahun mendapat `default_kuota_hari` penuh (12), masa kerja < 1 tahun diprorata (`default_kuota_hari × bulan kerja / 12`). Sisa tahun lalu dipindah ke tahun baru bila `kebijakan_sisa='carry-over'` (maks `carry_over_max_days`), hangus bila `hangus`. `POST /admin/leave-reset` memicu reset tahunan secara manual (cron menyusul) dan idempoten — tidak menggandakan baris saldo.
 
 Catatan payroll: `POST /api/payroll-runs` membuat satu run `status=draft` per `(business_id, periode)` (duplikat → 409). Hanya karyawan `status=aktif` yang diikutkan. Per karyawan: `gaji_pokok` = jumlah komponen earning bernama "Gaji Pokok"; `total_tunjangan` = jumlah komponen earning lain (pakai `override_nominal` bila ada, formula dievaluasi — formula tak terselesaikan membuat run gagal dgn pesan jelas); `total_bpjs_kesehatan` = 1% gaji pokok; `total_bpjs_tk` = JHT 2% + JP 1%; `pph21` = PPh21 progresif bulanan dari gross tahunan (12×gross bulanan); `take_home` = gross − (BPJS + PPh21). Seluruh sub-kalkulasi tersimpan di kolom `payroll_items.detail_breakdown` (JSON). `employees.ptkp_status` (TK/0, K/0, K/1, K/2, K/3; nullable) menentukan PTKP PPh21; bila kosong default TK/0 dgn penanda di breakdown.
+
+Catatan persetujuan & slip gaji: `PATCH /api/payroll-items/:id` memungkinkan Owner mengoreksi item saat run `status=draft` (nilai `koreksi` ditambahkan ke `take_home`); setelah approve/lock semua edit ditolak 409. `POST /api/payroll-runs/:id/approve` memindahkan run ke `disetujui`, mencatat `approved_at` + `approved_by_user_id`, lalu otomatis membuat satu record `payslips` per item dan men-generate PDF slip gaji (pdfkit) yang disimpan di `backend/data/payslips/{payslip_id}.pdf` (lokasi bisa di-override via env `PAYSLIP_DIR`); `pdf_url` disimpan di DB. Re-approve idempoten — tidak menduplikasi payslip. `POST /api/payroll-runs/:id/lock` mengunci run setelah disetujui. `GET /api/payslips*` scoped: Owner melihat semua di bisnis, karyawan hanya miliknya. `GET /api/payroll-runs/:id/export.csv` (owner) menghasilkan CSV UTF-8 (BOM) berisi Nama, NIP/ID, Gaji Pokok, Total Tunjangan, BPJS Kesehatan (employee), BPJS Ketenagakerjaan (employee), PPh 21, Koreksi, Take-Home plus baris total; `?format=xlsx` menghasilkan file XLSX (exceljs).
 
 Catatan: saat `POST/PATCH /users` mengirim `employee_id`, sistem memvalidasi karyawan tsb ada di bisnis yang sama.
 

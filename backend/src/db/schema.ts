@@ -29,7 +29,7 @@ export type LeaveRequestStatus = (typeof leaveRequestStatuses)[number]
 export const attendanceStatuses = ['hadir', 'telat', 'absen', 'izin'] as const
 export type AttendanceStatus = (typeof attendanceStatuses)[number]
 
-export const payrollRunStatuses = ['draft', 'disetujui'] as const
+export const payrollRunStatuses = ['draft', 'disetujui', 'locked'] as const
 export type PayrollRunStatus = (typeof payrollRunStatuses)[number]
 
 export const businesses = sqliteTable('businesses', {
