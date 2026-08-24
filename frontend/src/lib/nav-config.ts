@@ -72,7 +72,7 @@ export const NAV: Record<UserRole, RoleNav> = {
       { key: 'home', label: 'Beranda', icon: 'home', href: '/beranda' },
       { key: 'attendance', label: 'Absensi', icon: 'clock', href: '/attendance' },
       { key: 'leave', label: 'Cuti', icon: 'calendar', href: '/leave', badge: 1 },
-      { key: 'payslip', label: 'Slip Gaji', icon: 'payslip', href: '/payslip' },
+      { key: 'payslip', label: 'Slip Gaji', icon: 'payslip', href: '/payslips' },
     ],
     secondary: [{ key: 'settings', label: 'Pengaturan', icon: 'settings', href: '/settings' }],
   },

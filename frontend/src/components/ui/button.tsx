@@ -11,6 +11,7 @@ export type ButtonVariant =
   | 'text'
   | 'danger'
   | 'icon'
+  | 'outline'
 
 export type ButtonSize = 'sm' | 'md' | 'lg'
 
@@ -40,6 +41,7 @@ const variants: Record<ButtonVariant, string> = {
   text: 'bg-transparent text-primary hover:bg-primary/10',
   danger: 'bg-danger-container text-danger-on hover:opacity-90',
   icon: 'bg-surface-2 text-onsurface hover:bg-surface-3',
+  outline: 'bg-surface text-primary border border-outline hover:bg-surface-2',
 }
 
 /** Label buttons get horizontal padding; the icon variant stays square. */
