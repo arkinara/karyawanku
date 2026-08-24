@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useRouter, notFound } from 'next/navigation'
 import { Check, ChevronLeft, Pencil, Plus } from 'lucide-react'
 import {
@@ -13,12 +13,13 @@ import {
   CardHeader,
   CardTitle,
   Dialog,
+  ErrorSurface,
+  LoadingSurface,
   StatusChip,
   TextField,
 } from '@/components/ui'
 import type { StatusVariant } from '@/components/ui/status-chip'
-import { getEmployeeById } from '@/lib/employees-mock'
-import type { EmployeeDetail, EmployeeStatus } from '@/lib/employees-mock'
+import { apiRequest } from '@/lib/api-client'
 import { formatTanggal } from '@/lib/format'
 import { cn } from '@/lib/cn'
 
@@ -30,12 +31,35 @@ const KONTRAK_VARIANT: Record<string, StatusVariant> = {
   Magang: 'danger',
 }
 
+const KONTRAK_LABEL: Record<string, string> = {
+  pkwtt: 'PKWTT',
+  pkwt: 'PKWT',
+  pkl: 'PKL',
+  harian: 'Harian',
+  magang: 'Magang',
+}
+
 const KONTRAK_OPTIONS = ['PKWTT', 'PKWT', 'PKL', 'Magang', 'Harian']
-const JENIS_KELAMIN_OPTIONS = ['Laki-laki', 'Perempuan']
+const JENIS_KELAMIN_LABEL: Record<string, string> = { L: 'Laki-laki', P: 'Perempuan' }
+
+interface Employee {
+  id: string
+  nama_lengkap: string
+  no_ktp: string
+  npwp: string | null
+  tanggal_lahir: string
+  jenis_kelamin: 'L' | 'P'
+  alamat: string | null
+  kontak_darurat: string | null
+  tanggal_masuk: string
+  jenis_kontrak: 'pkwtt' | 'pkwt' | 'pkl' | 'magang' | 'harian'
+  status: 'aktif' | 'nonaktif'
+  ptkp_status: string | null
+  custom_fields: Record<string, string> | null
+}
 
 interface Draft {
   nama: string
-  jabatan: string
   tanggalLahir: string
   jenisKelamin: string
   alamat: string
@@ -46,26 +70,29 @@ interface Draft {
   jenisKontrak: string
 }
 
+interface CustomField {
+  key: string
+  value: string
+}
+
 type FieldErrors = Partial<Record<keyof Draft, string>>
 
-function toDraft(e: EmployeeDetail): Draft {
+function toDraft(e: Employee): Draft {
   return {
-    nama: e.nama,
-    jabatan: e.jabatan,
-    tanggalLahir: e.tanggalLahir,
-    jenisKelamin: e.jenisKelamin,
-    alamat: e.alamat,
-    kontakDarurat: e.kontakDarurat,
-    noKtp: e.noKtp,
-    npwp: e.npwp,
-    tanggalMasuk: e.tanggalMasuk,
-    jenisKontrak: e.jenisKontrak,
+    nama: e.nama_lengkap,
+    tanggalLahir: e.tanggal_lahir,
+    jenisKelamin: JENIS_KELAMIN_LABEL[e.jenis_kelamin] ?? '',
+    alamat: e.alamat ?? '',
+    kontakDarurat: e.kontak_darurat ?? '',
+    noKtp: e.no_ktp,
+    npwp: e.npwp ?? '',
+    tanggalMasuk: e.tanggal_masuk,
+    jenisKontrak: KONTRAK_LABEL[e.jenis_kontrak] ?? '',
   }
 }
 
 const EMPTY_DRAFT: Draft = {
   nama: '',
-  jabatan: '',
   tanggalLahir: '',
   jenisKelamin: '',
   alamat: '',
@@ -76,15 +103,12 @@ const EMPTY_DRAFT: Draft = {
   jenisKontrak: '',
 }
 
-function npwpValid(value: string): boolean {
-  return value.replace(/[^0-9]/g, '').length === 15
-}
-
 function phoneValid(value: string): boolean {
-  return /^\+?\d{6,20}$/.test(value.replace(/[\s.-]/g, ''))
+  return /^\+?[\d\s()-]{7,20}$/.test(value)
 }
 
 function tanggalLahirValid(iso: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return false
   const cutoff = new Date()
@@ -96,7 +120,6 @@ function tanggalLahirValid(iso: string): boolean {
 function validate(d: Draft): FieldErrors {
   const errors: FieldErrors = {}
   if (!d.nama.trim()) errors.nama = 'Nama lengkap wajib diisi'
-  if (!d.jabatan.trim()) errors.jabatan = 'Jabatan wajib diisi'
   if (!d.tanggalLahir) errors.tanggalLahir = 'Tanggal lahir wajib diisi'
   else if (!tanggalLahirValid(d.tanggalLahir))
     errors.tanggalLahir = 'Tanggal lahir tidak valid atau usia di bawah 17 tahun'
@@ -106,20 +129,11 @@ function validate(d: Draft): FieldErrors {
   else if (!phoneValid(d.kontakDarurat))
     errors.kontakDarurat = 'Format kontak darurat tidak valid (hanya angka, +, spasi, dan dash)'
   if (!/^\d{16}$/.test(d.noKtp.trim())) errors.noKtp = 'Nomor KTP harus 16 digit'
-  if (!npwpValid(d.npwp.trim())) errors.npwp = 'NPWP harus 15 digit (format XX.XXX.XXX.X-XXX.XXX)'
+  if (d.npwp.trim() && !/^\d{2}\.\d{3}\.\d{3}\.\d-\d{3}\.\d{3}$/.test(d.npwp.trim()))
+    errors.npwp = 'Format NPWP tidak valid (contoh: 01.234.567.8-901.000)'
   if (!d.tanggalMasuk) errors.tanggalMasuk = 'Tanggal masuk wajib diisi'
   if (!d.jenisKontrak) errors.jenisKontrak = 'Jenis kontrak wajib diisi'
   return errors
-}
-
-interface FieldDef {
-  key: keyof Draft
-  label: string
-  type?: 'text' | 'date' | 'select'
-  options?: string[]
-  helperText?: string
-  span?: 1 | 2
-  readRender?: (value: string) => string
 }
 
 function Switch({
@@ -157,18 +171,30 @@ function Switch({
   )
 }
 
+interface FieldDef {
+  key: keyof Draft
+  label: string
+  type?: 'text' | 'date' | 'select'
+  options?: string[]
+  helperText?: string
+  span?: 1 | 2
+  readRender?: (value: string) => string
+}
+
 export default function EmployeeDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
-  const employee = getEmployeeById(id)
+  const [employee, setEmployee] = useState<Employee | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
 
-  const [saved, setSaved] = useState<Draft>(() => (employee ? toDraft(employee) : EMPTY_DRAFT))
-  const [draft, setDraft] = useState<Draft>(saved)
+  const [saved, setSaved] = useState<Draft>(EMPTY_DRAFT)
+  const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT)
   const [errors, setErrors] = useState<FieldErrors>({})
   const [editing, setEditing] = useState(false)
-  const [status, setStatus] = useState<EmployeeStatus>(employee?.status ?? 'aktif')
+  const [status, setStatus] = useState<'aktif' | 'nonaktif'>('aktif')
 
-  const [customFields, setCustomFields] = useState(employee?.customFields ?? [])
+  const [customFields, setCustomFields] = useState<CustomField[]>([])
   const [editingField, setEditingField] = useState<string | null>(null)
   const [fieldValue, setFieldValue] = useState('')
   const [fieldError, setFieldError] = useState('')
@@ -178,7 +204,36 @@ export default function EmployeeDetailPage() {
   const [newValue, setNewValue] = useState('')
   const [dialogError, setDialogError] = useState('')
 
-  if (!employee) return notFound()
+  const reload = async (): Promise<void> => {
+    if (!id) return
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await apiRequest<{ employee: Employee }>(`/api/employees/${id}`)
+      setEmployee(res.employee)
+      const next = toDraft(res.employee)
+      setSaved(next)
+      setDraft(next)
+      setStatus(res.employee.status)
+      const fields = res.employee.custom_fields
+        ? Object.entries(res.employee.custom_fields).map(([k, v]) => ({ key: k, value: String(v) }))
+        : []
+      setCustomFields(fields)
+    } catch (e) {
+      if (e instanceof Error && 'status' in e && (e as { status?: number }).status === 404) {
+        notFound()
+        return
+      }
+      setError(e instanceof Error ? e : new Error(String(e)))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void reload()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id])
 
   const set = (key: keyof Draft, value: string) => setDraft((d) => ({ ...d, [key]: value }))
 
@@ -188,18 +243,55 @@ export default function EmployeeDetailPage() {
     setEditing(true)
   }
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     const errs = validate(draft)
     setErrors(errs)
     if (Object.keys(errs).length > 0) return
-    setSaved(draft)
-    setEditing(false)
+    try {
+      const res = await apiRequest<{ employee: Employee }>(`/api/employees/${id}`, {
+        method: 'PATCH',
+        body: {
+          nama_lengkap: draft.nama,
+          no_ktp: draft.noKtp,
+          npwp: draft.npwp.trim() || null,
+          tanggal_lahir: draft.tanggalLahir,
+          jenis_kelamin: draft.jenisKelamin === 'Laki-laki' ? 'L' : 'P',
+          alamat: draft.alamat || null,
+          kontak_darurat: draft.kontakDarurat || null,
+          tanggal_masuk: draft.tanggalMasuk,
+          jenis_kontrak: draft.jenisKontrak.toLowerCase(),
+          status,
+        },
+      })
+      const next = toDraft(res.employee)
+      setSaved(next)
+      setDraft(next)
+      setStatus(res.employee.status)
+      setEditing(false)
+    } catch (e) {
+      setErrors({ nama: e instanceof Error ? e.message : 'Gagal menyimpan perubahan' })
+    }
   }
 
   const cancelEdit = () => {
     setDraft(saved)
     setErrors({})
     setEditing(false)
+  }
+
+  const toggleStatus = async (next: boolean) => {
+    const newStatus = next ? 'aktif' : 'nonaktif'
+    setStatus(newStatus)
+    try {
+      await apiRequest(`/api/employees/${id}`, {
+        method: 'PATCH',
+        body: { status: newStatus },
+      })
+    } catch (e) {
+      // rollback on failure
+      setStatus(newStatus === 'aktif' ? 'nonaktif' : 'aktif')
+      setError(e instanceof Error ? e : new Error(String(e)))
+    }
   }
 
   const startEditField = (key: string, value: string) => {
@@ -214,7 +306,9 @@ export default function EmployeeDetailPage() {
       setFieldError('Nilai field wajib diisi')
       return
     }
-    setCustomFields((fields) => fields.map((f) => (f.key === editingField ? { ...f, value } : f)))
+    setCustomFields((fields) =>
+      fields.map((f) => (f.key === editingField ? { ...f, value } : f)),
+    )
     setEditingField(null)
     setFieldValue('')
     setFieldError('')
@@ -310,9 +404,8 @@ export default function EmployeeDetailPage() {
 
   const PRIBADI_FIELDS: FieldDef[] = [
     { key: 'nama', label: 'Nama Lengkap' },
-    { key: 'jabatan', label: 'Jabatan' },
     { key: 'tanggalLahir', label: 'Tanggal Lahir', type: 'date', readRender: formatTanggal },
-    { key: 'jenisKelamin', label: 'Jenis Kelamin', type: 'select', options: JENIS_KELAMIN_OPTIONS },
+    { key: 'jenisKelamin', label: 'Jenis Kelamin', type: 'select', options: ['Laki-laki', 'Perempuan'] },
     { key: 'kontakDarurat', label: 'Kontak Darurat', helperText: 'Format: +62 812-3456-7890' },
     { key: 'alamat', label: 'Alamat', span: 2 },
   ]
@@ -327,12 +420,28 @@ export default function EmployeeDetailPage() {
     { key: 'jenisKontrak', label: 'Jenis Kontrak', type: 'select', options: KONTRAK_OPTIONS },
   ]
 
+  if (loading) {
+    return (
+      <AppShell userRole="owner" activeNav="employees" title="Detail Karyawan">
+        <LoadingSurface label="Memuat data karyawan…" />
+      </AppShell>
+    )
+  }
+
+  if (error || !employee) {
+    return (
+      <AppShell userRole="owner" activeNav="employees" title="Detail Karyawan">
+        {error && <ErrorSurface error={error} onRetry={reload} />}
+      </AppShell>
+    )
+  }
+
   return (
     <AppShell
       userRole="owner"
       activeNav="employees"
       title="Detail Karyawan"
-      subtitle={employee.nik}
+      subtitle={employee.no_ktp}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-3">
@@ -356,9 +465,7 @@ export default function EmployeeDetailPage() {
                 variant={KONTRAK_VARIANT[draft.jenisKontrak] ?? 'neutral'}
                 label={draft.jenisKontrak || '—'}
               />
-              <span className="t-caption text-onsurface-variant">
-                {draft.jabatan} · {employee.nik}
-              </span>
+              <span className="t-caption text-onsurface-variant">{employee.no_ktp}</span>
             </div>
           </div>
         </div>
@@ -385,7 +492,7 @@ export default function EmployeeDetailPage() {
             <Avatar name={draft.nama} size="lg" />
             <div className="min-w-0">
               <p className="t-h3">{draft.nama}</p>
-              <p className="t-caption text-onsurface-variant">{draft.jabatan}</p>
+              <p className="t-caption text-onsurface-variant">{JENIS_KELAMIN_LABEL[employee.jenis_kelamin]}</p>
             </div>
           </div>
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -419,7 +526,7 @@ export default function EmployeeDetailPage() {
             </div>
             <Switch
               checked={status === 'aktif'}
-              onChange={(v) => setStatus(v ? 'aktif' : 'nonaktif')}
+              onChange={toggleStatus}
               label="Status kepegawaian"
             />
           </div>

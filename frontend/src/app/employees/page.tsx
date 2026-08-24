@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import {
   AppShell,
@@ -8,39 +8,37 @@ import {
   Button,
   DataTable,
   EmptyState,
+  ErrorSurface,
+  LoadingSurface,
   SearchBar,
   SegmentedControl,
   StatusChip,
 } from '@/components/ui'
 import type { DataTableColumn } from '@/components/ui'
 import type { StatusVariant } from '@/components/ui/status-chip'
+import { apiRequest } from '@/lib/api-client'
 import { formatTanggal } from '@/lib/format'
 
 type EmployeeStatus = 'aktif' | 'nonaktif'
+type JenisKontrak = 'pkwtt' | 'pkwt' | 'pkl' | 'magang' | 'harian'
 
 interface Employee {
-  nik: string
-  nama: string
-  jabatan: string
-  kontrak: string
+  id: string
+  business_id: string
+  nama_lengkap: string
+  no_ktp: string
+  npwp: string | null
+  tanggal_lahir: string
+  jenis_kelamin: 'L' | 'P'
+  alamat: string | null
+  kontak_darurat: string | null
+  tanggal_masuk: string
+  jenis_kontrak: JenisKontrak
   status: EmployeeStatus
-  tanggalMasuk: string
+  ptkp_status: string | null
+  custom_fields: Record<string, unknown> | null
+  created_at: string | number
 }
-
-const EMPLOYEES: Employee[] = [
-  { nik: 'KRY-001', nama: 'Budi Santoso', jabatan: 'Kepala Barista', kontrak: 'PKWTT', status: 'aktif', tanggalMasuk: '2023-01-12' },
-  { nik: 'KRY-002', nama: 'Siti Nurhaliza', jabatan: 'Kasir', kontrak: 'PKWTT', status: 'aktif', tanggalMasuk: '2023-03-03' },
-  { nik: 'KRY-003', nama: 'Ahmad Fauzi', jabatan: 'Barista', kontrak: 'PKWT', status: 'aktif', tanggalMasuk: '2024-07-17' },
-  { nik: 'KRY-004', nama: 'Dewi Lestari', jabatan: 'Pramusaji', kontrak: 'PKL', status: 'aktif', tanggalMasuk: '2026-02-02' },
-  { nik: 'KRY-005', nama: 'Rudi Hermawan', jabatan: 'Kasir', kontrak: 'PKWTT', status: 'nonaktif', tanggalMasuk: '2022-09-08' },
-  { nik: 'KRY-006', nama: 'Maya Sari', jabatan: 'Admin', kontrak: 'PKWT', status: 'aktif', tanggalMasuk: '2025-11-21' },
-  { nik: 'KRY-007', nama: 'Fajar Nugraha', jabatan: 'Barista', kontrak: 'PKWT', status: 'aktif', tanggalMasuk: '2025-04-14' },
-  { nik: 'KRY-008', nama: 'Lestari Wulandari', jabatan: 'Supervisor', kontrak: 'PKWTT', status: 'nonaktif', tanggalMasuk: '2022-06-20' },
-  { nik: 'KRY-009', nama: 'Indra Permadi', jabatan: 'Pramusaji', kontrak: 'Harian', status: 'aktif', tanggalMasuk: '2026-01-05' },
-  { nik: 'KRY-010', nama: 'Ratna Sari', jabatan: 'Kasir', kontrak: 'PKWT', status: 'aktif', tanggalMasuk: '2024-12-01' },
-  { nik: 'KRY-011', nama: 'Hendro Wibowo', jabatan: 'Kurir', kontrak: 'Harian', status: 'aktif', tanggalMasuk: '2026-05-11' },
-  { nik: 'KRY-012', nama: 'Ani Rahmawati', jabatan: 'Pramusaji', kontrak: 'Magang', status: 'aktif', tanggalMasuk: '2026-03-30' },
-]
 
 const KONTRAK_OPTIONS = ['Semua', 'PKWTT', 'PKWT', 'PKL', 'Magang', 'Harian']
 
@@ -52,27 +50,81 @@ const KONTRAK_VARIANT: Record<string, StatusVariant> = {
   Magang: 'danger',
 }
 
-const STATUS_OPTIONS = [
-  { value: 'all', label: 'Semua', count: EMPLOYEES.length },
-  { value: 'aktif', label: 'Aktif', count: EMPLOYEES.filter((e) => e.status === 'aktif').length },
-  { value: 'nonaktif', label: 'Nonaktif', count: EMPLOYEES.filter((e) => e.status === 'nonaktif').length },
-]
+const KONTRAK_LABEL: Record<JenisKontrak, string> = {
+  pkwtt: 'PKWTT',
+  pkwt: 'PKWT',
+  pkl: 'PKL',
+  harian: 'Harian',
+  magang: 'Magang',
+}
+
+const KONTRAK_VALUES: Record<string, JenisKontrak | undefined> = {
+  PKWTT: 'pkwtt',
+  PKWT: 'pkwt',
+  PKL: 'pkl',
+  Magang: 'magang',
+  Harian: 'harian',
+}
 
 export default function EmployeesPage() {
+  const [employees, setEmployees] = useState<Employee[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
   const [query, setQuery] = useState('')
-  const [status, setStatus] = useState('all')
-  const [kontrak, setKontrak] = useState('Semua')
+  const [status, setStatus] = useState<'all' | EmployeeStatus>('all')
+  const [kontrak, setKontrak] = useState<string>('Semua')
+
+  const reload = async (): Promise<void> => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await apiRequest<{ employees: Employee[]; total: number }>(
+        '/api/employees',
+        { query: { limit: 200 } },
+      )
+      setEmployees(res.employees)
+    } catch (e) {
+      setError(e instanceof Error ? e : new Error(String(e)))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void reload()
+  }, [])
+
+  const counts = useMemo(() => {
+    return {
+      all: employees.length,
+      aktif: employees.filter((e) => e.status === 'aktif').length,
+      nonaktif: employees.filter((e) => e.status === 'nonaktif').length,
+    }
+  }, [employees])
+
+  const STATUS_OPTIONS = [
+    { value: 'all', label: 'Semua', count: counts.all },
+    { value: 'aktif', label: 'Aktif', count: counts.aktif },
+    { value: 'nonaktif', label: 'Nonaktif', count: counts.nonaktif },
+  ]
 
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase()
-    return EMPLOYEES.filter((e) => {
+    const kontrakValue = KONTRAK_VALUES[kontrak]
+    return employees.filter((e) => {
       const okStatus = status === 'all' || e.status === status
-      const okKontrak = kontrak === 'Semua' || e.kontrak === kontrak
-      const hay = (e.nama + ' ' + e.jabatan + ' ' + e.nik + ' ' + e.kontrak).toLowerCase()
+      const okKontrak = !kontrakValue || e.jenis_kontrak === kontrakValue
+      const hay = (
+        e.nama_lengkap +
+        ' ' +
+        e.no_ktp +
+        ' ' +
+        e.jenis_kontrak
+      ).toLowerCase()
       const okQuery = !term || hay.includes(term)
       return okStatus && okKontrak && okQuery
     })
-  }, [query, status, kontrak])
+  }, [employees, query, status, kontrak])
 
   const hasFilter = query.trim() !== '' || status !== 'all' || kontrak !== 'Semua'
 
@@ -89,10 +141,10 @@ export default function EmployeesPage() {
       sortable: true,
       render: (e) => (
         <div className="flex items-center gap-3">
-          <Avatar name={e.nama} size="sm" />
+          <Avatar name={e.nama_lengkap} size="sm" />
           <div className="min-w-0">
-            <p className="truncate font-medium text-onsurface">{e.nama}</p>
-            <p className="truncate text-xs text-onsurface-variant">{e.jabatan}</p>
+            <p className="truncate font-medium text-onsurface">{e.nama_lengkap}</p>
+            <p className="truncate text-xs text-onsurface-variant">{e.no_ktp}</p>
           </div>
         </div>
       ),
@@ -101,7 +153,10 @@ export default function EmployeesPage() {
       key: 'kontrak',
       label: 'Jenis Kontrak',
       render: (e) => (
-        <StatusChip variant={KONTRAK_VARIANT[e.kontrak] ?? 'neutral'} label={e.kontrak} />
+        <StatusChip
+          variant={KONTRAK_VARIANT[KONTRAK_LABEL[e.jenis_kontrak]] ?? 'neutral'}
+          label={KONTRAK_LABEL[e.jenis_kontrak]}
+        />
       ),
     },
     {
@@ -119,8 +174,8 @@ export default function EmployeesPage() {
       label: 'Tanggal Masuk',
       sortable: true,
       render: (e) => (
-        <time dateTime={e.tanggalMasuk} className="tabular-nums text-onsurface-variant">
-          {formatTanggal(e.tanggalMasuk)}
+        <time dateTime={e.tanggal_masuk} className="tabular-nums text-onsurface-variant">
+          {formatTanggal(e.tanggal_masuk)}
         </time>
       ),
     },
@@ -130,10 +185,10 @@ export default function EmployeesPage() {
       align: 'right',
       render: (e) => (
         <div className="flex items-center justify-end gap-1">
-          <Button variant="icon" size="sm" aria-label={`Edit ${e.nama}`}>
+          <Button variant="icon" size="sm" aria-label={`Edit ${e.nama_lengkap}`}>
             <Pencil className="h-4 w-4" />
           </Button>
-          <Button variant="icon" size="sm" aria-label={`Hapus ${e.nama}`}>
+          <Button variant="icon" size="sm" aria-label={`Hapus ${e.nama_lengkap}`}>
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
@@ -151,7 +206,7 @@ export default function EmployeesPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="t-h1">Daftar Karyawan</h1>
-          <p className="t-caption mt-1">{EMPLOYEES.length} karyawan terdaftar</p>
+          <p className="t-caption mt-1">{employees.length} karyawan terdaftar</p>
         </div>
         <a
           href="/employees/new"
@@ -162,93 +217,103 @@ export default function EmployeesPage() {
         </a>
       </div>
 
-      <div className="mt-4 space-y-3">
-        <SearchBar
-          value={query}
-          onChange={setQuery}
-          placeholder="Cari nama, jabatan, atau NIK…"
-          aria-label="Cari karyawan"
-        />
+      {loading && <div className="mt-4"><LoadingSurface label="Memuat karyawan…" /></div>}
+      {error && (
+        <div className="mt-4">
+          <ErrorSurface error={error} onRetry={reload} />
+        </div>
+      )}
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <SegmentedControl
-            options={STATUS_OPTIONS}
-            value={status}
-            onChange={setStatus}
-            aria-label="Filter status"
+      {!loading && !error && (
+        <div className="mt-4 space-y-3">
+          <SearchBar
+            value={query}
+            onChange={setQuery}
+            placeholder="Cari nama, NIK, atau jenis kontrak…"
+            aria-label="Cari karyawan"
           />
-        </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <label className="flex items-center gap-2 text-sm text-onsurface-variant">
-            <span className="t-caption">Jenis kontrak</span>
-            <select
-              value={kontrak}
-              onChange={(e) => setKontrak(e.target.value)}
-              className="h-9 min-w-[140px] rounded-full border border-outline-variant bg-surface-1 px-3 text-sm text-onsurface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              {KONTRAK_OPTIONS.map((k) => (
-                <option key={k} value={k}>
-                  {k}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          {hasFilter && (
-            <Button variant="text" size="sm" onClick={resetAll}>
-              Reset filter
-            </Button>
-          )}
-        </div>
-
-        <DataTable
-          columns={columns}
-          rows={filtered}
-          rowKey={(e) => e.nik}
-          caption="Daftar karyawan"
-          emptyState={
-            <EmptyState
-              icon={Search}
-              title="Tidak ada karyawan yang cocok"
-              description="Coba kata kunci lain atau ubah filter status dan jenis kontrak."
-              action={
-                <Button variant="secondary" size="sm" onClick={resetAll}>
-                  Bersihkan pencarian & filter
-                </Button>
-              }
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <SegmentedControl
+              options={STATUS_OPTIONS}
+              value={status}
+              onChange={(v) => setStatus(v as 'all' | EmployeeStatus)}
+              aria-label="Filter status"
             />
-          }
-        />
+          </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-onsurface-variant">
-          <p className="t-caption tabular-nums">
-            Menampilkan 1-{filtered.length} dari {filtered.length}
-          </p>
-          <div className="flex items-center gap-3">
-            <label className="t-caption flex items-center gap-2">
-              Baris per halaman
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <label className="flex items-center gap-2 text-sm text-onsurface-variant">
+              <span className="t-caption">Jenis kontrak</span>
               <select
-                defaultValue="10"
-                className="h-9 rounded-full border border-outline-variant bg-surface-1 px-3 text-sm text-onsurface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary"
+                value={kontrak}
+                onChange={(e) => setKontrak(e.target.value)}
+                aria-label="Jenis kontrak"
+                className="h-9 min-w-[140px] rounded-full border border-outline-variant bg-surface-1 px-3 text-sm text-onsurface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                <option value="10">10</option>
-                <option value="25">25</option>
-                <option value="50">50</option>
+                {KONTRAK_OPTIONS.map((k) => (
+                  <option key={k} value={k}>
+                    {k}
+                  </option>
+                ))}
               </select>
             </label>
-            <div className="flex items-center gap-1">
-              <Button variant="icon" size="sm" disabled aria-label="Halaman sebelumnya">
-                <ChevronLeft className="h-4 w-4" />
+
+            {hasFilter && (
+              <Button variant="text" size="sm" onClick={resetAll}>
+                Reset filter
               </Button>
-              <span className="t-caption px-2 tabular-nums">1 / 1</span>
-              <Button variant="icon" size="sm" disabled aria-label="Halaman berikutnya">
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+            )}
+          </div>
+
+          <DataTable
+            columns={columns}
+            rows={filtered}
+            rowKey={(e) => e.id}
+            caption="Daftar karyawan"
+            emptyState={
+              <EmptyState
+                icon={Search}
+                title="Tidak ada karyawan yang cocok"
+                description="Coba kata kunci lain atau ubah filter status dan jenis kontrak."
+                action={
+                  <Button variant="secondary" size="sm" onClick={resetAll}>
+                    Bersihkan pencarian & filter
+                  </Button>
+                }
+              />
+            }
+          />
+
+          <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-onsurface-variant">
+            <p className="t-caption tabular-nums">
+              Menampilkan 1-{filtered.length} dari {filtered.length}
+            </p>
+            <div className="flex items-center gap-3">
+              <label className="t-caption flex items-center gap-2">
+                Baris per halaman
+                <select
+                  defaultValue="10"
+                  className="h-9 rounded-full border border-outline-variant bg-surface-1 px-3 text-sm text-onsurface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="10">10</option>
+                  <option value="25">25</option>
+                  <option value="50">50</option>
+                </select>
+              </label>
+              <div className="flex items-center gap-1">
+                <Button variant="icon" size="sm" disabled aria-label="Halaman sebelumnya">
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="t-caption px-2 tabular-nums">1 / 1</span>
+                <Button variant="icon" size="sm" disabled aria-label="Halaman berikutnya">
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </AppShell>
   )
 }

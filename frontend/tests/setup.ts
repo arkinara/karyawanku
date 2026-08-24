@@ -1,5 +1,10 @@
 import '@testing-library/jest-dom/vitest'
-import { vi } from 'vitest'
+import { cleanup } from '@testing-library/react'
+import { afterEach, vi } from 'vitest'
+
+afterEach(() => {
+  cleanup()
+})
 
 // jsdom has no matchMedia; AppShell's useMediaQuery (drawer auto-close on
 // desktop resize) and any responsive listener need a stub.
