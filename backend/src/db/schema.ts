@@ -201,6 +201,9 @@ export const leaveRequests = sqliteTable(
   (table) => [index('leave_requests_employee_idx').on(table.employee_id)],
 )
 
+export const shiftNames = ['Pagi', 'Siang', 'Malam', 'Libur'] as const
+export type ShiftName = (typeof shiftNames)[number]
+
 export const shifts = sqliteTable(
   'shifts',
   {
@@ -213,6 +216,7 @@ export const shifts = sqliteTable(
     nama_shift: text('nama_shift').notNull(),
     jam_mulai: text('jam_mulai').notNull(),
     jam_selesai: text('jam_selesai').notNull(),
+    aktif: integer('aktif', { mode: 'boolean' }).notNull().default(true),
   },
   (table) => [index('shifts_business_id_idx').on(table.business_id)],
 )
@@ -230,8 +234,14 @@ export const shiftAssignments = sqliteTable(
       .notNull()
       .references(() => shifts.id, { onDelete: 'cascade' }),
     tanggal: text('tanggal').notNull(),
+    published: integer('published', { mode: 'boolean' }).notNull().default(false),
+    published_at: integer('published_at', { mode: 'timestamp' }),
+    published_by_user_id: text('published_by_user_id').references(() => users.id),
   },
-  (table) => [index('shift_assignments_employee_idx').on(table.employee_id)],
+  (table) => [
+    index('shift_assignments_employee_idx').on(table.employee_id),
+    index('shift_assignments_tanggal_idx').on(table.tanggal),
+  ],
 )
 
 export const attendanceRecords = sqliteTable(

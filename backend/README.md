@@ -52,12 +52,15 @@ src/
     leave-types.ts     # CRUD jenis cuti (owner) + seed default
     leave-balances.ts  # saldo cuti per karyawan/tahun + reset tahunan
     leave-requests.ts  # pengajuan cuti (karyawan) + approve/reject (owner)
+    shifts.ts          # CRUD shift template (owner, business-scoped, soft-delete)
+    shift-assignments.ts # penugasan shift per karyawan/tanggal + upcoming 3 hari
+    roster-publish.ts  # publish/unpublish roster shift secara batch (owner)
   lib/
     auth.ts            # hash/verify password, JWT, requireAuth/requireOwner
     errors.ts          # ApiError + turunannya
     attendance-status.ts # hitung status hadir/telat + late_minutes dari jam shift
     leave-reset.ts     # hitung kuota cuti tahunan (masa kerja) + reset tahunan
-tests/            # vitest: auth, users, employees, employees-import, schema, salary-components, salary-assignments, attendance-*, leave-*
+tests/            # vitest: auth, users, employees, employees-import, schema, salary-components, salary-assignments, attendance-*, leave-*, shifts, shift-assignments, roster-publish
 drizzle/          # file migrasi SQL (generated)
 data/             # file DB lokal (git-ignored)
 ```
@@ -111,6 +114,17 @@ Prefix: `/api`
 | GET | `/leave-requests/:id` | Owner / karyawan terkait | Detail pengajuan cuti |
 | PATCH | `/leave-requests/:id/approve` | Owner | Setujui cuti (status → `disetujui`, tambah `terpakai_hari`, catat approver) |
 | PATCH | `/leave-requests/:id/reject` | Owner | Tolak cuti (status → `ditolak`, tanpa ubah saldo) |
+| GET | `/shifts?includeInactive=true` | Owner | Daftar shift template (scoped bisnis; default aktif saja) |
+| POST | `/shifts` | Owner | Buat shift (`nama_shift` Pagi/Siang/Malam/Libur, `jam_mulai`, `jam_selesai`, `aktif?`); `jam_selesai` tidak boleh lebih awal dari `jam_mulai` |
+| PATCH | `/shifts/:id` | Owner | Update subset field shift |
+| DELETE | `/shifts/:id` | Owner | Soft-delete shift (set `aktif=false`); assignment lama tetap mereferensikan shift ini |
+| GET | `/shift-assignments?start=&end=&employee_id=` | Owner / Karyawan | Daftar penugasan shift dalam rentang (owner semua di bisnis + optional filter; karyawan hanya milik sendiri DAN hanya `published=true`) |
+| POST | `/shift-assignments` | Owner | Tugaskan shift ke karyawan pada tanggal (`published` default `false`); validasi shift + karyawan di bisnis yang sama |
+| PATCH | `/shift-assignments/:id` | Owner | Update subset field penugasan (validasi silang bisnis bila ganti shift/karyawan) |
+| DELETE | `/shift-assignments/:id` | Owner | Hapus penugasan shift (hard delete) → `{ ok: true }` |
+| GET | `/shift-assignments/upcoming` | Owner / Karyawan | Jadwal 3 hari ke depan, hanya `published=true` (owner bisnis-wide, karyawan milik sendiri) |
+| POST | `/roster/publish` | Owner | Publish batch roster: body `{ assignment_ids: [] }` ATAU `{ start, end, employee_ids? }`; set `published=true` + catat `published_at` & `published_by_user_id`; balas `{ updated, published_at, published_by_user_id }`. Publish ulang = no-op |
+| POST | `/roster/unpublish` | Owner | Kembalikan `published=false` untuk koreksi owner (field audit dipertahankan) |
 
 Catatan absensi: status `hadir`/`telat` dihitung otomatis dari `jam_mulai` shift (shift_assignments) saat clock-in, fallback `08:00` bila tak ada shift. `client_timestamp` (untuk kasus offline) divalidasi tidak boleh di masa depan. Owner boleh clock-in/out atas nama karyawan lain via `employee_id`; employee hanya untuk dirinya sendiri.
 
