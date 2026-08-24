@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { and, eq } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
-import { roles, users, type Role, type UserStatus } from '../db/schema.js'
+import { employees, roles, users, type Role, type UserStatus } from '../db/schema.js'
 import { currentUser, hashPassword, publicUser, requireOwner } from '../lib/auth.js'
 import { ApiError, ConflictError, ValidationError } from '../lib/errors.js'
 
@@ -69,6 +69,9 @@ export default async function usersRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const role: Role = data.role ?? 'employee'
+    if (data.employee_id) {
+      await assertEmployeeInBusiness(db, owner.business_id, data.employee_id)
+    }
     const user = db
       .insert(users)
       .values({
@@ -121,7 +124,12 @@ export default async function usersRoutes(app: FastifyInstance): Promise<void> {
 
     const patch: Record<string, unknown> = {}
     if (data.role !== undefined) patch.role = data.role
-    if (data.employee_id !== undefined) patch.employee_id = data.employee_id
+    if (data.employee_id !== undefined) {
+      if (data.employee_id !== null) {
+        await assertEmployeeInBusiness(db, owner.business_id, data.employee_id)
+      }
+      patch.employee_id = data.employee_id
+    }
     if (data.status !== undefined) patch.status = data.status
     if (data.nama !== undefined) patch.nama = data.nama
     if (data.password !== undefined) patch.password_hash = await hashPassword(data.password)
@@ -164,4 +172,19 @@ async function hasOtherOwner(businessId: string, excludedId: string): Promise<bo
     .all()
     .find((u) => u.id !== excludedId)
   return Boolean(other)
+}
+
+async function assertEmployeeInBusiness(
+  db: ReturnType<typeof getDb>['db'],
+  businessId: string,
+  employeeId: string,
+): Promise<void> {
+  const emp = db
+    .select()
+    .from(employees)
+    .where(and(eq(employees.id, employeeId), eq(employees.business_id, businessId)))
+    .get()
+  if (!emp) {
+    throw new ApiError(422, 'employee_id tidak ditemukan dalam bisnis ini')
+  }
 }

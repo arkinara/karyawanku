@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 import { randomUUID } from 'node:crypto'
 
 export const roles = ['owner', 'employee'] as const
@@ -7,6 +7,30 @@ export type Role = (typeof roles)[number]
 
 export const userStatuses = ['aktif', 'nonaktif'] as const
 export type UserStatus = (typeof userStatuses)[number]
+
+export const jenisKelaminValues = ['L', 'P'] as const
+export type JenisKelamin = (typeof jenisKelaminValues)[number]
+
+export const jenisKontrakValues = ['pkwtt', 'pkwt', 'pkl', 'magang', 'harian'] as const
+export type JenisKontrak = (typeof jenisKontrakValues)[number]
+
+export const employeeStatuses = ['aktif', 'nonaktif'] as const
+export type EmployeeStatus = (typeof employeeStatuses)[number]
+
+export const salaryComponentTypes = ['earning', 'deduction'] as const
+export type SalaryComponentType = (typeof salaryComponentTypes)[number]
+
+export const leavePolicyValues = ['hangus', 'carry-over'] as const
+export type LeavePolicy = (typeof leavePolicyValues)[number]
+
+export const leaveRequestStatuses = ['pending', 'disetujui', 'ditolak'] as const
+export type LeaveRequestStatus = (typeof leaveRequestStatuses)[number]
+
+export const attendanceStatuses = ['hadir', 'telat', 'absen', 'izin'] as const
+export type AttendanceStatus = (typeof attendanceStatuses)[number]
+
+export const payrollRunStatuses = ['draft', 'disetujui'] as const
+export type PayrollRunStatus = (typeof payrollRunStatuses)[number]
 
 export const businesses = sqliteTable('businesses', {
   id: text('id')
@@ -33,7 +57,7 @@ export const users = sqliteTable(
     password_hash: text('password_hash').notNull(),
     nama: text('nama').notNull(),
     role: text('role', { enum: roles }).notNull().default('employee'),
-    employee_id: text('employee_id'),
+    employee_id: text('employee_id').references(() => employees.id),
     status: text('status', { enum: userStatuses }).notNull().default('aktif'),
     created_at: integer('created_at', { mode: 'timestamp' })
       .notNull()
@@ -45,7 +69,268 @@ export const users = sqliteTable(
   ],
 )
 
+export const employees = sqliteTable(
+  'employees',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    business_id: text('business_id')
+      .notNull()
+      .references(() => businesses.id, { onDelete: 'cascade' }),
+    nama_lengkap: text('nama_lengkap').notNull(),
+    no_ktp: text('no_ktp').notNull(),
+    npwp: text('npwp'),
+    tanggal_lahir: text('tanggal_lahir').notNull(),
+    jenis_kelamin: text('jenis_kelamin', { enum: jenisKelaminValues }).notNull(),
+    alamat: text('alamat'),
+    kontak_darurat: text('kontak_darurat'),
+    tanggal_masuk: text('tanggal_masuk').notNull(),
+    jenis_kontrak: text('jenis_kontrak', { enum: jenisKontrakValues }).notNull(),
+    status: text('status', { enum: employeeStatuses }).notNull().default('aktif'),
+    custom_fields: text('custom_fields'),
+    created_at: integer('created_at', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    updated_at: integer('updated_at', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (table) => [
+    uniqueIndex('employees_business_no_ktp_unique').on(table.business_id, table.no_ktp),
+    index('employees_business_id_idx').on(table.business_id),
+  ],
+)
+
+export const salaryComponents = sqliteTable(
+  'salary_components',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    business_id: text('business_id')
+      .notNull()
+      .references(() => businesses.id, { onDelete: 'cascade' }),
+    nama_komponen: text('nama_komponen').notNull(),
+    tipe: text('tipe', { enum: salaryComponentTypes }).notNull().default('earning'),
+    nominal: real('nominal'),
+    formula: text('formula'),
+    aktif: integer('aktif', { mode: 'boolean' }).notNull().default(true),
+  },
+  (table) => [index('salary_components_business_id_idx').on(table.business_id)],
+)
+
+export const employeeSalaryAssignments = sqliteTable(
+  'employee_salary_assignments',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    employee_id: text('employee_id')
+      .notNull()
+      .references(() => employees.id, { onDelete: 'cascade' }),
+    salary_component_id: text('salary_component_id')
+      .notNull()
+      .references(() => salaryComponents.id, { onDelete: 'cascade' }),
+    override_nominal: real('override_nominal'),
+    aktif: integer('aktif', { mode: 'boolean' }).notNull().default(true),
+  },
+  (table) => [index('employee_salary_assignments_employee_idx').on(table.employee_id)],
+)
+
+export const leaveTypes = sqliteTable(
+  'leave_types',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    business_id: text('business_id')
+      .notNull()
+      .references(() => businesses.id, { onDelete: 'cascade' }),
+    nama_jenis_cuti: text('nama_jenis_cuti').notNull(),
+    default_kuota_hari: integer('default_kuota_hari').notNull().default(12),
+    kebijakan_sisa: text('kebijakan_sisa', { enum: leavePolicyValues }).notNull().default('hangus'),
+    carry_over_max_days: integer('carry_over_max_days'),
+  },
+  (table) => [index('leave_types_business_id_idx').on(table.business_id)],
+)
+
+export const leaveBalances = sqliteTable(
+  'leave_balances',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    employee_id: text('employee_id')
+      .notNull()
+      .references(() => employees.id, { onDelete: 'cascade' }),
+    leave_type_id: text('leave_type_id')
+      .notNull()
+      .references(() => leaveTypes.id, { onDelete: 'cascade' }),
+    tahun: integer('tahun').notNull(),
+    kuota_hari: real('kuota_hari').notNull().default(0),
+    terpakai_hari: real('terpakai_hari').notNull().default(0),
+  },
+  (table) => [index('leave_balances_employee_idx').on(table.employee_id)],
+)
+
+export const leaveRequests = sqliteTable(
+  'leave_requests',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    employee_id: text('employee_id')
+      .notNull()
+      .references(() => employees.id, { onDelete: 'cascade' }),
+    leave_type_id: text('leave_type_id')
+      .notNull()
+      .references(() => leaveTypes.id, { onDelete: 'cascade' }),
+    tanggal_mulai: text('tanggal_mulai').notNull(),
+    tanggal_selesi: text('tanggal_selesi').notNull(),
+    alasan: text('alasan'),
+    status: text('status', { enum: leaveRequestStatuses }).notNull().default('pending'),
+    approver_user_id: text('approver_user_id').references(() => users.id),
+    catatan_approver: text('catatan_approver'),
+    created_at: integer('created_at', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    decided_at: integer('decided_at', { mode: 'timestamp' }),
+  },
+  (table) => [index('leave_requests_employee_idx').on(table.employee_id)],
+)
+
+export const shifts = sqliteTable(
+  'shifts',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    business_id: text('business_id')
+      .notNull()
+      .references(() => businesses.id, { onDelete: 'cascade' }),
+    nama_shift: text('nama_shift').notNull(),
+    jam_mulai: text('jam_mulai').notNull(),
+    jam_selesai: text('jam_selesai').notNull(),
+  },
+  (table) => [index('shifts_business_id_idx').on(table.business_id)],
+)
+
+export const shiftAssignments = sqliteTable(
+  'shift_assignments',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    employee_id: text('employee_id')
+      .notNull()
+      .references(() => employees.id, { onDelete: 'cascade' }),
+    shift_id: text('shift_id')
+      .notNull()
+      .references(() => shifts.id, { onDelete: 'cascade' }),
+    tanggal: text('tanggal').notNull(),
+  },
+  (table) => [index('shift_assignments_employee_idx').on(table.employee_id)],
+)
+
+export const attendanceRecords = sqliteTable(
+  'attendance_records',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    employee_id: text('employee_id')
+      .notNull()
+      .references(() => employees.id, { onDelete: 'cascade' }),
+    tanggal: text('tanggal').notNull(),
+    clock_in: text('clock_in'),
+    clock_out: text('clock_out'),
+    catatan: text('catatan'),
+    status: text('status', { enum: attendanceStatuses }).notNull().default('hadir'),
+    late_minutes: integer('late_minutes').notNull().default(0),
+  },
+  (table) => [index('attendance_records_employee_idx').on(table.employee_id)],
+)
+
+export const payrollRuns = sqliteTable(
+  'payroll_runs',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    business_id: text('business_id')
+      .notNull()
+      .references(() => businesses.id, { onDelete: 'cascade' }),
+    periode: text('periode').notNull(),
+    status: text('status', { enum: payrollRunStatuses }).notNull().default('draft'),
+    total_gaji: real('total_gaji').notNull().default(0),
+    total_potongan: real('total_potongan').notNull().default(0),
+    take_home: real('take_home').notNull().default(0),
+    created_at: integer('created_at', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    approved_at: integer('approved_at', { mode: 'timestamp' }),
+    approved_by_user_id: text('approved_by_user_id').references(() => users.id),
+  },
+  (table) => [index('payroll_runs_business_id_idx').on(table.business_id)],
+)
+
+export const payrollItems = sqliteTable(
+  'payroll_items',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    payroll_run_id: text('payroll_run_id')
+      .notNull()
+      .references(() => payrollRuns.id, { onDelete: 'cascade' }),
+    employee_id: text('employee_id')
+      .notNull()
+      .references(() => employees.id, { onDelete: 'cascade' }),
+    gaji_pokok: real('gaji_pokok').notNull().default(0),
+    total_tunjangan: real('total_tunjangan').notNull().default(0),
+    total_bpjs_kesehatan: real('total_bpjs_kesehatan').notNull().default(0),
+    total_bpjs_tk: real('total_bpjs_tk').notNull().default(0),
+    pph21: real('pph21').notNull().default(0),
+    take_home: real('take_home').notNull().default(0),
+    koreksi: real('koreksi').notNull().default(0),
+    catatan_koreksi: text('catatan_koreksi'),
+  },
+  (table) => [index('payroll_items_payroll_run_idx').on(table.payroll_run_id)],
+)
+
+export const payslips = sqliteTable(
+  'payslips',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    payroll_item_id: text('payroll_item_id')
+      .unique()
+      .notNull()
+      .references(() => payrollItems.id, { onDelete: 'cascade' }),
+    pdf_url: text('pdf_url'),
+    created_at: integer('created_at', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (table) => [index('payslips_payroll_item_id_idx').on(table.payroll_item_id)],
+)
+
 export type Business = typeof businesses.$inferSelect
 export type NewBusiness = typeof businesses.$inferInsert
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
+export type Employee = typeof employees.$inferSelect
+export type NewEmployee = typeof employees.$inferInsert
+export type SalaryComponent = typeof salaryComponents.$inferSelect
+export type EmployeeSalaryAssignment = typeof employeeSalaryAssignments.$inferSelect
+export type LeaveType = typeof leaveTypes.$inferSelect
+export type LeaveBalance = typeof leaveBalances.$inferSelect
+export type LeaveRequest = typeof leaveRequests.$inferSelect
+export type Shift = typeof shifts.$inferSelect
+export type ShiftAssignment = typeof shiftAssignments.$inferSelect
+export type AttendanceRecord = typeof attendanceRecords.$inferSelect
+export type PayrollRun = typeof payrollRuns.$inferSelect
+export type PayrollItem = typeof payrollItems.$inferSelect
+export type Payslip = typeof payslips.$inferSelect

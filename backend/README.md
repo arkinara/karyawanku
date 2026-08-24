@@ -33,7 +33,7 @@ src/
   index.ts        # entry: migrate + start server
   app.ts          # build Fastify app + global error handler + log
   db/
-    schema.ts     # tabel businesses & users (Drizzle)
+    schema.ts     # tabel businesses, users, employees + scaffold (cuti, shift, absensi, payroll)
     index.ts      # koneksi DB
     migrate.ts    # drizzle-kit push
     seed.ts       # data demo
@@ -43,7 +43,9 @@ src/
   routes/
     auth.ts       # POST sign-up/sign-in/sign-out, GET me
     users.ts      # CRUD user (owner only)
-tests/            # vitest: auth, users, schema
+    employees.ts        # CRUD karyawan (owner / self)
+    employees-import.ts # import CSV: preview + commit
+tests/            # vitest: auth, users, employees, employees-import, schema
 drizzle/          # file migrasi SQL (generated)
 data/             # file DB lokal (git-ignored)
 ```
@@ -62,6 +64,15 @@ Prefix: `/api`
 | POST | `/users` | Owner | Buat user |
 | PATCH | `/users/:id` | Owner | Update user (role/employee_id/status) |
 | DELETE | `/users/:id` | Owner | Soft-delete user |
+| GET | `/employees?limit=&offset=&jenis_kontrak=&status=` | Owner | Daftar karyawan (scoped bisnis, filter & paginasi) |
+| POST | `/employees` | Owner | Buat karyawan (validasi KTP/NPWP/umur, custom_fields JSON) |
+| GET | `/employees/:id` | Owner / karyawan terkait | Detail karyawan (custom_fields ter-parse) |
+| PATCH | `/employees/:id` | Owner | Update subset field + toggle status + merge custom_fields |
+| DELETE | `/employees/:id` | Owner | Soft-delete (status → nonaktif) |
+| POST | `/employees/import/preview` | Owner | Upload CSV (max 5 MB), kembalikan rows + detected headers + suggested mapping |
+| POST | `/employees/import/commit` | Owner | Buat banyak karyawan valid sekaligus (transaksi), `{ created, skipped, errors }` |
+
+Catatan: saat `POST/PATCH /users` mengirim `employee_id`, sistem memvalidasi karyawan tsb ada di bisnis yang sama.
 
 ## Kode status
 

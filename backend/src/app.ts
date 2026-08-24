@@ -1,20 +1,26 @@
 import Fastify, { type FastifyInstance } from 'fastify'
 import cors from '@fastify/cors'
+import multipart from '@fastify/multipart'
 import { ZodError } from 'zod'
 import { getDb } from './db/index.js'
 import authRoutes from './routes/auth.js'
 import usersRoutes from './routes/users.js'
+import employeesRoutes from './routes/employees.js'
+import employeesImportRoutes from './routes/employees-import.js'
 import { ApiError } from './lib/errors.js'
 
 export function buildApp(): FastifyInstance {
   const app = Fastify({ logger: false })
 
   app.register(cors, { origin: true })
+  app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024 + 1024 } })
 
   app.register(
     async (api) => {
       await api.register(authRoutes)
       await api.register(usersRoutes)
+      await api.register(employeesImportRoutes)
+      await api.register(employeesRoutes)
     },
     { prefix: '/api' },
   )
