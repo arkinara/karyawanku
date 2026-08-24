@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useRouter, notFound } from 'next/navigation'
-import { ChevronLeft, Coins, Pencil, Plus, Power } from 'lucide-react'
+import { ChevronLeft, Pencil, Plus, Power } from 'lucide-react'
 import {
   AppShell,
   Avatar,
@@ -15,30 +15,39 @@ import {
   DataTable,
   Dialog,
   EmptyState,
+  ErrorSurface,
+  LoadingSurface,
   StatusChip,
   TextField,
 } from '@/components/ui'
 import type { DataTableColumn } from '@/components/ui'
 import { cn } from '@/lib/cn'
+import { apiRequest } from '@/lib/api-client'
 import { formatIDR } from '@/lib/format'
-import { evaluateFormulaResult } from '@/lib/formula'
-import { getEmployeeById } from '@/lib/employees-mock'
-import {
-  SALARY_COMPONENTS,
-  buildAssignmentView,
-  getAssignmentsForEmployee,
-  getComponentById,
-  getEmployeeSalaryInputs,
-} from '@/lib/salary-assignments-mock'
-import type {
-  AssignmentStatus,
-  AssignmentView,
-  EmployeeSalaryAssignment,
-  SalaryComponent,
-  SalaryInputs,
-} from '@/lib/salary-assignments-mock'
 
-/** Accepts thousands-separated input ("3.500.000") and comma decimals. */
+interface Employee {
+  id: string
+  nama_lengkap: string
+}
+
+interface SalaryComponent {
+  id: string
+  nama_komponen: string
+  tipe: 'earning' | 'deduction'
+  mode: 'fixed' | 'formula'
+  nominal: number | null
+  formula: string | null
+  aktif: boolean
+}
+
+interface Assignment {
+  id: string
+  employee_id: string
+  component_id: string
+  override_nominal: number | null
+  status: 'aktif' | 'nonaktif'
+}
+
 function parseNominalInput(s: string): number | null {
   const cleaned = s.replace(/\./g, '').replace(',', '.')
   if (cleaned.trim() === '') return null
@@ -50,8 +59,8 @@ function StatusToggle({
   value,
   onChange,
 }: {
-  value: AssignmentStatus
-  onChange: (s: AssignmentStatus) => void
+  value: 'aktif' | 'nonaktif'
+  onChange: (s: 'aktif' | 'nonaktif') => void
 }) {
   return (
     <div
@@ -59,124 +68,82 @@ function StatusToggle({
       aria-label="Status assignment"
       className="inline-flex items-center gap-1 rounded-full border border-outline-variant bg-surface p-1"
     >
-      {(['aktif', 'nonaktif'] as const).map((s) => {
-        const active = value === s
-        return (
-          <button
-            key={s}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            onClick={() => onChange(s)}
-            className={cn(
-              'inline-flex items-center rounded-full px-4 py-1.5 text-sm font-medium transition-colors duration-fast ease-standard',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
-              active ? 'bg-primary text-primary-on' : 'text-onsurface-variant hover:bg-surface-2',
-            )}
-          >
-            {s === 'aktif' ? 'Aktif' : 'Nonaktif'}
-          </button>
-        )
-      })}
+      {(['aktif', 'nonaktif'] as const).map((s) => (
+        <button
+          key={s}
+          type="button"
+          role="radio"
+          aria-checked={value === s}
+          onClick={() => onChange(s)}
+          className={cn(
+            'rounded-full px-3 py-1 text-xs font-medium transition',
+            value === s
+              ? s === 'aktif'
+                ? 'bg-success text-success-on'
+                : 'bg-surface-3 text-onsurface-variant'
+              : 'text-onsurface-variant hover:bg-surface-2',
+          )}
+        >
+          {s === 'aktif' ? 'Aktif' : 'Nonaktif'}
+        </button>
+      ))}
     </div>
   )
 }
 
 interface AssignmentDialogProps {
   open: boolean
-  employeeName: string
-  employeeInputs: SalaryInputs | undefined
-  /** Eligible components (nonaktif component builder entries are excluded). */
+  initial: Assignment | null
   components: SalaryComponent[]
-  /** Component ids already assigned (rendered disabled in the picker). */
   assignedComponentIds: string[]
-  initial: EmployeeSalaryAssignment | null
+  employeeName: string
   onClose: () => void
-  onSave: (data: {
-    componentId: string
-    overrideNominal: number | null
-    status: AssignmentStatus
-  }) => void
+  onSave: (data: { componentId: string; overrideNominal: number | null; status: 'aktif' | 'nonaktif' }) => void
 }
 
 function AssignmentDialog({
   open,
-  employeeName,
-  employeeInputs,
+  initial,
   components,
   assignedComponentIds,
-  initial,
+  employeeName,
   onClose,
   onSave,
 }: AssignmentDialogProps) {
-  const [componentId, setComponentId] = useState('')
-  const [overrideNominal, setOverrideNominal] = useState('')
-  const [gajiPokok, setGajiPokok] = useState('')
-  const [jamKerja, setJamKerja] = useState('')
-  const [status, setStatus] = useState<AssignmentStatus>('aktif')
+  const [componentId, setComponentId] = useState(initial?.component_id ?? '')
+  const [overrideNominal, setOverrideNominal] = useState(
+    initial?.override_nominal != null ? String(initial.override_nominal) : '',
+  )
+  const [status, setStatus] = useState<'aktif' | 'nonaktif'>(initial?.status ?? 'aktif')
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
     if (!open) return
-    const id = initial?.componentId ?? ''
-    setComponentId(id)
-    const component = getComponentById(id)
-    setOverrideNominal(initial && component ? String(initial.overrideNominal ?? component.nominal ?? '') : '')
-    setGajiPokok(employeeInputs ? String(employeeInputs.gajiPokok) : '')
-    setJamKerja(employeeInputs ? String(employeeInputs.jamKerja) : '')
+    setComponentId(initial?.component_id ?? '')
+    setOverrideNominal(initial?.override_nominal != null ? String(initial.override_nominal) : '')
     setStatus(initial?.status ?? 'aktif')
     setErrors({})
-  }, [open, initial, employeeInputs])
-
-  const selectedComponent = getComponentById(componentId)
-  const isFormula = selectedComponent?.mode === 'formula'
+  }, [open, initial])
 
   const parsedOverride = parseNominalInput(overrideNominal)
-  const parsedGajiPokok = parseNominalInput(gajiPokok)
-  const parsedJamKerja = parseNominalInput(jamKerja)
+  const selectedComponent = components.find((c) => c.id === componentId)
+  const isFormula = selectedComponent?.mode === 'formula'
 
-  const formulaPreview = useMemo(() => {
-    if (!selectedComponent || selectedComponent.mode !== 'formula') return null
-    if (parsedGajiPokok === null || parsedJamKerja === null) {
-      return { ok: false as const, error: 'Isi gaji pokok dan jam kerja untuk menghitung preview' }
-    }
-    const inputs: Record<string, number> = {
-      gaji_pokok: parsedGajiPokok,
-      jam_kerja: parsedJamKerja,
-      tarif_lembur: employeeInputs?.tarifLembur ?? 0,
-      jam_lembur: employeeInputs?.jamLembur ?? 0,
-    }
-    return evaluateFormulaResult(selectedComponent.formula ?? '', inputs)
-  }, [selectedComponent, parsedGajiPokok, parsedJamKerja, employeeInputs])
-
-  const handleSelect = (value: string) => {
-    setComponentId(value)
-    const component = getComponentById(value)
-    setOverrideNominal(component && component.mode === 'fixed' ? String(component.nominal ?? '') : '')
-    setErrors({})
+  const handleSelect = (id: string) => {
+    setComponentId(id)
+    setOverrideNominal('')
   }
 
   const handleSave = () => {
     const errs: Record<string, string> = {}
-    if (!componentId) errs.component = 'Komponen wajib dipilih'
-    if (!isFormula) {
-      if (overrideNominal.trim() !== '' && parsedOverride === null) {
-        errs.overrideNominal = 'Override harus angka minimal 0'
-      }
-    } else {
-      if (parsedGajiPokok === null) errs.gajiPokok = 'Gaji pokok wajib diisi angka'
-      if (parsedJamKerja === null) errs.jamKerja = 'Jam kerja wajib diisi angka'
-      if (formulaPreview && !formulaPreview.ok) errs.formula = formulaPreview.error
-      else if (formulaPreview && formulaPreview.ok && formulaPreview.value < 0) {
-        errs.formula = 'Hasil kalkulasi bernilai negatif, periksa kembali formula'
-      }
-    }
+    if (!componentId) errs.component = 'Pilih komponen'
+    if (!isFormula && overrideNominal.trim() !== '' && parsedOverride === null)
+      errs.overrideNominal = 'Nominal harus angka'
     setErrors(errs)
     if (Object.keys(errs).length > 0) return
-
     onSave({
       componentId,
-      overrideNominal: isFormula ? initial?.overrideNominal ?? null : parsedOverride,
+      overrideNominal: overrideNominal.trim() === '' ? null : parsedOverride,
       status,
     })
   }
@@ -214,7 +181,6 @@ function AssignmentDialog({
             disabled={Boolean(initial)}
             onChange={(e) => handleSelect(e.target.value)}
             aria-invalid={Boolean(errors.component) || undefined}
-            aria-describedby={errors.component ? 'asg-component-message' : undefined}
             className={cn(
               'h-11 w-full rounded-xl border bg-surface-1 px-4 text-sm text-onsurface',
               'focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary',
@@ -227,17 +193,13 @@ function AssignmentDialog({
               const assigned = !initial && assignedComponentIds.includes(c.id)
               return (
                 <option key={c.id} value={c.id} disabled={assigned}>
-                  {c.nama}
+                  {c.nama_komponen}
                   {assigned ? ' (sudah di-assign)' : ''}
                 </option>
               )
             })}
           </select>
-          {errors.component && (
-            <p id="asg-component-message" className="text-body-sm text-danger">
-              {errors.component}
-            </p>
-          )}
+          {errors.component && <p className="text-body-sm text-danger">{errors.component}</p>}
         </div>
 
         {selectedComponent && !isFormula && (
@@ -263,47 +225,11 @@ function AssignmentDialog({
 
         {selectedComponent && isFormula && (
           <div className="flex flex-col gap-2 rounded-xl border border-outline-variant bg-surface-1 p-4">
-            <p className="t-label text-onsurface">Preview Formula</p>
+            <p className="t-label text-onsurface">Formula (read-only)</p>
             <code className="rounded-lg bg-surface-2 px-2 py-1 font-mono text-xs text-onsurface">
               {selectedComponent.formula}
             </code>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <TextField
-                id="asg-gaji-pokok"
-                label="Gaji Pokok"
-                type="text"
-                inputMode="numeric"
-                value={gajiPokok}
-                onChange={(e) => setGajiPokok(e.target.value)}
-                error={errors.gajiPokok}
-                placeholder="0"
-              />
-              <TextField
-                id="asg-jam-kerja"
-                label="Jam Kerja"
-                type="text"
-                inputMode="numeric"
-                value={jamKerja}
-                onChange={(e) => setJamKerja(e.target.value)}
-                error={errors.jamKerja}
-                placeholder="0"
-              />
-            </div>
-            {formulaPreview && (
-              <p
-                className={cn(
-                  'text-body-sm font-medium tabular-nums',
-                  formulaPreview.ok ? 'text-onsurface' : 'text-danger',
-                )}
-              >
-                {formulaPreview.ok
-                  ? `→ ${formatIDR(formulaPreview.value)}`
-                  : formulaPreview.error}
-              </p>
-            )}
-            {errors.formula && (
-              <p className="text-body-sm text-danger">{errors.formula}</p>
-            )}
+            <p className="t-caption">Override tidak tersedia untuk komponen formula.</p>
           </div>
         )}
 
@@ -319,30 +245,76 @@ function AssignmentDialog({
 export default function EmployeeSalaryPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
-  const employee = getEmployeeById(id)
-
-  const [assignments, setAssignments] = useState<EmployeeSalaryAssignment[]>(() =>
-    employee ? getAssignmentsForEmployee(employee.id) : [],
-  )
+  const [employee, setEmployee] = useState<Employee | null>(null)
+  const [components, setComponents] = useState<SalaryComponent[]>([])
+  const [assignments, setAssignments] = useState<Assignment[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [editing, setEditing] = useState<EmployeeSalaryAssignment | null>(null)
-  const [deactivating, setDeactivating] = useState<EmployeeSalaryAssignment | null>(null)
+  const [editing, setEditing] = useState<Assignment | null>(null)
+  const [deactivating, setDeactivating] = useState<Assignment | null>(null)
+
+  const reload = async (): Promise<void> => {
+    if (!id) return
+    setLoading(true)
+    setError(null)
+    try {
+      const [empRes, compRes, asgRes] = await Promise.all([
+        apiRequest<{ employee: Employee }>(`/api/employees/${id}`),
+        apiRequest<{ components: SalaryComponent[] }>('/api/salary-components'),
+        apiRequest<{ assignments: Assignment[] }>(`/api/employees/${id}/salary-assignments`),
+      ])
+      setEmployee(empRes.employee)
+      setComponents(compRes.components.filter((c) => c.aktif))
+      setAssignments(asgRes.assignments)
+    } catch (e) {
+      if (e instanceof Error && 'status' in e && (e as { status?: number }).status === 404) {
+        notFound()
+        return
+      }
+      setError(e instanceof Error ? e : new Error(String(e)))
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    if (employee) setAssignments(getAssignmentsForEmployee(employee.id))
-  }, [employee])
+    void reload()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id])
 
-  if (!employee) return notFound()
-
-  const employeeInputs = getEmployeeSalaryInputs(employee.id)
   const activeAssignments = assignments.filter((a) => a.status === 'aktif')
-  const views = activeAssignments.map((a) => buildAssignmentView(a, employeeInputs))
-  const activeComponentIds = activeAssignments.map((a) => a.componentId)
+  const activeComponentIds = activeAssignments.map((a) => a.component_id)
 
-  const totalGajiPokok =
-    views.find((v) => v.component.id === 'sc-1')?.effectiveNominal ?? employeeInputs?.gajiPokok ?? 0
+  const componentById = (cid: string) => components.find((c) => c.id === cid)
+
+  type Row = {
+    assignment: Assignment
+    component: SalaryComponent
+    effectiveNominal: number | null
+    source: 'default' | 'override'
+  }
+
+  const views: Row[] = activeAssignments
+    .map((a): Row | null => {
+      const component = componentById(a.component_id)
+      if (!component) return null
+      const effectiveNominal =
+        a.override_nominal !== null ? a.override_nominal : component.nominal
+      return {
+        assignment: a,
+        component,
+        effectiveNominal,
+        source: a.override_nominal !== null ? 'override' : 'default',
+      }
+    })
+    .filter((v): v is Row => v !== null)
+
+  const totalGajiPokok = views
+    .filter((v) => v.component.tipe === 'earning' && v.component.nama_komponen.toLowerCase().includes('gaji pokok'))
+    .reduce((sum, v) => sum + (v.effectiveNominal ?? 0), 0)
   const totalTunjangan = views
-    .filter((v) => v.component.tipe === 'earning' && v.component.id !== 'sc-1')
+    .filter((v) => v.component.tipe === 'earning' && !v.component.nama_komponen.toLowerCase().includes('gaji pokok'))
     .reduce((sum, v) => sum + (v.effectiveNominal ?? 0), 0)
   const totalPotongan = views
     .filter((v) => v.component.tipe === 'deduction')
@@ -354,56 +326,61 @@ export default function EmployeeSalaryPage() {
     setDialogOpen(true)
   }
 
-  const openEdit = (assignment: EmployeeSalaryAssignment) => {
+  const openEdit = (assignment: Assignment) => {
     setEditing(assignment)
     setDialogOpen(true)
   }
 
-  const saveAssignment = (data: {
+  const save = async (data: {
     componentId: string
     overrideNominal: number | null
-    status: AssignmentStatus
+    status: 'aktif' | 'nonaktif'
   }) => {
-    setAssignments((prev) => {
+    try {
       if (editing) {
-        return prev.map((a) =>
-          a.id === editing.id
-            ? { ...a, overrideNominal: data.overrideNominal, status: data.status }
-            : a,
-        )
+        await apiRequest(`/api/salary-assignments/${editing.id}`, {
+          method: 'PATCH',
+          body: { override_nominal: data.overrideNominal, status: data.status },
+        })
+      } else {
+        await apiRequest(`/api/employees/${id}/salary-assignments`, {
+          method: 'POST',
+          body: {
+            component_id: data.componentId,
+            override_nominal: data.overrideNominal,
+            status: data.status,
+          },
+        })
       }
-      return [
-        ...prev,
-        {
-          id: `asg-${Date.now()}`,
-          employeeId: employee.id,
-          componentId: data.componentId,
-          overrideNominal: data.overrideNominal,
-          status: data.status,
-        },
-      ]
-    })
-    setDialogOpen(false)
-    setEditing(null)
+      setDialogOpen(false)
+      setEditing(null)
+      await reload()
+    } catch (e) {
+      setError(e instanceof Error ? e : new Error(String(e)))
+    }
   }
 
-  const confirmDeactivate = () => {
+  const confirmDeactivate = async () => {
     if (!deactivating) return
-    setAssignments((prev) =>
-      prev.map((a) => (a.id === deactivating.id ? { ...a, status: 'nonaktif' } : a)),
-    )
-    setDeactivating(null)
+    try {
+      await apiRequest(`/api/salary-assignments/${deactivating.id}`, {
+        method: 'PATCH',
+        body: { status: 'nonaktif' },
+      })
+      setDeactivating(null)
+      await reload()
+    } catch (e) {
+      setError(e instanceof Error ? e : new Error(String(e)))
+    }
   }
 
-  const deactivatingName = deactivating ? getComponentById(deactivating.componentId)?.nama : undefined
-
-  const columns: Array<DataTableColumn<AssignmentView>> = [
+  const columns: Array<DataTableColumn<Row>> = [
     {
       key: 'nama',
       label: 'Komponen',
       render: (v) => (
         <div>
-          <p className="font-medium text-onsurface">{v.component.nama}</p>
+          <p className="font-medium text-onsurface">{v.component.nama_komponen}</p>
           <StatusChip
             variant={v.component.tipe === 'earning' ? 'success' : 'danger'}
             label={v.component.tipe === 'earning' ? 'Pendapatan' : 'Potongan'}
@@ -424,7 +401,6 @@ export default function EmployeeSalaryPage() {
           {v.component.mode === 'formula' && v.component.formula && (
             <p className="text-xs text-onsurface-variant">{v.component.formula}</p>
           )}
-          {v.formulaError && <p className="text-xs text-danger">{v.formulaError}</p>}
         </div>
       ),
     },
@@ -447,7 +423,7 @@ export default function EmployeeSalaryPage() {
           <Button
             variant="icon"
             size="sm"
-            aria-label={`Edit ${v.component.nama}`}
+            aria-label={`Edit ${v.component.nama_komponen}`}
             onClick={() => openEdit(v.assignment)}
           >
             <Pencil className="h-4 w-4" />
@@ -455,7 +431,7 @@ export default function EmployeeSalaryPage() {
           <Button
             variant="icon"
             size="sm"
-            aria-label={`Nonaktifkan ${v.component.nama}`}
+            aria-label={`Nonaktifkan ${v.component.nama_komponen}`}
             onClick={() => setDeactivating(v.assignment)}
           >
             <Power className="h-4 w-4" />
@@ -465,12 +441,30 @@ export default function EmployeeSalaryPage() {
     },
   ]
 
+  if (loading) {
+    return (
+      <AppShell userRole="owner" activeNav="employees" title="Komponen Gaji Karyawan">
+        <LoadingSurface label="Memuat setup gaji…" />
+      </AppShell>
+    )
+  }
+
+  if (error || !employee) {
+    return (
+      <AppShell userRole="owner" activeNav="employees" title="Komponen Gaji Karyawan">
+        {error && <ErrorSurface error={error} onRetry={reload} />}
+      </AppShell>
+    )
+  }
+
+  const deactivatingName = deactivating ? componentById(deactivating.component_id)?.nama_komponen : undefined
+
   return (
     <AppShell
       userRole="owner"
       activeNav="employees"
       title="Komponen Gaji Karyawan"
-      subtitle={employee.nama}
+      subtitle={employee.nama_lengkap}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-start gap-3">
@@ -483,10 +477,10 @@ export default function EmployeeSalaryPage() {
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Avatar name={employee.nama} size="sm" className="mt-0.5" />
+          <Avatar name={employee.nama_lengkap} size="sm" className="mt-0.5" />
           <div>
-            <h1 className="t-h1">{employee.nama}</h1>
-            <p className="t-caption mt-1">Setup gaji untuk {employee.nama}</p>
+            <h1 className="t-h1">{employee.nama_lengkap}</h1>
+            <p className="t-caption mt-1">Setup gaji untuk {employee.nama_lengkap}</p>
           </div>
         </div>
 
@@ -498,9 +492,9 @@ export default function EmployeeSalaryPage() {
 
       <Card className="mt-6">
         <CardHeader>
-          <CardTitle>Komponen Aktif</CardTitle>
+          <CardTitle>Assignment Gaji</CardTitle>
           <CardDescription>
-            {activeAssignments.length} komponen gaji di-assign untuk {employee.nama}
+            {activeAssignments.length} komponen gaji di-assign untuk {employee.nama_lengkap}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -508,74 +502,68 @@ export default function EmployeeSalaryPage() {
             columns={columns}
             rows={views}
             rowKey={(v) => v.assignment.id}
-            caption="Daftar komponen gaji aktif"
-            className="border-0 shadow-none"
+            caption="Daftar assignment"
             emptyState={
               <EmptyState
-                icon={Coins}
-                title="Belum ada komponen gaji di-assign"
-                description={`Belum ada komponen gaji yang di-assign untuk ${employee.nama}.`}
+                title="Belum ada assignment"
+                description={`Belum ada komponen gaji yang di-assign untuk ${employee.nama_lengkap}.`}
                 action={
                   <Button onClick={openCreate}>
-                    <Plus className="h-4 w-4" aria-hidden="true" />
-                    Tambah Komponen
+                    <Plus className="h-4 w-4" /> Tambah Komponen
                   </Button>
                 }
               />
-            }
-            footer={
-              <tr>
-                <td colSpan={columns.length} className="border-t border-outline-variant bg-surface-1 px-4 py-3">
-                  <div className="flex flex-col items-end gap-1">
-                    <p className="text-sm text-onsurface-variant">
-                      Total gaji pokok:{' '}
-                      <span className="tabular-nums font-medium text-onsurface">
-                        {formatIDR(totalGajiPokok)}
-                      </span>
-                    </p>
-                    <p className="text-sm text-onsurface-variant">
-                      Total tunjangan:{' '}
-                      <span className="tabular-nums font-medium text-onsurface">
-                        {formatIDR(totalTunjangan)}
-                      </span>
-                    </p>
-                    <p className="text-sm text-onsurface-variant">
-                      Total potongan:{' '}
-                      <span className="tabular-nums font-medium text-onsurface">
-                        {formatIDR(totalPotongan)}
-                      </span>
-                    </p>
-                    <p className="t-label text-onsurface">
-                      Take-home:{' '}
-                      <span className="tabular-nums">{formatIDR(takeHome)}</span>
-                    </p>
-                  </div>
-                </td>
-              </tr>
             }
           />
         </CardContent>
       </Card>
 
+      <Card className="mt-4">
+        <CardHeader>
+          <CardTitle>Pratinjau Take-Home Pay</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <dl className="grid gap-2 sm:grid-cols-2">
+            <div className="flex items-center justify-between">
+              <dt className="t-caption">Gaji Pokok</dt>
+              <dd className="tabular-nums font-medium">{formatIDR(totalGajiPokok)}</dd>
+            </div>
+            <div className="flex items-center justify-between">
+              <dt className="t-caption">Total Tunjangan</dt>
+              <dd className="tabular-nums font-medium">{formatIDR(totalTunjangan)}</dd>
+            </div>
+            <div className="flex items-center justify-between">
+              <dt className="t-caption">Total Potongan</dt>
+              <dd className="tabular-nums font-medium text-danger">- {formatIDR(totalPotongan)}</dd>
+            </div>
+            <div className="flex items-center justify-between rounded-lg bg-primary-container px-3 py-2">
+              <dt className="font-medium">Take-Home Pay</dt>
+              <dd className="tabular-nums text-lg font-bold text-primary-oncontainer">
+                {formatIDR(takeHome)}
+              </dd>
+            </div>
+          </dl>
+        </CardContent>
+      </Card>
+
       <AssignmentDialog
         open={dialogOpen}
-        employeeName={employee.nama}
-        employeeInputs={employeeInputs}
-        components={SALARY_COMPONENTS.filter((c) => c.status === 'aktif')}
-        assignedComponentIds={activeComponentIds}
         initial={editing}
+        components={components}
+        assignedComponentIds={activeComponentIds}
+        employeeName={employee.nama_lengkap}
         onClose={() => {
           setDialogOpen(false)
           setEditing(null)
         }}
-        onSave={saveAssignment}
+        onSave={save}
       />
 
       <Dialog
         open={deactivating !== null}
         onClose={() => setDeactivating(null)}
         title="Nonaktifkan Komponen"
-        description={`Nonaktifkan ${deactivatingName ?? 'komponen'} untuk ${employee.nama}? Data historis tetap tersimpan.`}
+        description={`Nonaktifkan ${deactivatingName ?? 'komponen'} untuk ${employee.nama_lengkap}? Data historis tetap tersimpan.`}
         footer={
           <>
             <Button variant="text" onClick={() => setDeactivating(null)}>

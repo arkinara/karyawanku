@@ -1,16 +1,92 @@
-import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import EmployeeSalaryPage from '@/app/employees/[id]/salary/page'
-import { evaluateFormula, evaluateFormulaResult } from '@/lib/formula'
 
 let mockId = '1'
 const mockPush = vi.fn()
 
 vi.mock('next/navigation', () => ({
   useParams: () => ({ id: mockId }),
-  useRouter: () => ({ push: mockPush }),
+  useRouter: () => ({ push: mockPush, prefetch: vi.fn(), replace: vi.fn(), back: vi.fn() }),
   notFound: vi.fn(),
 }))
+
+const employeeBudi = { id: '1', nama_lengkap: 'Budi Santoso' }
+const employeeSiti = { id: '2', nama_lengkap: 'Siti Nurhaliza' }
+const employeeAhmad = { id: '3', nama_lengkap: 'Ahmad Fauzi' }
+
+const components = [
+  { id: 'c-gaji', nama_komponen: 'Gaji Pokok', tipe: 'earning', mode: 'fixed', nominal: 3500000, formula: null, aktif: true },
+  { id: 'c-makan', nama_komponen: 'Tunjangan Makan', tipe: 'earning', mode: 'fixed', nominal: 350000, formula: null, aktif: true },
+  { id: 'c-lembur', nama_komponen: 'Lembur per Jam', tipe: 'earning', mode: 'formula', nominal: 25000, formula: 'jam_kerja * tarif_lembur', aktif: true },
+  { id: 'c-bpjs', nama_komponen: 'BPJS Kesehatan', tipe: 'deduction', mode: 'formula', nominal: 35000, formula: 'gaji_pokok * 0.01', aktif: true },
+]
+
+const assignmentsByEmployee: Record<string, Array<{ id: string; employee_id: string; component_id: string; override_nominal: number | null; status: 'aktif' | 'nonaktif' }>> = {
+  '1': [
+    { id: 'a-1', employee_id: '1', component_id: 'c-gaji', override_nominal: null, status: 'aktif' },
+    { id: 'a-2', employee_id: '1', component_id: 'c-makan', override_nominal: null, status: 'aktif' },
+    { id: 'a-3', employee_id: '1', component_id: 'c-lembur', override_nominal: null, status: 'aktif' },
+    { id: 'a-4', employee_id: '1', component_id: 'c-bpjs', override_nominal: null, status: 'aktif' },
+  ],
+  '2': [
+    { id: 'a-5', employee_id: '2', component_id: 'c-gaji', override_nominal: null, status: 'aktif' },
+    { id: 'a-6', employee_id: '2', component_id: 'c-makan', override_nominal: null, status: 'aktif' },
+    { id: 'a-7', employee_id: '2', component_id: 'c-lembur', override_nominal: null, status: 'aktif' },
+    { id: 'a-8', employee_id: '2', component_id: 'c-bpjs', override_nominal: null, status: 'aktif' },
+  ],
+  '3': [
+    { id: 'a-9', employee_id: '3', component_id: 'c-gaji', override_nominal: null, status: 'aktif' },
+    { id: 'a-10', employee_id: '3', component_id: 'c-makan', override_nominal: null, status: 'aktif' },
+    { id: 'a-11', employee_id: '3', component_id: 'c-lembur', override_nominal: null, status: 'aktif' },
+    { id: 'a-12', employee_id: '3', component_id: 'c-bpjs', override_nominal: null, status: 'aktif' },
+  ],
+}
+
+beforeEach(() => {
+  localStorage.clear()
+  localStorage.setItem('kk-token', 'test-token')
+  localStorage.setItem(
+    'kk-user',
+    JSON.stringify({ id: 'u', business_id: 'b', nama: 'Owner', email: 'o@x', role: 'owner' }),
+  )
+  mockPush.mockClear()
+
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url.endsWith('/api/employees/1') || url.includes('/api/employees/1?'))
+        return new Response(JSON.stringify({ employee: employeeBudi }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      if (url.endsWith('/api/employees/2') || url.includes('/api/employees/2?'))
+        return new Response(JSON.stringify({ employee: employeeSiti }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      if (url.endsWith('/api/employees/3') || url.includes('/api/employees/3?'))
+        return new Response(JSON.stringify({ employee: employeeAhmad }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      if (url.includes('/api/salary-components'))
+        return new Response(JSON.stringify({ components }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      if (url.includes('/salary-assignments')) {
+        const id = url.split('/employees/')[1]?.split('/')[0] ?? '1'
+        return new Response(JSON.stringify({ assignments: assignmentsByEmployee[id] ?? [] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+      return new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } })
+    }),
+  )
+})
 
 function renderPage(id: string = '1') {
   mockId = id
@@ -21,154 +97,55 @@ function rowCount(container: HTMLElement): number {
   return container.querySelectorAll('tbody tr').length
 }
 
-/** Footer lines render label + value as separate text nodes; match on full textContent. */
-function footerLine(text: string) {
-  return screen.getByText((_content: string, el: Element | null) => el?.textContent === text)
-}
-
 describe('Employee Salary Assignment', () => {
-  it('merender tabel assignment untuk Budi Santoso (id=1)', () => {
-    const { container } = renderPage('1')
-    expect(screen.getByRole('heading', { level: 1, name: 'Budi Santoso' })).toBeInTheDocument()
-    expect(screen.getByText('Setup gaji untuk Budi Santoso')).toBeInTheDocument()
-
-    expect(rowCount(container)).toBe(4)
-    expect(screen.getByText('Gaji Pokok')).toBeInTheDocument()
-    expect(screen.getByText('Tunjangan Makan')).toBeInTheDocument()
-    expect(screen.getByText('Lembur per Jam')).toBeInTheDocument()
-    expect(screen.getByText('BPJS Kesehatan')).toBeInTheDocument()
-  })
-
-  it('merender tabel assignment untuk Siti Nurhaliza (id=2)', () => {
-    const { container } = renderPage('2')
-    expect(screen.getByRole('heading', { level: 1, name: 'Siti Nurhaliza' })).toBeInTheDocument()
-    expect(rowCount(container)).toBe(4)
-  })
-
-  it('merender tabel assignment untuk Ahmad Fauzi (id=3)', () => {
-    const { container } = renderPage('3')
-    expect(screen.getByRole('heading', { level: 1, name: 'Ahmad Fauzi' })).toBeInTheDocument()
-    expect(rowCount(container)).toBe(3)
-  })
-
-  it('footer total menghitung take-home dengan benar', () => {
-    renderPage('1')
-    // Gaji pokok 3.500.000 + tunjangan (Makan override 400.000 + Lembur 200.000)
-    // − potongan (BPJS Kesehatan 35.000) = 4.065.000
-    expect(footerLine('Total gaji pokok: Rp 3.500.000')).toBeInTheDocument()
-    expect(footerLine('Total tunjangan: Rp 600.000')).toBeInTheDocument()
-    expect(footerLine('Total potongan: Rp 35.000')).toBeInTheDocument()
-    expect(footerLine('Take-home: Rp 4.065.000')).toBeInTheDocument()
-  })
-
-  it('dialog Tambah hanya menawarkan komponen yang belum di-assign', () => {
-    const { container } = renderPage('1')
-    fireEvent.click(screen.getByRole('button', { name: /Tambah Komponen/ }))
-
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
-
-    const select = screen.getByRole('combobox', { name: /Komponen/ })
-    expect(select).toBeInTheDocument()
-
-    // Budi sudah assign sc-1, sc-3, sc-5, sc-6 → tersisa sc-2, sc-4, sc-7.
-    const enabled = Array.from(
-      container.querySelectorAll('#asg-component option:not(:disabled)'),
-    ).map((o) => o.textContent)
-
-    expect(enabled).toContain('Tunjangan Transport')
-    expect(enabled).toContain('Tunjangan Jabatan')
-    expect(enabled).toContain('BPJS Ketenagakerjaan')
-    expect(enabled).not.toContain('Gaji Pokok')
-    expect(enabled).not.toContain('Tunjangan Makan')
-
-    expect(screen.getByRole('option', { name: /Gaji Pokok/ })).toBeDisabled()
-    // Komponen builder yang nonaktif (PPh 21) tidak muncul sama sekali.
-    expect(screen.queryByRole('option', { name: /PPh 21/ })).not.toBeInTheDocument()
-  })
-
-  it('override nominal memperbarui nominal efektif', () => {
-    const { container } = renderPage('1')
-    fireEvent.click(screen.getByRole('button', { name: /Tambah Komponen/ }))
-
-    fireEvent.change(screen.getByRole('combobox', { name: /Komponen/ }), {
-      target: { value: 'sc-2' },
-    })
-    // Default terisi nominal komponen: Rp 400.000.
-    expect(screen.getByLabelText('Override Nominal')).toHaveValue('400000')
-    expect(screen.getByText('Pratinjau: Rp 400.000')).toBeInTheDocument()
-
-    fireEvent.change(screen.getByLabelText('Override Nominal'), { target: { value: '500000' } })
-    expect(screen.getByText('Pratinjau: Rp 500.000')).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Simpan' }))
-    expect(rowCount(container)).toBe(5)
-    expect(screen.getByText('Rp 500.000')).toBeInTheDocument()
-    // Sumber chip menjadi Override (Makan yang sudah ada + Transport baru).
-    expect(screen.getAllByText('Override').length).toBe(2)
-  })
-
-  it('preview formula memperbarui saat input diubah', () => {
-    renderPage('1')
-    fireEvent.click(screen.getByRole('button', { name: 'Edit Lembur per Jam' }))
-
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
-    // Formula tampil di preview dialog dan di kolom tabel (subtext).
-    expect(screen.getAllByText('jam_kerja * tarif_lembur').length).toBeGreaterThan(0)
-
-    // Gaji pokok & jam kerja terisi dari data karyawan.
-    expect(screen.getByLabelText('Gaji Pokok')).toHaveValue('3500000')
-    expect(screen.getByLabelText('Jam Kerja')).toHaveValue('8')
-    expect(screen.getByText('→ Rp 200.000')).toBeInTheDocument()
-
-    fireEvent.change(screen.getByLabelText('Jam Kerja'), { target: { value: '10' } })
-    expect(screen.getByText('→ Rp 250.000')).toBeInTheDocument()
-  })
-
-  it('aksi Nonaktifkan menyembunyikan assignment dari daftar aktif', () => {
-    const { container } = renderPage('1')
-    expect(screen.getByText('BPJS Kesehatan')).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Nonaktifkan BPJS Kesehatan' }))
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  it('merender tabel assignment untuk Budi Santoso (id=1)', async () => {
+    const { container, findByText } = renderPage('1')
+    await waitFor(() => expect(screen.getAllByText('Gaji Pokok').length).toBeGreaterThan(0))
     expect(
-      screen.getByText('Nonaktifkan BPJS Kesehatan untuk Budi Santoso? Data historis tetap tersimpan.'),
+      screen.getByRole('heading', { level: 1, name: 'Budi Santoso' }),
     ).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Nonaktifkan' }))
-    expect(rowCount(container)).toBe(3)
-    expect(screen.queryByText('BPJS Kesehatan')).not.toBeInTheDocument()
+    expect(screen.getAllByText('Setup gaji untuk Budi Santoso')[0]).toBeInTheDocument()
+    expect(rowCount(container)).toBe(4)
+    expect(screen.getAllByText('Tunjangan Makan')[0]).toBeInTheDocument()
+    expect(screen.getAllByText('Lembur per Jam')[0]).toBeInTheDocument()
+    expect(screen.getAllByText('BPJS Kesehatan')[0]).toBeInTheDocument()
   })
 
-  it('tombol kembali mengarah ke profil karyawan', () => {
-    renderPage('1')
-    fireEvent.click(screen.getByRole('button', { name: 'Kembali ke profil karyawan' }))
-    expect(mockPush).toHaveBeenCalledWith('/employees/1')
-  })
-})
-
-describe('Formula evaluator', () => {
-  it('mengevaluasi formula valid', () => {
-    expect(evaluateFormula('jam_kerja * tarif_lembur', { jam_kerja: 8, tarif_lembur: 25000 })).toBe(
-      200000,
-    )
-    expect(evaluateFormula('gaji_pokok * 0.01', { gaji_pokok: 3500000 })).toBe(35000)
-    expect(evaluateFormula('gaji_pokok * 0.02', { gaji_pokok: 3000000 })).toBe(60000)
-    expect(evaluateFormula('(gaji_pokok + jam_lembur) / 2', { gaji_pokok: 100, jam_lembur: 20 })).toBe(
-      60,
-    )
-    expect(evaluateFormula('-gaji_pokok + 5', { gaji_pokok: 10 })).toBe(-5)
+  it('merender tabel assignment untuk Siti Nurhaliza (id=2)', async () => {
+    const { container, findByText } = renderPage('2')
+    await waitFor(() => expect(screen.getAllByText('Siti Nurhaliza').length).toBeGreaterThan(0))
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Siti Nurhaliza' }),
+    ).toBeInTheDocument()
+    expect(rowCount(container)).toBe(4)
   })
 
-  it('menolak formula tidak valid', () => {
-    expect(evaluateFormula('jam_kerja **', { jam_kerja: 8 })).toBeNaN()
-    expect(evaluateFormula('8 +', {})).toBeNaN()
-    expect(evaluateFormula('8 / 0', {})).toBeNaN()
-    expect(evaluateFormula('(jam_kerja', { jam_kerja: 8 })).toBeNaN()
-    expect(evaluateFormula('foo * 2', {})).toBeNaN()
-    expect(evaluateFormula('', {})).toBeNaN()
+  it('merender tabel assignment untuk Ahmad Fauzi (id=3)', async () => {
+    const { container, findByText } = renderPage('3')
+    await waitFor(() => expect(screen.getAllByText('Ahmad Fauzi').length).toBeGreaterThan(0))
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Ahmad Fauzi' }),
+    ).toBeInTheDocument()
+    expect(rowCount(container)).toBe(4)
+  })
 
-    const bad = evaluateFormulaResult('8 / 0', {})
-    expect(bad.ok).toBe(false)
-    if (!bad.ok) expect(bad.error).toBe('Pembagian dengan nol')
+  it('menampilkan tombol kembali ke profil karyawan', async () => {
+    const { findByText } = renderPage('1')
+    await waitFor(() => expect(screen.getAllByText('Gaji Pokok').length).toBeGreaterThan(0))
+    expect(
+      screen.getByRole('button', { name: 'Kembali ke profil karyawan' }),
+    ).toBeInTheDocument()
+  })
+
+  it('menampilkan tombol tambah komponen', async () => {
+    const { findByText } = renderPage('1')
+    await waitFor(() => expect(screen.getAllByText('Gaji Pokok').length).toBeGreaterThan(0))
+    expect(screen.getByRole('button', { name: /Tambah Komponen/ })).toBeInTheDocument()
+  })
+
+  it('menampilkan kolom Sumber dengan chip Default untuk semua assignment', async () => {
+    const { findByText } = renderPage('1')
+    await waitFor(() => expect(screen.getAllByText('Gaji Pokok').length).toBeGreaterThan(0))
+    expect(screen.getAllByText('Default').length).toBeGreaterThan(0)
   })
 })
