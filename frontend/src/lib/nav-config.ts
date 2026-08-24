@@ -9,6 +9,7 @@ export type NavKey =
   | 'home'
   | 'payslip'
   | 'settings'
+  | 'shifts'
 
 export type UserRole = 'owner' | 'employee'
 
