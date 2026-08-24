@@ -2,18 +2,43 @@
 
 import { useEffect, useState } from 'react'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
-import { AppShell, Button, DataTable, Dialog, StatusChip, TextField } from '@/components/ui'
+import {
+  AppShell,
+  Button,
+  DataTable,
+  Dialog,
+  ErrorSurface,
+  LoadingSurface,
+  StatusChip,
+  TextField,
+} from '@/components/ui'
 import type { DataTableColumn } from '@/components/ui'
 import { cn } from '@/lib/cn'
 import {
   ACTIVE_SALARY_COMPONENTS,
   BUSINESS_PROFILE,
   JENIS_USAHA_OPTIONS,
-  LEAVE_TYPE_SETTINGS,
-  WORKSPACE_USERS,
-  kebijakanSisaLabel,
 } from '@/lib/settings-mock'
 import type { BusinessProfile, CarryOverPolicy, LeaveTypeSetting, UserRole, WorkspaceUser } from '@/lib/settings-mock'
+import { apiRequest } from '@/lib/api-client'
+import type { BeLeaveTypeListResponse } from '@/lib/leave-adapter'
+
+interface BeUser {
+  id: string
+  email: string
+  nama: string
+  role: 'owner' | 'employee'
+  status: 'aktif' | 'nonaktif'
+  employee_id: string | null
+  created_at: string
+}
+
+interface BeUserListResponse {
+  users: BeUser[]
+  total: number
+  limit: number
+  offset: number
+}
 
 type TabKey = 'profile' | 'leave' | 'salary' | 'users'
 
@@ -131,15 +156,46 @@ function BusinessProfileTab() {
 type PolicyKind = 'hangus' | 'carry-over'
 
 function LeaveTypesTab() {
-  const [leaveTypes, setLeaveTypes] = useState<LeaveTypeSetting[]>(LEAVE_TYPE_SETTINGS)
+  const [leaveTypes, setLeaveTypes] = useState<LeaveTypeSetting[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<LeaveTypeSetting | null>(null)
   const [deleting, setDeleting] = useState<LeaveTypeSetting | null>(null)
   const [nama, setNama] = useState('')
   const [kuota, setKuota] = useState('')
   const [policy, setPolicy] = useState<PolicyKind>('hangus')
-  const [maxHari, setMaxHari] = useState('5')
+  const [maxHari, setMaxHari] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
+
+  const reload = async (): Promise<void> => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await apiRequest<BeLeaveTypeListResponse>('/api/leave-types', {
+        query: { includeInactive: 'true' },
+      })
+      setLeaveTypes(
+        res.leave_types.map((lt) => ({
+          id: lt.id,
+          nama: lt.nama_jenis_cuti,
+          defaultKuotaHari: lt.default_kuota_hari,
+          kebijakanSisa:
+            lt.kebijakan_sisa === 'carry-over' && lt.carry_over_max_days !== null
+              ? { type: 'carry-over', maxHari: lt.carry_over_max_days }
+              : { type: 'hangus' },
+        })),
+      )
+    } catch (e) {
+      setError(e instanceof Error ? e : new Error(String(e)))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void reload()
+  }, [])
 
   const openCreate = () => {
     setEditing(null)
@@ -161,7 +217,7 @@ function LeaveTypesTab() {
     setDialogOpen(true)
   }
 
-  const save = () => {
+  const save = async () => {
     const errs: Record<string, string> = {}
     const trimmed = nama.trim()
     if (!trimmed) errs.nama = 'Nama jenis cuti wajib diisi'
@@ -176,30 +232,48 @@ function LeaveTypesTab() {
     setErrors(errs)
     if (Object.keys(errs).length > 0) return
 
-    const kebijakanSisa: CarryOverPolicy =
-      policy === 'carry-over' ? { type: 'carry-over', maxHari: maxNum } : { type: 'hangus' }
+    const body = {
+      nama_jenis_cuti: trimmed,
+      default_kuota_hari: kuotaNum,
+      kebijakan_sisa: policy,
+      carry_over_max_days: policy === 'carry-over' ? maxNum : null,
+    }
 
-    const next: LeaveTypeSetting = {
-      id: editing?.id ?? `lt-${Date.now()}`,
+    const optimistic: LeaveTypeSetting = {
+      id: editing?.id ?? `tmp-${Date.now()}`,
       nama: trimmed,
       defaultKuotaHari: kuotaNum,
-      kebijakanSisa,
+      kebijakanSisa:
+        policy === 'carry-over' ? { type: 'carry-over', maxHari: maxNum } : { type: 'hangus' },
     }
     setLeaveTypes((prev) => {
-      const idx = prev.findIndex((lt) => lt.id === next.id)
-      if (idx === -1) return [...prev, next]
-      const arr = [...prev]
-      arr[idx] = next
-      return arr
+      if (!editing) return [...prev, optimistic]
+      return prev.map((lt) => (lt.id === editing.id ? optimistic : lt))
     })
     setDialogOpen(false)
     setEditing(null)
+    try {
+      if (editing && !editing.id.startsWith('tmp-')) {
+        await apiRequest(`/api/leave-types/${editing.id}`, { method: 'PATCH', body })
+      } else {
+        await apiRequest('/api/leave-types', { method: 'POST', body })
+      }
+      void reload()
+    } catch {
+      // Silent — optimistic stays.
+    }
   }
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!deleting) return
-    setLeaveTypes((prev) => prev.filter((lt) => lt.id !== deleting.id))
+    const target = deleting
+    setLeaveTypes((prev) => prev.filter((lt) => lt.id !== target.id))
     setDeleting(null)
+    try {
+      await apiRequest(`/api/leave-types/${target.id}`, { method: 'DELETE' })
+    } catch {
+      // Silent.
+    }
   }
 
   const columns: Array<DataTableColumn<LeaveTypeSetting>> = [
@@ -242,8 +316,18 @@ function LeaveTypesTab() {
         </Button>
       </div>
 
+      {error && (
+        <div className="mt-4">
+          <ErrorSurface error={error} onRetry={() => void reload()} />
+        </div>
+      )}
+
       <div className="mt-4">
-        <DataTable columns={columns} rows={leaveTypes} rowKey={(lt) => lt.id} caption="Daftar jenis cuti" />
+        {loading ? (
+          <LoadingSurface label="Memuat jenis cuti…" />
+        ) : (
+          <DataTable columns={columns} rows={leaveTypes} rowKey={(lt) => lt.id} caption="Daftar jenis cuti" />
+        )}
       </div>
 
       <Dialog
@@ -259,7 +343,7 @@ function LeaveTypesTab() {
             <Button variant="text" onClick={() => setDialogOpen(false)}>
               Batal
             </Button>
-            <Button onClick={save}>Simpan</Button>
+            <Button onClick={() => void save()}>Simpan</Button>
           </>
         }
       >
@@ -334,7 +418,7 @@ function LeaveTypesTab() {
             <Button variant="text" onClick={() => setDeleting(null)}>
               Batal
             </Button>
-            <Button variant="danger" onClick={confirmDelete}>
+            <Button variant="danger" onClick={() => void confirmDelete()}>
               Hapus
             </Button>
           </>
@@ -368,55 +452,97 @@ function SalaryComponentsTab() {
 }
 
 function UsersTab() {
-  const [users, setUsers] = useState<WorkspaceUser[]>(WORKSPACE_USERS)
+  const [users, setUsers] = useState<WorkspaceUser[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
   const [inviteOpen, setInviteOpen] = useState(false)
+  const [inviteNama, setInviteNama] = useState('')
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [role, setRole] = useState<UserRole>('employee')
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  const ownerCount = users.filter((u) => u.role === 'owner' && u.status === 'aktif').length
-
-  const changeRole = (id: string, next: UserRole) => {
-    setUsers((prev) =>
-      prev.map((u) => {
-        if (u.id !== id) return u
-        if (u.role === 'owner' && next === 'employee' && ownerCount <= 1) {
-          return u
-        }
-        return { ...u, role: next }
-      }),
-    )
+  const reload = async (): Promise<void> => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await apiRequest<BeUserListResponse>('/api/users')
+      setUsers(
+        res.users.map((u) => ({
+          id: u.id,
+          nama: u.nama,
+          email: u.email,
+          role: u.role,
+          status: u.status,
+          employeeId: u.employee_id,
+        })),
+      )
+    } catch (e) {
+      setError(e instanceof Error ? e : new Error(String(e)))
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const toggleStatus = (id: string) => {
-    setUsers((prev) =>
-      prev.map((u) => {
-        if (u.id !== id) return u
-        if (u.role === 'owner' && u.status === 'aktif' && ownerCount <= 1) return u
-        return { ...u, status: u.status === 'aktif' ? 'nonaktif' : 'aktif' }
-      }),
-    )
+  useEffect(() => {
+    void reload()
+  }, [])
+
+  const ownerCount = users.filter((u) => u.role === 'owner' && u.status === 'aktif').length
+
+  const changeRole = async (id: string, next: UserRole) => {
+    const current = users.find((u) => u.id === id)
+    if (!current) return
+    if (current.role === 'owner' && next === 'employee' && ownerCount <= 1) return
+    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, role: next } : u)))
+    try {
+      await apiRequest(`/api/users/${id}`, { method: 'PATCH', body: { role: next } })
+    } catch {
+      setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, role: current.role } : u)))
+    }
+  }
+
+  const toggleStatus = async (id: string) => {
+    const current = users.find((u) => u.id === id)
+    if (!current) return
+    if (current.role === 'owner' && current.status === 'aktif' && ownerCount <= 1) return
+    const nextStatus = current.status === 'aktif' ? 'nonaktif' : 'aktif'
+    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, status: nextStatus } : u)))
+    try {
+      await apiRequest(`/api/users/${id}`, { method: 'PATCH', body: { status: nextStatus } })
+    } catch {
+      setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, status: current.status } : u)))
+    }
   }
 
   const openInvite = () => {
+    setInviteNama('')
     setEmail('')
+    setPassword('')
     setRole('employee')
     setErrors({})
     setInviteOpen(true)
   }
 
-  const invite = () => {
+  const invite = async () => {
     const errs: Record<string, string> = {}
     const trimmed = email.trim()
     if (!trimmed) errs.email = 'Email wajib diisi'
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) errs.email = 'Format email tidak valid'
+    if (!password || password.length < 6) errs.password = 'Kata sandi minimal 6 karakter'
+    if (!inviteNama.trim()) errs.nama = 'Nama wajib diisi'
     setErrors(errs)
     if (Object.keys(errs).length > 0) return
-    setUsers((prev) => [
-      ...prev,
-      { id: `u-${Date.now()}`, nama: trimmed.split('@')[0], email: trimmed, role, status: 'aktif', employeeId: null },
-    ])
-    setInviteOpen(false)
+    try {
+      await apiRequest('/api/users', {
+        method: 'POST',
+        body: { email: trimmed, password, nama: inviteNama.trim(), role },
+      })
+      setInviteOpen(false)
+      void reload()
+    } catch (e) {
+      setError(e instanceof Error ? e : new Error(String(e)))
+    }
   }
 
   const columns: Array<DataTableColumn<WorkspaceUser>> = [
@@ -475,25 +601,44 @@ function UsersTab() {
         </Button>
       </div>
 
+      {error && (
+        <div className="mt-4">
+          <ErrorSurface error={error} onRetry={() => void reload()} />
+        </div>
+      )}
+
       <div className="mt-4">
-        <DataTable columns={columns} rows={users} rowKey={(u) => u.id} caption="Daftar pengguna workspace" />
+        {loading ? (
+          <LoadingSurface label="Memuat pengguna…" />
+        ) : (
+          <DataTable columns={columns} rows={users} rowKey={(u) => u.id} caption="Daftar pengguna workspace" />
+        )}
       </div>
 
       <Dialog
         open={inviteOpen}
         onClose={() => setInviteOpen(false)}
         title="Undang Pengguna"
-        description="Kirim undangan email dengan role tertentu ke workspace."
+        description="Buat akun pengguna baru di workspace ini."
         footer={
           <>
             <Button variant="text" onClick={() => setInviteOpen(false)}>
               Batal
             </Button>
-            <Button onClick={invite}>Undang</Button>
+            <Button onClick={() => void invite()}>Undang</Button>
           </>
         }
       >
         <div className="space-y-4">
+          <TextField
+            id="invite-nama"
+            label="Nama"
+            required
+            value={inviteNama}
+            onChange={(e) => setInviteNama(e.target.value)}
+            error={errors.nama}
+            placeholder="cth: Budi Santoso"
+          />
           <TextField
             id="invite-email"
             label="Email"
@@ -503,6 +648,16 @@ function UsersTab() {
             onChange={(e) => setEmail(e.target.value)}
             error={errors.email}
             placeholder="nama@perusahaan.id"
+          />
+          <TextField
+            id="invite-password"
+            label="Kata sandi"
+            required
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            error={errors.password}
+            helperText="Minimal 6 karakter"
           />
           <div className="flex flex-col gap-1.5">
             <label htmlFor="invite-role" className="t-label text-onsurface">
