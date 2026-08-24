@@ -69,6 +69,7 @@ export default async function employeesRoutes(app: FastifyInstance): Promise<voi
         tanggal_masuk: data.tanggal_masuk,
         jenis_kontrak: data.jenis_kontrak,
         status: data.status ?? 'aktif',
+        ptkp_status: data.ptkp_status ?? null,
         custom_fields: data.custom_fields ? JSON.stringify(data.custom_fields) : null,
       })
       .returning()
@@ -137,6 +138,7 @@ export default async function employeesRoutes(app: FastifyInstance): Promise<voi
     if (data.tanggal_masuk !== undefined) patch.tanggal_masuk = data.tanggal_masuk
     if (data.jenis_kontrak !== undefined) patch.jenis_kontrak = data.jenis_kontrak
     if (data.status !== undefined) patch.status = data.status
+    if (data.ptkp_status !== undefined) patch.ptkp_status = data.ptkp_status
     if (data.custom_fields !== undefined) {
       const existing = parseCustomFields(target.custom_fields) ?? {}
       patch.custom_fields = JSON.stringify({ ...existing, ...(data.custom_fields ?? {}) })

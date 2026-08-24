@@ -55,12 +55,16 @@ src/
     shifts.ts          # CRUD shift template (owner, business-scoped, soft-delete)
     shift-assignments.ts # penugasan shift per karyawan/tanggal + upcoming 3 hari
     roster-publish.ts  # publish/unpublish roster shift secara batch (owner)
+    payroll-runs.ts    # buat run payroll draft + hitung gaji/BPJS/PPh21 per karyawan
   lib/
     auth.ts            # hash/verify password, JWT, requireAuth/requireOwner
     errors.ts          # ApiError + turunannya
     attendance-status.ts # hitung status hadir/telat + late_minutes dari jam shift
     leave-reset.ts     # hitung kuota cuti tahunan (masa kerja) + reset tahunan
-tests/            # vitest: auth, users, employees, employees-import, schema, salary-components, salary-assignments, attendance-*, leave-*, shifts, shift-assignments, roster-publish
+    bpjs.ts            # kalkulasi BPJS Kesehatan + Ketenagakerjaan dari gaji pokok
+    pph21.ts           # kalkulasi PPh21 progresif (PTKP + lapisan tarif)
+    payroll.ts         # engine komputasi payroll per karyawan (gaji/BPJS/PPh21/take-home)
+tests/            # vitest: auth, users, employees, employees-import, schema, salary-components, salary-assignments, attendance-*, leave-*, shifts, shift-assignments, roster-publish, payroll-runs, bpjs, pph21
 drizzle/          # file migrasi SQL (generated)
 data/             # file DB lokal (git-ignored)
 ```
@@ -125,10 +129,15 @@ Prefix: `/api`
 | GET | `/shift-assignments/upcoming` | Owner / Karyawan | Jadwal 3 hari ke depan, hanya `published=true` (owner bisnis-wide, karyawan milik sendiri) |
 | POST | `/roster/publish` | Owner | Publish batch roster: body `{ assignment_ids: [] }` ATAU `{ start, end, employee_ids? }`; set `published=true` + catat `published_at` & `published_by_user_id`; balas `{ updated, published_at, published_by_user_id }`. Publish ulang = no-op |
 | POST | `/roster/unpublish` | Owner | Kembalikan `published=false` untuk koreksi owner (field audit dipertahankan) |
+| POST | `/payroll-runs` | Owner | Buat run payroll draft: body `{ periode: 'YYYY-MM' }`, auto-buat `payroll_items` utk tiap karyawan `status=aktif`, hitung gaji pokok/tunjangan/BPJS/PPh21/take-home + `detail_breakdown` JSON. Duplikat periode → 409. Balas `{ run, items }` |
+| GET | `/payroll-runs?periode=` | Owner | Daftar run payroll di bisnis (opsional filter `periode`) |
+| GET | `/payroll-runs/:id` | Owner / karyawan terkait | Detail run + item; owner lihat semua, karyawan hanya item miliknya |
 
 Catatan absensi: status `hadir`/`telat` dihitung otomatis dari `jam_mulai` shift (shift_assignments) saat clock-in, fallback `08:00` bila tak ada shift. `client_timestamp` (untuk kasus offline) divalidasi tidak boleh di masa depan. Owner boleh clock-in/out atas nama karyawan lain via `employee_id`; employee hanya untuk dirinya sendiri.
 
 Catatan cuti: saldo cuti dibuat otomatis saat pertama kali di-query per tahun. Kuota cuti tahunan mengikuti UU Cipta Kerja — masa kerja ≥ 1 tahun mendapat `default_kuota_hari` penuh (12), masa kerja < 1 tahun diprorata (`default_kuota_hari × bulan kerja / 12`). Sisa tahun lalu dipindah ke tahun baru bila `kebijakan_sisa='carry-over'` (maks `carry_over_max_days`), hangus bila `hangus`. `POST /admin/leave-reset` memicu reset tahunan secara manual (cron menyusul) dan idempoten — tidak menggandakan baris saldo.
+
+Catatan payroll: `POST /api/payroll-runs` membuat satu run `status=draft` per `(business_id, periode)` (duplikat → 409). Hanya karyawan `status=aktif` yang diikutkan. Per karyawan: `gaji_pokok` = jumlah komponen earning bernama "Gaji Pokok"; `total_tunjangan` = jumlah komponen earning lain (pakai `override_nominal` bila ada, formula dievaluasi — formula tak terselesaikan membuat run gagal dgn pesan jelas); `total_bpjs_kesehatan` = 1% gaji pokok; `total_bpjs_tk` = JHT 2% + JP 1%; `pph21` = PPh21 progresif bulanan dari gross tahunan (12×gross bulanan); `take_home` = gross − (BPJS + PPh21). Seluruh sub-kalkulasi tersimpan di kolom `payroll_items.detail_breakdown` (JSON). `employees.ptkp_status` (TK/0, K/0, K/1, K/2, K/3; nullable) menentukan PTKP PPh21; bila kosong default TK/0 dgn penanda di breakdown.
 
 Catatan: saat `POST/PATCH /users` mengirim `employee_id`, sistem memvalidasi karyawan tsb ada di bisnis yang sama.
 

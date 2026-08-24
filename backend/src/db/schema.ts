@@ -88,6 +88,7 @@ export const employees = sqliteTable(
     tanggal_masuk: text('tanggal_masuk').notNull(),
     jenis_kontrak: text('jenis_kontrak', { enum: jenisKontrakValues }).notNull(),
     status: text('status', { enum: employeeStatuses }).notNull().default('aktif'),
+    ptkp_status: text('ptkp_status'),
     custom_fields: text('custom_fields'),
     created_at: integer('created_at', { mode: 'timestamp' })
       .notNull()
@@ -309,6 +310,7 @@ export const payrollItems = sqliteTable(
     take_home: real('take_home').notNull().default(0),
     koreksi: real('koreksi').notNull().default(0),
     catatan_koreksi: text('catatan_koreksi'),
+    detail_breakdown: text('detail_breakdown'),
   },
   (table) => [index('payroll_items_payroll_run_idx').on(table.payroll_run_id)],
 )

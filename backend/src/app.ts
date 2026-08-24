@@ -16,6 +16,7 @@ import leaveRequestsRoutes from './routes/leave-requests.js'
 import shiftsRoutes from './routes/shifts.js'
 import shiftAssignmentsRoutes from './routes/shift-assignments.js'
 import rosterPublishRoutes from './routes/roster-publish.js'
+import payrollRunsRoutes from './routes/payroll-runs.js'
 import { ApiError } from './lib/errors.js'
 
 export function buildApp(): FastifyInstance {
@@ -39,6 +40,7 @@ export function buildApp(): FastifyInstance {
       await api.register(shiftsRoutes)
       await api.register(shiftAssignmentsRoutes)
       await api.register(rosterPublishRoutes)
+      await api.register(payrollRunsRoutes)
     },
     { prefix: '/api' },
   )

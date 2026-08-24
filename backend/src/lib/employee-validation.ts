@@ -8,6 +8,7 @@ import {
   type JenisKelamin,
   type JenisKontrak,
 } from '../db/schema.js'
+import { PTKP_CATEGORIES } from './pph21.js'
 
 export type EmployeeFormValues = {
   nama_lengkap?: string
@@ -20,9 +21,9 @@ export type EmployeeFormValues = {
   tanggal_masuk?: string
   jenis_kontrak?: JenisKontrak
   status?: EmployeeStatus
+  ptkp_status?: (typeof PTKP_CATEGORIES)[number] | null
   custom_fields?: Record<string, unknown> | null
 }
-
 export type SerializedEmployee = Omit<Employee, 'custom_fields'> & {
   custom_fields: Record<string, unknown> | null
 }
@@ -99,6 +100,7 @@ export const createEmployeeSchema = z.object({
   tanggal_masuk: isoDateField('Format tanggal masuk tidak valid (YYYY-MM-DD)'),
   jenis_kontrak: z.enum(jenisKontrakValues, { message: 'Jenis kontrak tidak valid' }),
   status: z.enum(employeeStatuses).optional(),
+  ptkp_status: z.enum(PTKP_CATEGORIES, { message: 'Status PTKP tidak valid' }).nullable().optional(),
   custom_fields: customFieldsSchema,
 })
 
@@ -115,6 +117,7 @@ export const updateEmployeeSchema = z.object({
   tanggal_masuk: isoDateField('Format tanggal masuk tidak valid (YYYY-MM-DD)').optional(),
   jenis_kontrak: z.enum(jenisKontrakValues, { message: 'Jenis kontrak tidak valid' }).optional(),
   status: z.enum(employeeStatuses).optional(),
+  ptkp_status: z.enum(PTKP_CATEGORIES, { message: 'Status PTKP tidak valid' }).nullable().optional(),
   custom_fields: customFieldsSchema,
 })
 
@@ -173,6 +176,7 @@ const EMPLOYEE_FIELDS = new Set([
   'tanggal_masuk',
   'jenis_kontrak',
   'status',
+  'ptkp_status',
 ])
 
 export function suggestMapping(headers: string[]): Record<string, string> {
