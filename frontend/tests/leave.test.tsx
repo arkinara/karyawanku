@@ -198,13 +198,39 @@ function stubOwnerFetch() {
   )
 }
 
+let postedRequests: typeof requestsPayload.requests = []
 function stubEmployeeFetch() {
   vi.stubGlobal(
     'fetch',
-    vi.fn(async (input: RequestInfo | URL) => {
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString()
+      const method = (init?.method ?? 'GET').toUpperCase()
+      if (url.includes('/api/leave-requests') && method === 'POST') {
+        const body = init?.body ? JSON.parse(String(init.body)) : {}
+        const newEntry = {
+          id: 'lrv-new',
+          employee_id: '2',
+          employee_name: 'Siti Nurhaliza',
+          leave_type_id: body.leave_type_id ?? 'lt-tahunan',
+          leave_type_name: 'Cuti Tahunan',
+          tanggal_mulai: body.tanggal_mulai ?? '2026-09-01',
+          tanggal_selesai: body.tanggal_selesai ?? '2026-09-02',
+          alasan: body.alasan ?? 'Urusan keluarga mendadak',
+          status: 'pending',
+          approver_user_id: null,
+          catatan_approver: null,
+          created_at: new Date().toISOString(),
+          decided_at: null,
+        }
+        postedRequests.push(newEntry)
+        return new Response(JSON.stringify(newEntry), {
+          status: 201,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
       if (url.includes('/api/leave-requests')) {
-        return new Response(JSON.stringify(requestsPayload), {
+        const merged = { requests: [...requestsPayload.requests, ...postedRequests] }
+        return new Response(JSON.stringify(merged), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         })
@@ -222,7 +248,7 @@ function stubEmployeeFetch() {
         })
       }
       return new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } })
-    }),
+    }) as never,
   )
 }
 
@@ -404,8 +430,8 @@ describe('Leave Page — Employee view', () => {
     await waitFor(() => screen.getByRole('button', { name: /Ajukan Cuti/ }))
     fireEvent.click(screen.getByRole('button', { name: /Ajukan Cuti/ }))
 
-    fireEvent.change(screen.getByLabelText(/Tanggal Mulai/), { target: { value: '2026-08-24' } })
-    fireEvent.change(screen.getByLabelText(/Tanggal Selesai/), { target: { value: '2026-08-25' } })
+    fireEvent.change(screen.getByLabelText(/Tanggal Mulai/), { target: { value: '2026-09-01' } })
+    fireEvent.change(screen.getByLabelText(/Tanggal Selesai/), { target: { value: '2026-09-02' } })
     fireEvent.change(screen.getByLabelText(/Alasan/), {
       target: { value: 'Urusan keluarga mendadak' },
     })
