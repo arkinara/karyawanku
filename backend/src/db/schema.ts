@@ -117,6 +117,7 @@ export const salaryComponents = sqliteTable(
     nominal: real('nominal'),
     formula: text('formula'),
     aktif: integer('aktif', { mode: 'boolean' }).notNull().default(true),
+    is_default: integer('is_default', { mode: 'boolean' }).notNull().default(false),
   },
   (table) => [index('salary_components_business_id_idx').on(table.business_id)],
 )

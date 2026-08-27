@@ -193,6 +193,55 @@ describe('GET /api/salary-components', () => {
     expect(active.json().components[0].nama_komponen).toBe('Aktif')
   })
 
+  it('?defaults=true hanya mengembalikan komponen is_default=true milik bisnis', async () => {
+    ctx = await setupTest()
+    const def = (await createComponent({ nama_komponen: 'Gaji Pokok', tipe: 'earning', nominal: 3000000 })).json().component
+    await createComponent({ nama_komponen: 'Bonus', tipe: 'earning', nominal: 100000 })
+    ctx.db.db.update(salaryComponents).set({ is_default: true }).where(eq(salaryComponents.id, def.id)).run()
+    ctx.db.db
+      .insert(salaryComponents)
+      .values({ business_id: ctx.otherBusinessId, nama_komponen: 'Milik Lain', tipe: 'earning', nominal: 100, is_default: true })
+      .run()
+
+    const res = await ctx.app.inject({
+      method: 'GET',
+      url: '/api/salary-components?defaults=true',
+      headers: auth(ctx.ownerToken),
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().components.length).toBe(1)
+    expect(res.json().components[0].id).toBe(def.id)
+    expect(res.json().components[0].is_default).toBe(true)
+  })
+
+  it('?defaults=true tanpa default → array kosong', async () => {
+    ctx = await setupTest()
+    await createComponent({ nama_komponen: 'Biasa', tipe: 'earning', nominal: 100 })
+    const res = await ctx.app.inject({
+      method: 'GET',
+      url: '/api/salary-components?defaults=true',
+      headers: auth(ctx.ownerToken),
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().components).toEqual([])
+  })
+
+  it('?defaults=true digabung dengan ?active=true', async () => {
+    ctx = await setupTest()
+    const def = (await createComponent({ nama_komponen: 'Gaji Pokok', tipe: 'earning', nominal: 3000000 })).json().component
+    const inactive = (await createComponent({ nama_komponen: 'Tidak Aktif', tipe: 'earning', nominal: 200 })).json().component
+    ctx.db.db.update(salaryComponents).set({ is_default: true }).where(eq(salaryComponents.id, def.id)).run()
+    ctx.db.db.update(salaryComponents).set({ is_default: true, aktif: false }).where(eq(salaryComponents.id, inactive.id)).run()
+
+    const res = await ctx.app.inject({
+      method: 'GET',
+      url: '/api/salary-components?defaults=true&active=true',
+      headers: auth(ctx.ownerToken),
+    })
+    expect(res.json().components.length).toBe(1)
+    expect(res.json().components[0].id).toBe(def.id)
+  })
+
   it('isolasi bisnis: hanya komponen milik bisnis sendiri', async () => {
     ctx = await setupTest()
     await createComponent({ nama_komponen: 'Milik Saya', tipe: 'earning', nominal: 100 })

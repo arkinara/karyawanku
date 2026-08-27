@@ -1,0 +1,1 @@
+ALTER TABLE `salary_components` ADD `is_default` integer DEFAULT false NOT NULL;

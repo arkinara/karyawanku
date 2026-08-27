@@ -43,6 +43,8 @@ src/
     attendance-status.ts # hitung status hadir/telat + late_minutes dari jam shift
   routes/
     auth.ts            # POST sign-up/sign-in/sign-out, GET me
+    businesses.ts      # POST onboarding signup (bisnis + owner) + GET/PATCH profil bisnis (owner)
+    business-default-components.ts # GET/PUT komponen gaji default per bisnis (owner)
     users.ts           # CRUD user (owner only)
     employees.ts       # CRUD karyawan (owner / self)
     employees-import.ts # import CSV: preview + commit
@@ -70,7 +72,7 @@ src/
     payslip-pdf.ts     # generator PDF slip gaji (pdfkit) → Buffer
     payslip-store.ts   # simpan/baca file PDF slip gaji di filesystem
     payslip-generator.ts # buat record payslips + generate PDF untuk seluruh item satu run
-tests/            # vitest: auth, users, employees, employees-import, schema, salary-components, salary-assignments, attendance-*, leave-*, shifts, shift-assignments, roster-publish, payroll-runs, payroll-approval, payslips, payroll-export, bpjs, pph21
+tests/            # vitest: auth, businesses, business-default-components, users, employees, employees-import, schema, salary-components, salary-assignments, attendance-*, leave-*, shifts, shift-assignments, roster-publish, payroll-runs, payroll-approval, payslips, payroll-export, bpjs, pph21
 drizzle/          # file migrasi SQL (generated)
 data/             # file DB lokal (git-ignored) + data/payslips/ (PDF slip gaji, git-ignored)
 ```
@@ -81,10 +83,13 @@ Prefix: `/api`
 
 | Method | Path | Auth | Deskripsi |
 |---|---|---|---|
-| POST | `/auth/sign-up` | — | Buat bisnis + owner, balas `{ user, token }` |
+| POST | `/auth/sign-up` | — | Buat bisnis + owner, balas `{ user, token }` (masih ada; untuk Owner baru disarankan pakai `POST /api/businesses`) |
 | POST | `/auth/sign-in` | — | Masuk, balas `{ user, token }` |
 | POST | `/auth/sign-out` | — | Keluar (JWT stateless), balas `{ ok: true }` |
 | GET | `/auth/me` | Bearer | User saat ini |
+| POST | `/businesses` | — | **Signup onboarding (disarankan untuk Owner baru):** buat bisnis + user pertama (role=owner) dalam satu transaksi, balas `{ user, token, business }`. Body: `{ nama_bisnis, jenis_usaha: 'fnb'|'jasa', alamat, owner: { nama, email, password } }`. Email unik secara global (duplikat → 409), password minimal 8 karakter |
+| GET | `/businesses/:id` | Owner | Profil bisnis (hanya bisnis milik caller; bisnis lain → 403) |
+| PATCH | `/businesses/:id` | Owner | Update subset `{ nama_bisnis?, jenis_usaha?, alamat? }`, balas business terbaru |
 | GET | `/users?limit=&offset=` | Owner | Daftar user (scoped bisnis) |
 | POST | `/users` | Owner | Buat user |
 | PATCH | `/users/:id` | Owner | Update user (role/employee_id/status) |
@@ -96,11 +101,13 @@ Prefix: `/api`
 | DELETE | `/employees/:id` | Owner | Soft-delete (status → nonaktif) |
 | POST | `/employees/import/preview` | Owner | Upload CSV (max 5 MB), kembalikan rows + detected headers + suggested mapping |
 | POST | `/employees/import/commit` | Owner | Buat banyak karyawan valid sekaligus (transaksi), `{ created, skipped, errors }` |
-| GET | `/salary-components?active=true` | Owner | Daftar komponen gaji (scoped bisnis; default termasuk nonaktif, filter `active=true`) |
+| GET | `/salary-components?active=true&defaults=true` | Owner | Daftar komponen gaji (scoped bisnis; default termasuk nonaktif, filter `active=true`; `defaults=true` hanya komponen `is_default=true`) |
 | POST | `/salary-components` | Owner | Buat komponen gaji (`nama_komponen`, `tipe`, `nominal`/`formula`, `aktif`) |
 | POST | `/salary-components/preview-formula` | Owner | Evaluasi formula terhadap `{ formula, variables }` → `{ result }` |
 | PATCH | `/salary-components/:id` | Owner | Update subset field + toggle `aktif` (soft, tanpa hapus histori) |
 | DELETE | `/salary-components/:id` | Owner | Soft-delete (set `aktif=false`) → `{ ok: true }` |
+| GET | `/businesses/:id/default-salary-components` | Owner | Daftar komponen gaji default bisnis (hanya `is_default=true`, urut nama) |
+| PUT | `/businesses/:id/default-salary-components` | Owner | Set komponen default: body `{ component_ids: string[] }` ATAU `{ components: [{ nama_komponen, tipe, nominal?, formula?, aktif? }] }`. Tandai `is_default=true` pada yang dipilih, reset `is_default=false` pada semua komponen lain di bisnis (transaksional). `component_ids` lintas-bisnis → 400 tanpa mengubah set yang ada |
 | GET | `/employees/:employeeId/salary-assignments?includeInactive=true` | Owner / karyawan terkait | Daftar penugasan komponen gaji + detail komponen (`nilai_efektif`) |
 | POST | `/employees/:employeeId/salary-assignments` | Owner | Tugaskan komponen gaji ke karyawan (opsional `override_nominal`, cek duplikat aktif → 409) |
 | PATCH | `/salary-assignments/:id` | Owner | Update `override_nominal` / toggle `aktif` |
@@ -171,6 +178,7 @@ Semua pesan error dalam Bahasa Indonesia, format `{ error: { message } }`.
 
 ## Catatan auth
 
+- **Flow signup Owner**: `POST /api/businesses` adalah endpoint yang disarankan untuk Owner baru (membuat workspace bisnis + owner dalam satu transaksi, email unik secara global, password minimal 8 karakter). `POST /api/auth/sign-up` tetap ada untuk kompatibilitas & pembuatan user tambahan, namun tidak menegakkan keunikan email antar-bisnis.
 - Password di-hash dengan bcryptjs (tidak pernah dikirim balik; semua respons user membuang `password_hash`).
 - JWT HS256, kedaluwarsa 7 hari, dikirim via header `Authorization: Bearer <token>`.
 - Unik constraint `(business_id, email)` — email hanya unik per bisnis, jadi antar-bisnis boleh sama.

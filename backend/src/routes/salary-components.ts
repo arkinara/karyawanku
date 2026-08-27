@@ -69,6 +69,7 @@ export default async function salaryComponentsRoutes(app: FastifyInstance): Prom
 
     const filters = [eq(salaryComponents.business_id, user.business_id)]
     if (q.active === 'true') filters.push(eq(salaryComponents.aktif, true))
+    if (q.defaults === 'true') filters.push(eq(salaryComponents.is_default, true))
 
     const rows = db
       .select()
