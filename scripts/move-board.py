@@ -176,7 +176,27 @@ def main():
         sys.exit(1)
 
     print(f'Issue #{issue_num} -> {lane}')
-    move_status(item_id, option_id, label=lane)
+    moved = move_status(item_id, option_id, label=lane)
+    # Side-effect: also close the underlying GitHub issue when moving to Done
+    if moved and lane == 'done':
+        repo = 'arkinara/karyawanku'
+        # Get current state
+        r = subprocess.run(['gh', 'issue', 'view', str(issue_num), '--repo', repo, '--json', 'state', '--jq', '.state'],
+                          capture_output=True, text=True)
+        if r.returncode == 0 and r.stdout.strip() == 'OPEN':
+            subprocess.run(['gh', 'issue', 'close', str(issue_num), '--repo', repo,
+                            '--comment', f'Closed by move-board.py: moved to Done on KaryawanKu Board.'],
+                          capture_output=True)
+            print(f'  -> closed issue #{issue_num} on GitHub')
+    elif moved and lane == 'todo':
+        repo = 'arkinara/karyawanku'
+        # Reopen if moved back to todo
+        r = subprocess.run(['gh', 'issue', 'view', str(issue_num), '--repo', repo, '--json', 'state', '--jq', '.state'],
+                          capture_output=True, text=True)
+        if r.returncode == 0 and r.stdout.strip() == 'CLOSED':
+            subprocess.run(['gh', 'issue', 'reopen', str(issue_num), '--repo', repo],
+                          capture_output=True)
+            print(f'  -> reopened issue #{issue_num} on GitHub')
 
 
 if __name__ == '__main__':
