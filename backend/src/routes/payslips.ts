@@ -1,10 +1,11 @@
 import type { FastifyInstance } from 'fastify'
 import { eq, and, desc } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
-import { employees, payrollItems, payrollRuns, payslips } from '../db/schema.js'
+import { employees, payrollItems, payrollRuns, payslips, salaryComponents } from '../db/schema.js'
 import { currentUser, requireAuth } from '../lib/auth.js'
 import { ApiError, ForbiddenError } from '../lib/errors.js'
 import { readPayslipFile } from '../lib/payslip-store.js'
+import { composePayslipBreakdown } from '../lib/payslip-breakdown.js'
 
 function slugifyPeriod(periode: string): string {
   const [year, month] = periode.split('-')
@@ -106,6 +107,55 @@ export default async function payslipsRoutes(app: FastifyInstance): Promise<void
     }))
 
     return { payslips: data }
+  })
+
+  app.get('/payslips/:id', { preHandler: requireAuth }, async (req) => {
+    const user = currentUser(req)
+    const { id } = req.params as { id: string }
+    const { db } = getDb()
+
+    const row = db
+      .select({
+        payslip: payslips,
+        item: payrollItems,
+        run: payrollRuns,
+        employee: employees,
+      })
+      .from(payslips)
+      .innerJoin(payrollItems, eq(payslips.payroll_item_id, payrollItems.id))
+      .innerJoin(payrollRuns, eq(payrollItems.payroll_run_id, payrollRuns.id))
+      .innerJoin(employees, eq(payrollItems.employee_id, employees.id))
+      .where(eq(payslips.id, id))
+      .get()
+
+    if (!row || row.run.business_id !== user.business_id) {
+      throw new ApiError(404, 'Slip gaji tidak ditemukan')
+    }
+    if (user.role !== 'owner' && user.employee_id !== row.employee.id) {
+      throw new ForbiddenError('Anda hanya dapat melihat slip gaji milik Anda sendiri.')
+    }
+
+    const components = db
+      .select()
+      .from(salaryComponents)
+      .where(eq(salaryComponents.business_id, user.business_id))
+      .all()
+
+    const breakdown = composePayslipBreakdown(row.item, components)
+
+    return {
+      id: row.payslip.id,
+      payroll_item_id: row.item.id,
+      employee: {
+        id: row.employee.id,
+        nama: row.employee.nama_lengkap,
+        jabatan: row.employee.jenis_kontrak,
+      },
+      periode: row.run.periode,
+      breakdown,
+      totals: breakdown.totals,
+      pdf_url: `/api/payslips/${row.payslip.id}/download`,
+    }
   })
 
   app.get('/payslips/:id/download', { preHandler: requireAuth }, async (req, reply) => {

@@ -9,6 +9,7 @@
 
 import PDFDocument from 'pdfkit'
 import type { Business, Employee, PayrollItem } from '../db/schema.js'
+import { composePayslipBreakdown, type BreakdownLine } from './payslip-breakdown.js'
 
 export interface PayslipPdfInput {
   payrollItem: PayrollItem
@@ -105,21 +106,26 @@ export function generatePayslipPDF(input: PayslipPdfInput): Promise<Buffer> {
     doc.text(`Alamat Bisnis: ${business?.alamat ?? '-'}`, doc.page.margins.left + 260, infoTop + 15)
     doc.moveDown(1.4)
 
+    const breakdown = composePayslipBreakdown(item)
+
     // --- Bagian Pendapatan (hijau) ---
     drawSectionHeader(doc, 'Pendapatan', green)
-    const gross = item.gaji_pokok + item.total_tunjangan
-    drawLine(doc, 'Gaji Pokok', item.gaji_pokok, green)
-    drawLine(doc, 'Total Tunjangan', item.total_tunjangan, green)
-    drawTotal(doc, 'Total Pendapatan', gross, green)
+    if (breakdown.earnings.length === 0) {
+      drawNote(doc, 'Tidak ada komponen', gray)
+    } else {
+      drawBreakdownLines(doc, breakdown.earnings, green)
+    }
+    drawTotal(doc, 'Total Pendapatan', breakdown.totals.total_earnings, green)
     doc.moveDown(0.6)
 
     // --- Bagian Potongan (merah) ---
     drawSectionHeader(doc, 'Potongan', red)
-    drawLine(doc, 'BPJS Kesehatan (Karyawan)', item.total_bpjs_kesehatan, red)
-    drawLine(doc, 'BPJS Ketenagakerjaan (Karyawan)', item.total_bpjs_tk, red)
-    drawLine(doc, 'PPh 21', item.pph21, red)
-    const totalPotongan = item.total_bpjs_kesehatan + item.total_bpjs_tk + item.pph21
-    drawTotal(doc, 'Total Potongan', totalPotongan, red)
+    if (breakdown.deductions.length === 0) {
+      drawNote(doc, 'Tidak ada komponen', gray)
+    } else {
+      drawBreakdownLines(doc, breakdown.deductions, red)
+    }
+    drawTotal(doc, 'Total Potongan', breakdown.totals.total_deductions, red)
 
     if (item.koreksi !== 0) {
       doc.moveDown(0.6)
@@ -185,6 +191,33 @@ function drawLine(doc: PDFKit.PDFDocument, label: string, value: number, color: 
     .fillColor(color)
     .text(formatRupiah(value), doc.page.margins.left, y, { align: 'right', width: doc.page.width - 96 })
   doc.moveDown(0.1)
+}
+
+function drawNote(doc: PDFKit.PDFDocument, label: string, color: string): void {
+  const y = doc.y
+  doc
+    .fontSize(10.5)
+    .font('Helvetica')
+    .fillColor(color)
+    .text(label, doc.page.margins.left, y)
+  doc.moveDown(0.1)
+}
+
+const MAX_BREAKDOWN_ROWS = 10
+
+function drawBreakdownLines(
+  doc: PDFKit.PDFDocument,
+  lines: BreakdownLine[],
+  color: string,
+): void {
+  const shown = lines.slice(0, MAX_BREAKDOWN_ROWS)
+  for (const line of shown) {
+    drawLine(doc, line.nama_komponen, line.nominal, color)
+  }
+  const hidden = lines.length - shown.length
+  if (hidden > 0) {
+    drawNote(doc, `+${hidden} komponen lainnya`, color)
+  }
 }
 
 function drawTotal(doc: PDFKit.PDFDocument, label: string, value: number, color: string): void {
