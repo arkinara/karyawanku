@@ -224,6 +224,7 @@ export interface ApiClient {
   get<T = unknown>(path: string, query?: RequestOptions['query']): Promise<T>
   post<T = unknown>(path: string, body?: unknown): Promise<T>
   patch<T = unknown>(path: string, body?: unknown): Promise<T>
+  put<T = unknown>(path: string, body?: unknown): Promise<T>
   delete<T = unknown>(path: string): Promise<T>
   upload<T = unknown>(path: string, formData: FormData): Promise<T>
   download(path: string, query?: RequestOptions['query']): Promise<Blob>
@@ -238,6 +239,9 @@ export const api: ApiClient = {
   },
   patch<T>(path: string, body?: unknown) {
     return request<T>(path, { method: 'PATCH', body })
+  },
+  put<T>(path: string, body?: unknown) {
+    return request<T>(path, { method: 'PUT', body })
   },
   delete<T>(path: string) {
     return request<T>(path, { method: 'DELETE' })

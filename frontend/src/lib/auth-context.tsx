@@ -40,6 +40,8 @@ export interface AuthApi {
   signUp(input: { nama: string; email: string; password: string; namaBisnis?: string }): Promise<{ ok: boolean }>
   signOut(): Promise<void>
   refresh(): Promise<AuthUser | null>
+  /** Adopt a session issued by POST /api/businesses (onboarding). */
+  applySession(user: AuthUser, token: string): void
 }
 
 function useAuthImpl(): AuthApi {
@@ -144,7 +146,14 @@ function useAuthImpl(): AuthApi {
     }
   }, [])
 
-  return { user, loading, error, isReady: !loading, signIn, signUp, signOut, refresh }
+  const applySession = useCallback((sessionUser: AuthUser, token: string): void => {
+    setToken(token)
+    setStoredUser(sessionUser)
+    setUser(sessionUser)
+    setError(null)
+  }, [])
+
+  return { user, loading, error, isReady: !loading, signIn, signUp, signOut, refresh, applySession }
 }
 
 const AuthContext = createContext<AuthApi | null>(null)

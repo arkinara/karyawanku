@@ -13,6 +13,8 @@ export interface SalaryComponent {
   type: ComponentType
   description: string
   enabled: boolean
+  /** Backend component id when the row came from `GET /api/salary-components`. */
+  beId?: string
 }
 
 export interface WizardState {
@@ -179,6 +181,11 @@ export function useWizard() {
     }))
   }
 
+  /** Replace the component list wholesale (BE defaults fetch). */
+  const setComponents = (components: SalaryComponent[]) => {
+    setState((s) => ({ ...s, components }))
+  }
+
   const goNext = () => {
     if (!stepValid[state.currentStep]) return
     setState((s) => ({ ...s, currentStep: Math.min(s.currentStep + 1, WIZARD_STEPS.length - 1) }))
@@ -208,6 +215,7 @@ export function useWizard() {
     stepValid,
     setField,
     toggleComponent,
+    setComponents,
     goNext,
     goBack,
     skip,

@@ -14,12 +14,11 @@ import {
 } from '@/components/ui'
 import type { DataTableColumn } from '@/components/ui'
 import { cn } from '@/lib/cn'
-import {
-  ACTIVE_SALARY_COMPONENTS,
-  BUSINESS_PROFILE,
-  JENIS_USAHA_OPTIONS,
-} from '@/lib/settings-mock'
+import { JENIS_USAHA_OPTIONS } from '@/lib/settings-mock'
 import type { BusinessProfile, CarryOverPolicy, LeaveTypeSetting, UserRole, WorkspaceUser } from '@/lib/settings-mock'
+import { api } from '@/lib/api-client'
+import { useAuth } from '@/lib/auth-context'
+import { formatIDR } from '@/lib/format'
 import { apiRequest } from '@/lib/api-client'
 import type { BeLeaveTypeListResponse } from '@/lib/leave-adapter'
 
@@ -62,24 +61,87 @@ const fieldSelectClass = cn(
 )
 
 function BusinessProfileTab() {
-  const [profile, setProfile] = useState<BusinessProfile>(BUSINESS_PROFILE)
+  const { user } = useAuth()
+  const businessId = user?.business_id
+  const [profile, setProfile] = useState<BusinessProfile>({
+    namaBisnis: '',
+    jenisUsaha: 'fnb',
+    alamat: '',
+  })
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<Error | null>(null)
   const [touched, setTouched] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
 
-  const error = profile.namaBisnis.trim() === '' ? 'Nama bisnis wajib diisi' : undefined
+  const load = async (): Promise<void> => {
+    if (!businessId) return
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await api.get<{
+        business: { nama_bisnis: string; jenis_usaha: BusinessProfile['jenisUsaha']; alamat: string | null }
+      }>(`/api/businesses/${businessId}`)
+      setProfile({
+        namaBisnis: res.business.nama_bisnis,
+        jenisUsaha: res.business.jenis_usaha,
+        alamat: res.business.alamat ?? '',
+      })
+    } catch (e) {
+      setError(e instanceof Error ? e : new Error(String(e)))
+    } finally {
+      setLoading(false)
+    }
+  }
 
-  const save = () => {
+  useEffect(() => {
+    void load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [businessId])
+
+  const nameError = profile.namaBisnis.trim() === '' ? 'Nama bisnis wajib diisi' : undefined
+
+  const save = async () => {
     if (profile.namaBisnis.trim() === '') {
       setTouched(true)
       return
     }
-    setToast('Perubahan profil bisnis tersimpan.')
-    setTimeout(() => setToast(null), 3000)
+    if (!businessId) return
+    setSaving(true)
+    try {
+      await api.patch(`/api/businesses/${businessId}`, {
+        nama_bisnis: profile.namaBisnis,
+        jenis_usaha: profile.jenisUsaha,
+        alamat: profile.alamat,
+      })
+      setToast('Perubahan profil bisnis tersimpan.')
+      setTimeout(() => setToast(null), 3000)
+    } catch {
+      // Global error toast fires via the api-client error bus.
+    } finally {
+      setSaving(false)
+    }
   }
 
   const reset = () => {
-    setProfile(BUSINESS_PROFILE)
     setTouched(false)
+    void load()
+  }
+
+  if (loading) {
+    return (
+      <div>
+        <LoadingSurface label="Memuat profil bisnis…" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div>
+        <ErrorSurface error={error} onRetry={() => void load()} />
+      </div>
+    )
   }
 
   return (
@@ -91,7 +153,7 @@ function BusinessProfileTab() {
           required
           value={profile.namaBisnis}
           onChange={(e) => setProfile({ ...profile, namaBisnis: e.target.value })}
-          error={touched ? error : undefined}
+          error={touched ? nameError : undefined}
           placeholder="cth: Warung Kopi Nusantara"
         />
 
@@ -135,7 +197,9 @@ function BusinessProfileTab() {
       </div>
 
       <div className="mt-6 flex items-center gap-2">
-        <Button onClick={save}>Simpan Perubahan</Button>
+        <Button onClick={() => void save()} disabled={saving} aria-busy={saving}>
+          {saving ? 'Menyimpan…' : 'Simpan Perubahan'}
+        </Button>
         <Button variant="text" onClick={reset}>
           Batal
         </Button>
@@ -428,17 +492,334 @@ function LeaveTypesTab() {
   )
 }
 
+interface BeSalaryComponent {
+  id: string
+  nama_komponen: string
+  tipe: 'earning' | 'deduction'
+  nominal: number | null
+  formula: string | null
+  aktif: boolean
+  is_default: boolean
+}
+
+type DefaultValueMode = 'fixed' | 'formula'
+
+interface DefaultComponentDraft {
+  nama: string
+  tipe: 'earning' | 'deduction'
+  nominal: number | null
+  formula: string | null
+}
+
+function parseNominalInput(s: string): number | null {
+  const cleaned = s.replace(/\./g, '').replace(',', '.')
+  if (cleaned.trim() === '') return null
+  const n = Number(cleaned)
+  return Number.isFinite(n) && n >= 0 ? n : null
+}
+
+function DefaultComponentDialog({
+  open,
+  initial,
+  onClose,
+  onSave,
+}: {
+  open: boolean
+  initial: BeSalaryComponent | null
+  onClose: () => void
+  onSave: (draft: DefaultComponentDraft) => void
+}) {
+  const [nama, setNama] = useState('')
+  const [tipe, setTipe] = useState<'' | 'earning' | 'deduction'>('')
+  const [mode, setMode] = useState<DefaultValueMode>('fixed')
+  const [nominal, setNominal] = useState('')
+  const [formula, setFormula] = useState('')
+  const [errors, setErrors] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    if (!open) return
+    setNama(initial?.nama_komponen ?? '')
+    setTipe(initial?.tipe ?? '')
+    setMode(initial && initial.formula ? 'formula' : 'fixed')
+    setNominal(initial && initial.nominal != null ? String(initial.nominal) : '')
+    setFormula(initial?.formula ?? '')
+    setErrors({})
+  }, [open, initial])
+
+  const submit = () => {
+    const errs: Record<string, string> = {}
+    const trimmed = nama.trim()
+    if (!trimmed) errs.nama = 'Nama komponen wajib diisi'
+    if (!tipe) errs.tipe = 'Tipe komponen wajib dipilih'
+    if (mode === 'fixed') {
+      if (!nominal.trim()) errs.nominal = 'Nominal wajib diisi'
+      else if (parseNominalInput(nominal) === null) errs.nominal = 'Nominal harus angka minimal 0'
+    } else if (!formula.trim()) {
+      errs.formula = 'Formula wajib diisi'
+    }
+    setErrors(errs)
+    if (Object.keys(errs).length > 0) return
+
+    onSave({
+      nama: trimmed,
+      tipe: tipe as 'earning' | 'deduction',
+      nominal: mode === 'fixed' ? parseNominalInput(nominal) : null,
+      formula: mode === 'formula' ? formula.trim() : null,
+    })
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={initial ? 'Edit Komponen Default' : 'Tambah Komponen Default'}
+      description="Komponen default dipakai sebagai seed saat onboarding karyawan baru."
+      footer={
+        <>
+          <Button variant="text" onClick={onClose}>
+            Batal
+          </Button>
+          <Button onClick={submit}>Simpan</Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <TextField
+          id="def-nama"
+          label="Nama Komponen"
+          required
+          value={nama}
+          onChange={(e) => setNama(e.target.value)}
+          error={errors.nama}
+          placeholder="Contoh: Tunjangan Makan"
+        />
+
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="def-tipe" className="t-label text-onsurface">
+            Tipe
+            <span className="ml-0.5 text-destructive" aria-hidden="true">
+              *
+            </span>
+          </label>
+          <select
+            id="def-tipe"
+            value={tipe}
+            onChange={(e) => setTipe(e.target.value as 'earning' | 'deduction')}
+            aria-invalid={Boolean(errors.tipe) || undefined}
+            className={cn(fieldSelectClass, errors.tipe ? 'border-danger' : '')}
+          >
+            <option value="">Pilih tipe…</option>
+            <option value="earning">Pendapatan</option>
+            <option value="deduction">Potongan</option>
+          </select>
+          {errors.tipe && <p className="t-caption text-danger">{errors.tipe}</p>}
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <span className="t-label text-onsurface">Nilai</span>
+          <div className="flex flex-wrap gap-2">
+            {(['fixed', 'formula'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMode(m)}
+                aria-pressed={mode === m}
+                className={cn(
+                  'rounded-full border px-4 py-1.5 text-sm font-medium transition-colors',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+                  mode === m
+                    ? 'border-primary bg-primary text-primary-on'
+                    : 'border-outline-variant bg-surface text-onsurface-variant',
+                )}
+              >
+                {m === 'fixed' ? 'Nominal tetap' : 'Formula'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {mode === 'fixed' ? (
+          <TextField
+            id="def-nominal"
+            label="Nominal (Rp)"
+            required
+            inputMode="numeric"
+            value={nominal}
+            onChange={(e) => setNominal(e.target.value)}
+            error={errors.nominal}
+            placeholder="0"
+          />
+        ) : (
+          <TextField
+            id="def-formula"
+            label="Formula"
+            required
+            value={formula}
+            onChange={(e) => setFormula(e.target.value)}
+            error={errors.formula}
+            helperText="Contoh: gaji_pokok * 0.01"
+          />
+        )}
+      </div>
+    </Dialog>
+  )
+}
+
 function SalaryComponentsTab() {
+  const { user } = useAuth()
+  const businessId = user?.business_id
+  const [components, setComponents] = useState<BeSalaryComponent[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editing, setEditing] = useState<BeSalaryComponent | null>(null)
+  const [deleting, setDeleting] = useState<BeSalaryComponent | null>(null)
+
+  const reload = async (): Promise<void> => {
+    if (!businessId) return
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await api.get<{ components: BeSalaryComponent[] }>(
+        `/api/businesses/${businessId}/default-salary-components`,
+      )
+      setComponents(res.components)
+    } catch (e) {
+      setError(e instanceof Error ? e : new Error(String(e)))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void reload()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [businessId])
+
+  const openCreate = () => {
+    setEditing(null)
+    setDialogOpen(true)
+  }
+
+  const openEdit = (c: BeSalaryComponent) => {
+    setEditing(c)
+    setDialogOpen(true)
+  }
+
+  const save = async (draft: DefaultComponentDraft) => {
+    if (!businessId) return
+    const body = {
+      nama_komponen: draft.nama,
+      tipe: draft.tipe,
+      nominal: draft.formula ? null : draft.nominal,
+      formula: draft.formula,
+      aktif: true,
+    }
+    try {
+      if (editing) {
+        await api.patch(`/api/salary-components/${editing.id}`, body)
+      } else {
+        const created = await api.post<{ component: BeSalaryComponent }>(
+          '/api/salary-components',
+          body,
+        )
+        // The POST endpoint doesn't set is_default, so add the new row to the
+        // business's default set explicitly.
+        await api.put(`/api/businesses/${businessId}/default-salary-components`, {
+          component_ids: [...components.map((c) => c.id), created.component.id],
+        })
+      }
+      setDialogOpen(false)
+      setEditing(null)
+      void reload()
+    } catch (e) {
+      setError(e instanceof Error ? e : new Error(String(e)))
+    }
+  }
+
+  const confirmDelete = async () => {
+    if (!deleting || !businessId) return
+    try {
+      await api.delete(`/api/salary-components/${deleting.id}`)
+      const remaining = components.filter((c) => c.id !== deleting.id)
+      // Remove it from the default set (PUT rejects an empty array).
+      if (remaining.length > 0) {
+        await api.put(`/api/businesses/${businessId}/default-salary-components`, {
+          component_ids: remaining.map((c) => c.id),
+        })
+      }
+      setDeleting(null)
+      void reload()
+    } catch (e) {
+      setError(e instanceof Error ? e : new Error(String(e)))
+    }
+  }
+
+  const columns: Array<DataTableColumn<BeSalaryComponent>> = [
+    {
+      key: 'nama',
+      label: 'Nama Komponen',
+      sortable: true,
+      render: (c) => <p className="font-medium text-onsurface">{c.nama_komponen}</p>,
+    },
+    {
+      key: 'tipe',
+      label: 'Tipe',
+      render: (c) =>
+        c.tipe === 'earning' ? (
+          <StatusChip variant="success" label="Pendapatan" />
+        ) : (
+          <StatusChip variant="danger" label="Potongan" />
+        ),
+    },
+    {
+      key: 'nilai',
+      label: 'Nominal / Formula',
+      render: (c) =>
+        c.formula ? (
+          <span className="text-onsurface-variant">{c.formula}</span>
+        ) : (
+          <span className="tabular-nums text-onsurface">
+            {c.nominal != null ? formatIDR(c.nominal) : '—'}
+          </span>
+        ),
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (c) =>
+        c.aktif === true ? (
+          <StatusChip variant="success" label="Aktif" />
+        ) : (
+          <StatusChip variant="neutral" label="Nonaktif" />
+        ),
+    },
+    {
+      key: 'aksi',
+      label: 'Aksi',
+      align: 'right',
+      render: (c) => (
+        <div className="flex items-center justify-end gap-1">
+          <Button variant="icon" size="sm" aria-label={`Edit ${c.nama_komponen}`} onClick={() => openEdit(c)}>
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button variant="icon" size="sm" aria-label={`Hapus ${c.nama_komponen}`} onClick={() => setDeleting(c)}>
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      ),
+    },
+  ]
+
   return (
     <div>
-      <p className="t-caption mt-1 tabular-nums">{ACTIVE_SALARY_COMPONENTS} komponen aktif</p>
-      <div className="mt-4 rounded-2xl border border-outline-variant bg-surface p-5 shadow-e1">
-        <h2 className="t-h3">Komponen Gaji Default</h2>
-        <p className="t-body-sm mt-1 text-onsurface-variant">
-          Atur komponen gaji default di halaman Komponen Gaji. Komponen aktif dipakai sebagai
-          seed saat onboarding karyawan baru.
-        </p>
-        <div className="mt-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="t-caption mt-1 tabular-nums">{components.length} komponen default</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button onClick={openCreate} disabled={loading}>
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Tambah Komponen
+          </Button>
           <a
             href="/salary-components"
             className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-outline bg-surface px-5 text-sm font-medium text-primary shadow-e1 transition-all duration-fast ease-standard hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface active:scale-[0.98]"
@@ -447,6 +828,57 @@ function SalaryComponentsTab() {
           </a>
         </div>
       </div>
+
+      {error && (
+        <div className="mt-4">
+          <ErrorSurface error={error} onRetry={() => void reload()} />
+        </div>
+      )}
+
+      <div className="mt-4">
+        {loading ? (
+          <LoadingSurface label="Memuat komponen default…" />
+        ) : (
+          <DataTable
+            columns={columns}
+            rows={components}
+            rowKey={(c) => c.id}
+            caption="Daftar komponen gaji default"
+            emptyState={
+              <div className="px-6 py-12 text-center text-sm text-onsurface-variant">
+                Belum ada komponen default.
+              </div>
+            }
+          />
+        )}
+      </div>
+
+      <DefaultComponentDialog
+        open={dialogOpen}
+        initial={editing}
+        onClose={() => {
+          setDialogOpen(false)
+          setEditing(null)
+        }}
+        onSave={(draft) => void save(draft)}
+      />
+
+      <Dialog
+        open={deleting !== null}
+        onClose={() => setDeleting(null)}
+        title="Hapus Komponen Default"
+        description={`Hapus komponen ${deleting?.nama_komponen} dari daftar default? Tindakan ini tidak bisa dibatalkan.`}
+        footer={
+          <>
+            <Button variant="text" onClick={() => setDeleting(null)}>
+              Batal
+            </Button>
+            <Button variant="danger" onClick={() => void confirmDelete()}>
+              Hapus
+            </Button>
+          </>
+        }
+      />
     </div>
   )
 }
@@ -681,6 +1113,7 @@ function UsersTab() {
 
 export default function SettingsPage() {
   const [tab, setTab] = useState<TabKey>(initialTab)
+  const { user } = useAuth()
 
   useEffect(() => {
     const found = TABS.find((t) => t.key === tab)
@@ -689,7 +1122,7 @@ export default function SettingsPage() {
 
   return (
     <AppShell
-      userRole="owner"
+      userRole={user?.role ?? 'owner'}
       activeNav="settings"
       title="Pengaturan"
       subtitle="Warung Kopi Nusantara"

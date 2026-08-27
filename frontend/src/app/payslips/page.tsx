@@ -16,13 +16,14 @@ import { cn } from '@/lib/cn'
 import { getEmployeeById } from '@/lib/employees-mock'
 import { formatIDR, formatTanggal } from '@/lib/format'
 import {
+  breakdownOf,
+  composePayslip,
   formatPeriode,
   payslipPendapatan,
   payslipPotongan,
-} from '@/lib/payslips-mock'
-import type { Payslip } from '@/lib/payslips-mock'
-import { composePayslip, type BePayslipRow } from '@/lib/payslips-adapter'
-import { apiRequest } from '@/lib/api-client'
+} from '@/lib/payslips-adapter'
+import type { BePayslipDetail, BePayslipRow, Payslip } from '@/lib/payslips-adapter'
+import { api } from '@/lib/api-client'
 
 const EMPLOYEE_ID = '2'
 
@@ -103,10 +104,10 @@ async function downloadPayslip(payslip: Payslip): Promise<void> {
 function ItemizedRows({ rows }: { rows: Array<{ nama: string; nominal: number }> }) {
   return (
     <ul className="divide-y divide-outline-variant">
-      {rows.map((r) => (
-        <li key={r.nama} className="flex items-center justify-between gap-3 py-2 text-sm">
-          <span className="text-onsurface-variant">{r.nama}</span>
-          <span className="tabular-nums font-medium text-onsurface">{formatIDR(r.nominal)}</span>
+      {rows.map((r, i) => (
+        <li key={`${r.nama}-${i}`} className="flex items-center justify-between gap-3 py-2 text-sm">
+          <span className="min-w-0 break-words text-onsurface-variant">{r.nama}</span>
+          <span className="shrink-0 tabular-nums font-medium text-onsurface">{formatIDR(r.nominal)}</span>
         </li>
       ))}
     </ul>
@@ -137,13 +138,25 @@ function BreakdownSection({
 
 function PayslipDetailDialog({
   payslip,
+  detail,
+  detailLoading,
+  detailError,
   onClose,
 }: {
   payslip: Payslip
+  detail: BePayslipDetail | null
+  detailLoading: boolean
+  detailError: Error | null
   onClose: () => void
 }) {
-  const pendapatan = payslipPendapatan(payslip)
-  const potongan = payslipPotongan(payslip)
+  const breakdown = breakdownOf(detail)
+  // Fall back to the local aggregate when the BE detail is missing/failed so
+  // the viewer still shows meaningful content (graceful degradation).
+  const fallbackPendapatan = payslipPendapatan(payslip)
+  const fallbackPotongan = payslipPotongan(payslip)
+  const totalPendapatan = breakdown.totals?.total_earnings ?? fallbackPendapatan
+  const totalPotongan = breakdown.totals?.total_deductions ?? fallbackPotongan
+  const takeHome = breakdown.totals?.take_home ?? payslip.takeHome
   const periode = formatPeriode(payslip.period)
 
   return (
@@ -195,30 +208,67 @@ function PayslipDetailDialog({
           </dl>
         </div>
 
+        {detailLoading && (
+          <div
+            role="status"
+            className="flex items-center gap-3 rounded-2xl border border-outline-variant bg-surface-1 p-4"
+          >
+            <span
+              aria-hidden="true"
+              className="size-4 animate-spin rounded-full border-2 border-current/30 border-t-current"
+            />
+            <p className="t-caption">Memuat rincian slip gaji…</p>
+          </div>
+        )}
+
+        {detailError && (
+          <div className="rounded-2xl border border-danger/30 bg-danger-container/30 p-4">
+            <p className="t-caption text-danger">{detailError.message}</p>
+          </div>
+        )}
+
         <div className="grid gap-4 lg:grid-cols-3">
           <div className="space-y-4 lg:col-span-2">
             <BreakdownSection
               title="Pendapatan"
-              total={pendapatan}
+              total={totalPendapatan}
               className="border-success/25 bg-success/5 text-success"
             >
-              <ul className="divide-y divide-outline-variant">
-                <li className="flex items-center justify-between gap-3 py-2 text-sm">
-                  <span className="text-onsurface-variant">Gaji Pokok</span>
-                  <span className="tabular-nums font-medium text-onsurface">
-                    {formatIDR(payslip.gajiPokok)}
-                  </span>
-                </li>
-              </ul>
-              <ItemizedRows rows={payslip.tunjangan} />
+              {breakdown.earnings.length > 0 ? (
+                <ItemizedRows rows={breakdown.earnings} />
+              ) : (
+                <>
+                  <ul className="divide-y divide-outline-variant">
+                    <li className="flex items-center justify-between gap-3 py-2 text-sm">
+                      <span className="text-onsurface-variant">Gaji Pokok</span>
+                      <span className="tabular-nums font-medium text-onsurface">
+                        {formatIDR(payslip.gajiPokok)}
+                      </span>
+                    </li>
+                  </ul>
+                  <ItemizedRows rows={payslip.tunjangan} />
+                  {payslip.tunjangan.length === 0 && (
+                    <p className="py-2 text-sm text-onsurface-variant">Rincian tidak tersedia.</p>
+                  )}
+                </>
+              )}
             </BreakdownSection>
 
             <BreakdownSection
               title="Potongan"
-              total={potongan}
+              total={totalPotongan}
               className="border-danger/25 bg-danger/5 text-danger"
             >
-              <ItemizedRows rows={payslip.potongan} />
+              {breakdown.deductions.length > 0 ? (
+                <ItemizedRows rows={breakdown.deductions} />
+              ) : (
+                <>
+                  <ItemizedRows rows={payslip.potongan} />
+                  {payslip.potongan.length === 0 && (
+                    <p className="py-2 text-sm text-onsurface-variant">Rincian tidak tersedia.</p>
+                  )}
+                </>
+              )}
             </BreakdownSection>
           </div>
 
@@ -226,11 +276,11 @@ function PayslipDetailDialog({
             <aside className="space-y-3 rounded-2xl border border-outline-variant bg-surface-2 p-4 lg:sticky lg:top-0">
               <div>
                 <p className="t-caption text-onsurface-variant">Total Pendapatan</p>
-                <p className="tabular-nums font-semibold text-onsurface">{formatIDR(pendapatan)}</p>
+                <p className="tabular-nums font-semibold text-onsurface">{formatIDR(totalPendapatan)}</p>
               </div>
               <div>
                 <p className="t-caption text-onsurface-variant">Total Potongan</p>
-                <p className="tabular-nums font-semibold text-danger">{formatIDR(potongan)}</p>
+                <p className="tabular-nums font-semibold text-danger">{formatIDR(totalPotongan)}</p>
               </div>
               <div className="rounded-xl bg-primary-container px-4 py-4 text-center">
                 <p className="t-caption text-primary-oncontainer">Take-home</p>
@@ -238,7 +288,7 @@ function PayslipDetailDialog({
                   data-testid="take-home-summary"
                   className="tabular-nums text-3xl font-bold text-primary-oncontainer"
                 >
-                  {formatIDR(payslip.takeHome)}
+                  {formatIDR(takeHome)}
                 </p>
               </div>
             </aside>
@@ -258,6 +308,9 @@ export default function PayslipsPage() {
   const [payslips, setPayslips] = useState<Payslip[]>([])
   const [filter, setFilter] = useState<YearFilter>('semua')
   const [selected, setSelected] = useState<Payslip | null>(null)
+  const [detail, setDetail] = useState<BePayslipDetail | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [detailError, setDetailError] = useState<Error | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
 
@@ -265,11 +318,9 @@ export default function PayslipsPage() {
     setLoading(true)
     setError(null)
     try {
-      const res = await apiRequest<{ payslips: BePayslipRow[] }>('/api/payslips')
-      // BE-only mode: each row already has the take_home; the component
-      // breakdown requires fetching the underlying payroll run, which would
-      // add N requests. We compose with no breakdown and let the viewer show
-      // the take-home totals; the per-component view is a future enhancement.
+      const res = await api.get<{ payslips: BePayslipRow[] }>('/api/payslips')
+      // Each list row carries the take-home total; the full per-component
+      // breakdown is fetched on demand from GET /api/payslips/:id.
       const composed = res.payslips.map((row) => composePayslip(row, null))
       setPayslips(composed)
     } catch (e) {
@@ -278,6 +329,31 @@ export default function PayslipsPage() {
       setLoading(false)
     }
   }, [])
+
+  useEffect(() => {
+    void reload()
+  }, [reload])
+
+  const openPayslip = async (p: Payslip) => {
+    setSelected(p)
+    setDetail(null)
+    setDetailError(null)
+    setDetailLoading(true)
+    try {
+      const res = await api.get<BePayslipDetail>(`/api/payslips/${p.id}`)
+      setDetail(res)
+    } catch (e) {
+      setDetailError(e instanceof Error ? e : new Error(String(e)))
+    } finally {
+      setDetailLoading(false)
+    }
+  }
+
+  const closeDialog = () => {
+    setSelected(null)
+    setDetail(null)
+    setDetailError(null)
+  }
 
   useEffect(() => {
     void reload()
@@ -342,7 +418,7 @@ export default function PayslipsPage() {
                 {formatIDR(p.takeHome)}
               </p>
               <div className="flex shrink-0 items-center gap-1">
-                <Button variant="outline" onClick={() => setSelected(p)}>
+                <Button variant="outline" onClick={() => void openPayslip(p)}>
                   <Eye className="h-4 w-4" aria-hidden="true" />
                   Lihat
                 </Button>
@@ -359,7 +435,15 @@ export default function PayslipsPage() {
         </ul>
       )}
 
-      {selected && <PayslipDetailDialog payslip={selected} onClose={() => setSelected(null)} />}
+      {selected && (
+        <PayslipDetailDialog
+          payslip={selected}
+          detail={detail}
+          detailLoading={detailLoading}
+          detailError={detailError}
+          onClose={closeDialog}
+        />
+      )}
     </AppShell>
   )
 }

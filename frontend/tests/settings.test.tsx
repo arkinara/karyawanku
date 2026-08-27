@@ -13,6 +13,23 @@ type BeUserFixture = {
   created_at: string
 }
 
+type BeBusinessFixture = {
+  id: string
+  nama_bisnis: string
+  jenis_usaha: 'fnb' | 'jasa'
+  alamat: string
+}
+
+type BeSalaryComponentFixture = {
+  id: string
+  nama_komponen: string
+  tipe: 'earning' | 'deduction'
+  nominal: number | null
+  formula: string | null
+  aktif: boolean
+  is_default: boolean
+}
+
 const initialUsers: BeUserFixture[] = [
   { id: 'u-1', email: 'darmawan@warungkopi.id', nama: 'Darmawan Setiadi', role: 'owner', status: 'aktif', employee_id: null, created_at: '2026-01-01T00:00:00Z' },
   { id: 'u-2', email: 'ani@warungkopi.id', nama: 'Ani Rahmawati', role: 'owner', status: 'aktif', employee_id: null, created_at: '2026-01-01T00:00:00Z' },
@@ -31,8 +48,30 @@ const leaveTypesPayload: BeLeaveTypeListResponse = {
   ],
 }
 
+const initialBusiness: BeBusinessFixture = {
+  id: 'b',
+  nama_bisnis: 'Warung Kopi Nusantara',
+  jenis_usaha: 'fnb',
+  alamat: 'Jl. Melati No. 12, Jakarta Selatan',
+}
+
+const initialDefaultComponents: BeSalaryComponentFixture[] = [
+  { id: 'sc-1', nama_komponen: 'Gaji Pokok', tipe: 'earning', nominal: 3000000, formula: null, aktif: true, is_default: true },
+  { id: 'sc-2', nama_komponen: 'Tunjangan Transport', tipe: 'earning', nominal: 400000, formula: null, aktif: true, is_default: true },
+  { id: 'sc-3', nama_komponen: 'BPJS Kesehatan', tipe: 'deduction', nominal: null, formula: 'gaji_pokok * 0.01', aktif: true, is_default: true },
+]
+
 let usersState = [...initialUsers]
 let leaveTypesState = [...leaveTypesPayload.leave_types]
+let businessState = { ...initialBusiness }
+let defaultComponentsState = [...initialDefaultComponents]
+
+function json(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
 
 function stubFetch() {
   vi.stubGlobal(
@@ -40,77 +79,73 @@ function stubFetch() {
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString()
       const method = init?.method ?? 'GET'
+      const body = init?.body ? (JSON.parse(init.body as string) as Record<string, unknown>) : undefined
 
       if (url.includes('/api/users') && method === 'POST') {
-        const body = init?.body ? (JSON.parse(init.body as string) as { email: string; nama: string; role: 'owner' | 'employee' }) : ({} as never)
         const newUser = {
           id: `u-${Date.now()}`,
-          email: body.email,
-          nama: body.nama,
-          role: body.role,
+          email: (body?.email as string) ?? '',
+          nama: (body?.nama as string) ?? '',
+          role: (body?.role as 'owner' | 'employee') ?? 'employee',
           status: 'aktif' as const,
           employee_id: null,
           created_at: new Date().toISOString(),
         }
         usersState = [...usersState, newUser]
-        return new Response(JSON.stringify({ user: newUser }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        })
+        return json({ user: newUser })
       }
       if (url.includes('/api/users') && method === 'PATCH') {
-        const body = init?.body ? (JSON.parse(init.body as string) as Record<string, unknown>) : ({} as never)
         const id = url.split('/').pop()
         usersState = usersState.map((u) =>
-          u.id === id ? { ...u, ...(body.role ? { role: body.role as typeof u.role } : {}), ...(body.status ? { status: body.status as typeof u.status } : {}) } : u,
+          u.id === id ? { ...u, ...(body?.role ? { role: body.role as typeof u.role } : {}), ...(body?.status ? { status: body.status as typeof u.status } : {}) } : u,
         )
-        const updated = usersState.find((u) => u.id === id)
-        return new Response(JSON.stringify({ user: updated }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        })
+        return json({ user: usersState.find((u) => u.id === id) })
       }
       if (url.includes('/api/users')) {
-        return new Response(JSON.stringify({ users: usersState, total: usersState.length, limit: 50, offset: 0 }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        })
+        return json({ users: usersState, total: usersState.length, limit: 50, offset: 0 })
       }
 
       if (url.includes('/api/leave-types') && method === 'POST') {
-        const body = init?.body
-          ? (JSON.parse(init.body as string) as { nama_jenis_cuti: string; default_kuota_hari: number; kebijakan_sisa: 'hangus' | 'carry-over'; carry_over_max_days: number | null })
-          : ({} as never)
         const newLt = {
           id: `lt-${Date.now()}`,
-          nama_jenis_cuti: body.nama_jenis_cuti,
-          default_kuota_hari: body.default_kuota_hari,
-          kebijakan_sisa: body.kebijakan_sisa,
-          carry_over_max_days: body.carry_over_max_days,
+          nama_jenis_cuti: (body?.nama_jenis_cuti as string) ?? '',
+          default_kuota_hari: (body?.default_kuota_hari as number) ?? 0,
+          kebijakan_sisa: (body?.kebijakan_sisa as 'hangus' | 'carry-over') ?? 'hangus',
+          carry_over_max_days: (body?.carry_over_max_days as number | null) ?? null,
           aktif: true,
         }
         leaveTypesState = [...leaveTypesState, newLt]
-        return new Response(JSON.stringify({ leave_type: newLt }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        })
+        return json({ leave_type: newLt })
       }
       if (url.includes('/api/leave-types') && method === 'DELETE') {
         const id = url.split('/').pop()
         leaveTypesState = leaveTypesState.filter((lt) => lt.id !== id)
-        return new Response(JSON.stringify({ ok: true }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        })
+        return json({ ok: true })
       }
       if (url.includes('/api/leave-types')) {
-        return new Response(JSON.stringify({ leave_types: leaveTypesState }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        })
+        return json({ leave_types: leaveTypesState })
       }
 
-      return new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } })
+      // Default salary components (Komponen Gaji tab).
+      if (url.includes('/default-salary-components') && method === 'PUT') {
+        const ids = (body?.component_ids as string[]) ?? []
+        defaultComponentsState = defaultComponentsState.filter((c) => ids.includes(c.id))
+        return json({ components: defaultComponentsState })
+      }
+      if (url.includes('/default-salary-components')) {
+        return json({ components: defaultComponentsState })
+      }
+
+      // Business profile (Profil Bisnis tab).
+      if (url.includes('/api/businesses') && method === 'PATCH') {
+        businessState = { ...businessState, ...(body as Partial<BeBusinessFixture>) }
+        return json({ business: { id: businessState.id, nama_bisnis: businessState.nama_bisnis, jenis_usaha: businessState.jenis_usaha, alamat: businessState.alamat } })
+      }
+      if (url.includes('/api/businesses')) {
+        return json({ business: { id: businessState.id, nama_bisnis: businessState.nama_bisnis, jenis_usaha: businessState.jenis_usaha, alamat: businessState.alamat } })
+      }
+
+      return json({})
     }),
   )
 }
@@ -124,6 +159,8 @@ beforeEach(() => {
   )
   usersState = [...initialUsers]
   leaveTypesState = [...leaveTypesPayload.leave_types]
+  businessState = { ...initialBusiness }
+  defaultComponentsState = [...initialDefaultComponents]
   stubFetch()
 })
 
@@ -160,16 +197,20 @@ describe('Settings Page', () => {
     })
 
     fireEvent.click(screen.getByRole('tab', { name: 'Komponen Gaji' }))
-    expect(screen.getByRole('link', { name: /Kelola Komponen Gaji/ })).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: /Kelola Komponen Gaji/ })).toBeInTheDocument()
+    })
 
     fireEvent.click(screen.getByRole('tab', { name: 'Profil Bisnis' }))
-    expect(screen.getByRole('button', { name: 'Simpan Perubahan' })).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Simpan Perubahan' })).toBeInTheDocument()
+    })
   })
 
   describe('Profil Bisnis', () => {
-    it('form terisi data awal dan simpan memperbarui state + toast', () => {
+    it('form terisi dari GET /api/businesses/:id dan simpan memanggil PATCH + toast', async () => {
       renderPage()
-      const namaInput = screen.getByLabelText(/Nama bisnis/)
+      const namaInput = await screen.findByLabelText(/Nama bisnis/)
       expect(namaInput).toHaveValue('Warung Kopi Nusantara')
       expect(screen.getByLabelText(/Jenis usaha/)).toHaveValue('fnb')
       expect(screen.getByLabelText(/Alamat/)).toHaveValue('Jl. Melati No. 12, Jakarta Selatan')
@@ -177,13 +218,16 @@ describe('Settings Page', () => {
       fireEvent.change(namaInput, { target: { value: 'Kopi Kita' } })
       fireEvent.click(screen.getByRole('button', { name: 'Simpan Perubahan' }))
 
-      expect(screen.getByRole('status')).toHaveTextContent(/tersimpan/)
+      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/tersimpan/))
       expect(namaInput).toHaveValue('Kopi Kita')
+      // PATCH hit the BE — the in-memory business state reflects the change.
+      expect(businessState.nama_bisnis).toBe('Kopi Kita')
     })
 
-    it('validasi: nama bisnis kosong menahan simpan', () => {
+    it('validasi: nama bisnis kosong menahan simpan', async () => {
       renderPage()
-      fireEvent.change(screen.getByLabelText(/Nama bisnis/), { target: { value: '' } })
+      const namaInput = await screen.findByLabelText(/Nama bisnis/)
+      fireEvent.change(namaInput, { target: { value: '' } })
       fireEvent.click(screen.getByRole('button', { name: 'Simpan Perubahan' }))
       expect(screen.getByText('Nama bisnis wajib diisi')).toBeInTheDocument()
       expect(screen.queryByRole('status')).not.toBeInTheDocument()
@@ -229,13 +273,27 @@ describe('Settings Page', () => {
   })
 
   describe('Komponen Gaji', () => {
-    it('menampilkan jumlah komponen aktif dan tautan ke /salary-components', () => {
-      renderPage()
+    it('menampilkan komponen default dari GET /api/businesses/:id/default-salary-components', async () => {
+      const { container } = renderPage()
       fireEvent.click(screen.getByRole('tab', { name: 'Komponen Gaji' }))
-      expect(screen.getByText(/7 komponen aktif/)).toBeInTheDocument()
-      expect(screen.getByText(/Atur komponen gaji default di halaman Komponen Gaji/)).toBeInTheDocument()
+      await waitFor(() => expect(rowCount(container)).toBe(3))
+      expect(screen.getByText('3 komponen default')).toBeInTheDocument()
+      expect(screen.getByText('Gaji Pokok')).toBeInTheDocument()
+      expect(screen.getByText('Tunjangan Transport')).toBeInTheDocument()
+      expect(screen.getByText('gaji_pokok * 0.01')).toBeInTheDocument()
+      expect(screen.getAllByText('Pendapatan').length).toBeGreaterThanOrEqual(1)
+      expect(screen.getByText('Potongan')).toBeInTheDocument()
       const link = screen.getByRole('link', { name: /Kelola Komponen Gaji/ })
       expect(link).toHaveAttribute('href', '/salary-components')
+    })
+
+    it('menampilkan empty state saat tidak ada komponen default', async () => {
+      defaultComponentsState = []
+      renderPage()
+      fireEvent.click(screen.getByRole('tab', { name: 'Komponen Gaji' }))
+      await waitFor(() => {
+        expect(screen.getByText('Belum ada komponen default.')).toBeInTheDocument()
+      })
     })
   })
 

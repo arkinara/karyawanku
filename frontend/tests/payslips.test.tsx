@@ -1,13 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import PayslipPage from '@/app/payslips/page'
-import type { BePayslipRow } from '@/lib/payslips-adapter'
+import type { BePayslipDetail, BePayslipRow } from '@/lib/payslips-adapter'
 
-const LEMBUR = { nama: 'Tunjangan Lembur', nominal: 100000 }
+function json(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
 
-// BE-shaped payslip rows. The adapter reconstructs FE `Payslip` shape; for the
-// per-component breakdown to appear in the viewer we must also supply the
-// matching payroll item via `/api/payroll-runs/:run_id` (filtered by employee).
+// BE-shaped payslip rows. The list rows carry the take-home total; the
+// per-component breakdown is fetched on demand from GET /api/payslips/:id.
 const payslipRows: BePayslipRow[] = [
   {
     id: 'ps-1',
@@ -81,21 +85,35 @@ const payslipRows: BePayslipRow[] = [
   },
 ]
 
-// We mirror the BE's payroll-run detail payload so the FE can rebuild the
-// per-component breakdown via the run/employee endpoint. We shortcut by
-// returning only the item matching this employee for each payslip.
+// Full breakdown returned by GET /api/payslips/:id (ticket #42).
+const fullDetail: BePayslipDetail = {
+  id: 'ps-1',
+  payroll_item_id: 'pi-1',
+  employee: { id: '2', nama: 'Siti Nurhaliza', jabatan: 'Barista' },
+  periode: '2026-07',
+  breakdown: {
+    earnings: [
+      { nama_komponen: 'Gaji Pokok', nominal: 2500000 },
+      { nama_komponen: 'Tunjangan Makan', nominal: 350000 },
+      { nama_komponen: 'Tunjangan Transport', nominal: 400000 },
+    ],
+    deductions: [
+      { nama_komponen: 'BPJS Kesehatan', nominal: 25000 },
+      { nama_komponen: 'BPJS Ketenagakerjaan', nominal: 50000 },
+      { nama_komponen: 'PPh 21', nominal: 175000 },
+    ],
+    totals: { total_earnings: 3250000, total_deductions: 250000, take_home: 2400000 },
+  },
+  totals: { total_earnings: 3250000, total_deductions: 250000, take_home: 2400000 },
+  pdf_url: '/api/payslips/ps-1/download',
+}
+
 function stubFetch() {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
       const url = typeof input === 'string' ? input : input.toString()
-      if (url.includes('/api/payslips') && !url.includes('/download')) {
-        return new Response(JSON.stringify({ payslips: payslipRows }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        })
-      }
-      if (url.includes('/api/payslips') && url.includes('/download')) {
+      if (url.includes('/download')) {
         return new Response('PDF_BINARY', {
           status: 200,
           headers: {
@@ -104,7 +122,25 @@ function stubFetch() {
           },
         })
       }
-      return new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } })
+      if (url.endsWith('/api/payslips')) {
+        return json({ payslips: payslipRows })
+      }
+      if (url.includes('/api/payslips/')) {
+        const id = url.split('/').pop()
+        if (id === 'ps-1') return json(fullDetail)
+        // Rows without a breakdown exercise the graceful fallback.
+        const row = payslipRows.find((r) => r.id === id)
+        return json({
+          id,
+          payroll_item_id: row?.payroll_item_id ?? null,
+          employee: { id: '2', nama: 'Siti Nurhaliza', jabatan: 'Barista' },
+          periode: row?.periode ?? '2026-07',
+          breakdown: { earnings: [], deductions: [], totals: { total_earnings: 0, total_deductions: 0, take_home: row?.take_home ?? 0 } },
+          totals: { total_earnings: 0, total_deductions: 0, take_home: row?.take_home ?? 0 },
+          pdf_url: `/api/payslips/${id}/download`,
+        })
+      }
+      return json({})
     }),
   )
 }
@@ -122,10 +158,6 @@ function renderPage() {
   stubFetch()
   return render(<PayslipPage />)
 }
-
-// Silence unused warnings — kept here for reference when the FE later fetches
-// per-component breakdowns from the underlying payroll item.
-void LEMBUR
 
 describe('Payslip Page', () => {
   it('merender daftar slip gaji terurut dari terbaru ke terlama', async () => {
@@ -146,7 +178,7 @@ describe('Payslip Page', () => {
     expect(screen.getAllByTestId(/^period-/)).toHaveLength(7)
   })
 
-  it('klik Lihat membuka dialog detail dengan breakdown pendapatan & potongan', async () => {
+  it('klik Lihat memuat breakdown dari GET /api/payslips/:id dan merender per baris', async () => {
     renderPage()
     await waitFor(() => expect(screen.getAllByRole('button', { name: 'Lihat' }).length).toBeGreaterThan(0))
 
@@ -154,23 +186,49 @@ describe('Payslip Page', () => {
 
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).getByText('Slip Gaji · Juli 2026')).toBeInTheDocument()
-    expect(within(dialog).getByText('Pendapatan')).toBeInTheDocument()
+
+    // Each earnings line.
+    await within(dialog).findByText('Tunjangan Makan')
     expect(within(dialog).getByText('Gaji Pokok')).toBeInTheDocument()
-    expect(within(dialog).getByText('Total Pendapatan')).toBeInTheDocument()
-    expect(within(dialog).getByText('Total Potongan')).toBeInTheDocument()
+    expect(within(dialog).getByText('Tunjangan Transport')).toBeInTheDocument()
+    // Each deductions line.
+    expect(within(dialog).getByText('BPJS Kesehatan')).toBeInTheDocument()
+    expect(within(dialog).getByText('BPJS Ketenagakerjaan')).toBeInTheDocument()
+    expect(within(dialog).getByText('PPh 21')).toBeInTheDocument()
+    // Line nominal values (formatted IDR, taken verbatim from the BE).
+    expect(within(dialog).getByText('Rp 2.500.000')).toBeInTheDocument()
+    expect(within(dialog).getByText('Rp 350.000')).toBeInTheDocument()
+    expect(within(dialog).getByText('Rp 175.000')).toBeInTheDocument()
+    // Section totals.
+    expect(within(dialog).getAllByText('Rp 3.250.000').length).toBeGreaterThanOrEqual(1)
+    expect(within(dialog).getAllByText('Rp 250.000').length).toBeGreaterThanOrEqual(1)
   })
 
-  it('ringkasan menampilkan total pendapatan, potongan, dan take-home yang benar', async () => {
+  it('ringkasan menampilkan total pendapatan, potongan, dan take-home dari breakdown', async () => {
     renderPage()
     await waitFor(() => expect(screen.getAllByRole('button', { name: 'Lihat' }).length).toBeGreaterThan(0))
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Lihat' })[0])
 
     const dialog = await screen.findByRole('dialog')
+    await within(dialog).findByTestId('take-home-summary')
     expect(within(dialog).getByText('Total Pendapatan')).toBeInTheDocument()
     expect(within(dialog).getByText('Total Potongan')).toBeInTheDocument()
-    // Take-home summary element with the BE-provided value.
     expect(within(dialog).getByTestId('take-home-summary')).toHaveTextContent('Rp 2.400.000')
+  })
+
+  it('breakdown kosong → fallback "Rincian tidak tersedia" tanpa crash', async () => {
+    renderPage()
+    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Lihat' }).length).toBeGreaterThan(0))
+
+    // Second row (ps-2) has an empty breakdown.
+    fireEvent.click(screen.getAllByRole('button', { name: 'Lihat' })[1])
+
+    const dialog = await screen.findByRole('dialog')
+    await waitFor(() => {
+      expect(within(dialog).getAllByText(/Rincian tidak tersedia/).length).toBeGreaterThan(0)
+    })
+    expect(within(dialog).getByText('Rp 2.300.000')).toBeInTheDocument()
   })
 
   it('tombol unduh per baris memicu download file dummy', async () => {
@@ -194,7 +252,6 @@ describe('Payslip Page', () => {
       expect(clickSpy).toHaveBeenCalled()
     })
     expect(downloaded).not.toBeNull()
-    // BE returned 200, so the download filename uses the .pdf extension.
     expect(downloaded!.download).toBe('slip-gaji-siti-nurhaliza-2026-07.pdf')
     expect(downloaded!.href).toBeTruthy()
 
@@ -232,12 +289,7 @@ describe('Payslip Page', () => {
   it('menampilkan empty state saat tidak ada slip gaji', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () =>
-        new Response(JSON.stringify({ payslips: [] }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      ),
+      vi.fn(async () => json({ payslips: [] })),
     )
     render(<PayslipPage />)
     await waitFor(() => {
@@ -265,12 +317,9 @@ describe('Payslip Page', () => {
       vi.fn(async (input: RequestInfo | URL) => {
         const url = typeof input === 'string' ? input : input.toString()
         if (url.includes('/api/payslips') && !url.includes('/download')) {
-          return new Response(JSON.stringify({ payslips: extendedRows }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-          })
+          return json({ payslips: extendedRows })
         }
-        return new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } })
+        return json({})
       }),
     )
     render(<PayslipPage />)

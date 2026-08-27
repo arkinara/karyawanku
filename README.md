@@ -49,3 +49,22 @@ This repo uses the `product-ux-dev-qa-workflow` skill:
 
 - `scripts/add-in-qa-lane.py` — add `In QA` lane to the Status field of a 3-lane GitHub Project
 - `scripts/move-board.py` (from the workflow skill) — move issues between Status lanes
+
+## Backend wiring
+
+Phase-1 screens hit the Fastify BE at `http://localhost:3001` (set `NEXT_PUBLIC_API_BASE_URL`
+to override). The following features are wired end-to-end (ticket #44):
+
+- **Onboarding** — step 1 collects the business profile + owner account, "Selesaikan Setup"
+  calls `POST /api/businesses` (adopts the returned JWT/user session, redirects to `/dashboard`);
+  step 2 fetches defaults via `GET /api/salary-components?defaults=true` (falls back to local
+  defaults when the visitor has no session yet); step 3 marks the toggled subset as defaults via
+  `PUT /api/businesses/:id/default-salary-components`.
+- **Settings → Profil Bisnis** — form prefills from `GET /api/businesses/:id`, "Simpan Perubahan"
+  calls `PATCH /api/businesses/:id`.
+- **Settings → Komponen Gaji** — lists defaults from
+  `GET /api/businesses/:id/default-salary-components` with add/edit/delete against
+  `/api/salary-components` (new rows are added to the default set).
+- **Slip Gaji viewer** — the detail dialog renders every earnings/deduction line from
+  `GET /api/payslips/:id` (breakdown), degrading to a "Rincian tidak tersedia" placeholder when
+  the breakdown is empty.

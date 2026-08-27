@@ -1,23 +1,35 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { ErrorSurface } from '@/components/ui'
 import { Icon } from '@/components/ui/icon'
 import { Stepper } from '@/components/ui/stepper'
 import { TextField } from '@/components/ui/text-field'
+import { PasswordField } from '@/components/auth/password-field'
 import { cn } from '@/lib/cn'
-import { apiRequest } from '@/lib/api-client'
+import { api, type ApiUser } from '@/lib/api-client'
+import { useAuth } from '@/lib/auth-context'
 import { WIZARD_STEPS, useWizard } from './use-wizard'
 import type { WizardApi } from './use-wizard'
 
 /**
- * Mapping of the onboarding wizard's static default components to the BE's
- * salary-component schema. The wizard shows canonical Indonesian names; the
- * BE stores each row as its own entity. When the user finishes setup we POST
- * the chosen subset to `/api/salary-components`.
+ * Onboarding (ticket #44): the wizard is wired to the BE.
+ *
+ * *   Step 1 collects the business profile + the owner account; "Selesaikan
+ *     Setup" (step 3) POSTs to `/api/businesses`, adopts the returned session
+ *     and redirects to the dashboard. When the user already has a session with
+ *     a business (sign-up path) the business POST is skipped and the existing
+ *     `business_id` is reused.
+ * *   Step 2 fetches the platform defaults via
+ *     `GET /api/salary-components?defaults=true`. Without a token (fresh
+ *     visitor) that call fails and the wizard falls back to the local default
+ *     list, so the stepper never blocks.
+ * *   Step 3 marks the toggled subset as the business defaults via
+ *     `PUT /api/businesses/:id/default-salary-components`.
  */
+
 interface DefaultComponentDraft {
   nama: string
   tipe: 'earning' | 'deduction'
@@ -34,6 +46,16 @@ const COMPONENT_DEFAULTS: Record<string, DefaultComponentDraft> = {
   'potongan-bpjs-ket': { nama: 'BPJS Ketenagakerjaan', tipe: 'deduction', nominal: null, formula: 'gaji_pokok * 0.02' },
 }
 
+interface BeSalaryComponent {
+  id: string
+  nama_komponen: string
+  tipe: 'earning' | 'deduction'
+  nominal: number | null
+  formula: string | null
+  aktif: boolean
+  is_default: boolean
+}
+
 const fieldClass = cn(
   'w-full min-h-[44px] rounded-xl border border-outline-variant bg-surface-1 px-4 py-3',
   'text-onsurface outline-none transition-colors',
@@ -46,6 +68,8 @@ const JENIS_OPTIONS: { value: string; label: string }[] = [
   { value: 'fnb', label: 'F&B' },
   { value: 'jasa', label: 'Jasa' },
 ]
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function jenisLabel(value: string): string {
   if (value === 'fnb') return 'F&B'
@@ -64,10 +88,13 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 
 interface StepFooterProps {
   wizard: WizardApi
+  /** Extra gate for step 0 (owner account validity when collecting credentials). */
+  step0Valid?: boolean
 }
 
-function StepFooter({ wizard }: StepFooterProps) {
+function StepFooter({ wizard, step0Valid = true }: StepFooterProps) {
   const step = wizard.state.currentStep
+  const valid = step === 0 ? wizard.stepValid[0] && step0Valid : wizard.stepValid[step]
   return (
     <footer className="flex items-center justify-between gap-3 border-t border-outline-variant bg-surface-1 px-5 py-4">
       {step > 0 ? (
@@ -84,7 +111,7 @@ function StepFooter({ wizard }: StepFooterProps) {
           </Button>
         )}
         {step < 2 && (
-          <Button onClick={wizard.goNext} disabled={!wizard.stepValid[step]}>
+          <Button onClick={wizard.goNext} disabled={!valid}>
             Lanjut
           </Button>
         )}
@@ -93,14 +120,120 @@ function StepFooter({ wizard }: StepFooterProps) {
   )
 }
 
+interface OwnerAccountProps {
+  nama: string
+  email: string
+  password: string
+  touched: { nama: boolean; email: boolean; password: boolean }
+  sessionHasBusiness: boolean
+  onChange: (field: 'nama' | 'email' | 'password', value: string) => void
+  onBlur: (field: 'nama' | 'email' | 'password') => void
+}
+
+function OwnerAccountSection({
+  nama,
+  email,
+  password,
+  touched,
+  sessionHasBusiness,
+  onChange,
+  onBlur,
+}: OwnerAccountProps) {
+  if (sessionHasBusiness) {
+    return (
+      <div className="flex items-start gap-3 rounded-xl border border-success/30 bg-success/5 p-4">
+        <Icon name="checkCircle" size={18} className="mt-0.5 shrink-0 text-success" />
+        <div className="min-w-0 flex-1">
+          <p className="t-label text-onsurface">Akun owner sudah dibuat</p>
+          <p className="t-caption mt-0.5">
+            Anda telah masuk sebagai <span className="font-medium">{email}</span>. Lanjut mengatur
+            komponen gaji standar.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  const namaError = touched.nama && nama.trim() === '' ? 'Nama owner wajib diisi.' : undefined
+  const emailError =
+    touched.email && email.trim() === ''
+      ? 'Email wajib diisi.'
+      : touched.email && !EMAIL_RE.test(email.trim())
+        ? 'Format email tidak valid.'
+        : undefined
+  const passwordError =
+    touched.password && password === ''
+      ? 'Kata sandi wajib diisi.'
+      : touched.password && password.length < 8
+        ? 'Kata sandi minimal 8 karakter.'
+        : undefined
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="border-b border-outline-variant pb-3">
+        <h2 className="t-h3">Akun owner</h2>
+        <p className="t-caption mt-0.5">
+          Dipakai untuk masuk kembali ke workspace Anda.
+        </p>
+      </div>
+      <TextField
+        id="nama-owner"
+        label="Nama lengkap"
+        required
+        value={nama}
+        onChange={(e) => onChange('nama', e.target.value)}
+        onBlur={() => onBlur('nama')}
+        placeholder="cth: Pak Darmawan"
+        autoComplete="name"
+        error={namaError}
+      />
+      <TextField
+        id="owner-email"
+        label="Email"
+        type="email"
+        inputMode="email"
+        required
+        value={email}
+        onChange={(e) => onChange('email', e.target.value)}
+        onBlur={() => onBlur('email')}
+        placeholder="nama@usaha.com"
+        autoComplete="email"
+        error={emailError}
+      />
+      <PasswordField
+        id="owner-password"
+        label="Kata sandi"
+        required
+        value={password}
+        onChange={(e) => onChange('password', e.target.value)}
+        onBlur={() => onBlur('password')}
+        autoComplete="new-password"
+        placeholder="Minimal 8 karakter"
+        helperText="Minimal 8 karakter"
+        error={passwordError}
+      />
+    </div>
+  )
+}
+
 function BusinessProfileStep({
   wizard,
   touched,
   setTouched,
+  owner,
+  ownerTouched,
+  setOwnerTouched,
+  onOwnerChange,
+  sessionHasBusiness,
 }: {
   wizard: WizardApi
   touched: { namaBisnis: boolean; jenisUsaha: boolean; alamat: boolean }
   setTouched: (t: { namaBisnis: boolean; jenisUsaha: boolean; alamat: boolean }) => void
+  owner: { nama: string; email: string; password: string }
+  ownerTouched: { nama: boolean; email: boolean; password: boolean }
+  setOwnerTouched: (t: { nama: boolean; email: boolean; password: boolean }) => void
+  onOwnerChange: (field: 'nama' | 'email' | 'password', value: string) => void
+  sessionHasBusiness: boolean
 }) {
   const { state, setField } = wizard
   const { namaBisnis, jenisUsaha, alamat } = state
@@ -184,6 +317,16 @@ function BusinessProfileStep({
             </p>
           )}
         </div>
+
+        <OwnerAccountSection
+          nama={owner.nama}
+          email={owner.email}
+          password={owner.password}
+          touched={ownerTouched}
+          sessionHasBusiness={sessionHasBusiness}
+          onChange={onOwnerChange}
+          onBlur={(field) => setOwnerTouched({ ...ownerTouched, [field]: true })}
+        />
       </div>
     </section>
   )
@@ -196,7 +339,7 @@ function typeChip(type: 'earning' | 'deduction') {
   )
 }
 
-function SalaryComponentsStep({ wizard }: { wizard: WizardApi }) {
+function SalaryComponentsStep({ wizard, loading }: { wizard: WizardApi; loading: boolean }) {
   const { state, activeEarnings, toggleComponent } = wizard
 
   return (
@@ -207,6 +350,19 @@ function SalaryComponentsStep({ wizard }: { wizard: WizardApi }) {
       <p className="t-body-sm t-muted mt-1.5">
         Jadi nilai bawaan untuk karyawan baru. Bisa disesuaikan per orang.
       </p>
+
+      {loading && (
+        <div
+          role="status"
+          className="mt-6 flex items-center gap-3 rounded-xl border border-outline-variant bg-surface-1 p-4"
+        >
+          <span
+            aria-hidden="true"
+            className="size-4 animate-spin rounded-full border-2 border-current/30 border-t-current"
+          />
+          <p className="t-caption">Memuat komponen default…</p>
+        </div>
+      )}
 
       <div className="mt-6 flex flex-col gap-3">
         {state.components.map((c) => (
@@ -271,11 +427,13 @@ function ConfirmationStep({
   onComplete,
   setupError,
   completing,
+  ownerEmail,
 }: {
   wizard: WizardApi
   onComplete: () => void
   setupError: Error | null
   completing: boolean
+  ownerEmail: string | null
 }) {
   const { state } = wizard
   const enabled = state.components.filter((c) => c.enabled)
@@ -307,6 +465,7 @@ function ConfirmationStep({
             <SummaryRow label="Nama bisnis" value={state.namaBisnis} />
             <SummaryRow label="Jenis usaha" value={jenisLabel(state.jenisUsaha)} />
             <SummaryRow label="Alamat" value={state.alamat} />
+            {ownerEmail && <SummaryRow label="Email akun" value={ownerEmail} />}
           </dl>
         </div>
 
@@ -333,7 +492,7 @@ function ConfirmationStep({
           )}
         </div>
 
-        <Button size="lg" onClick={onComplete} className="mt-1 w-full" disabled={completing}>
+        <Button size="lg" onClick={onComplete} className="mt-1 w-full" disabled={completing} aria-busy={completing}>
           {completing ? 'Menyimpan…' : 'Selesaikan Setup'}
         </Button>
       </div>
@@ -349,17 +508,24 @@ export default function OnboardingPage() {
   const router = useRouter()
   const wizard = useWizard()
   const { state } = wizard
+  const { user: authUser, applySession } = useAuth()
   const step = state.currentStep
 
-  const [toast, setToast] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ message: string; tone: 'success' | 'danger' } | null>(null)
   const [completing, setCompleting] = useState(false)
   const [setupError, setSetupError] = useState<Error | null>(null)
+  const [defaultsLoading, setDefaultsLoading] = useState(false)
   const [touched, setTouched] = useState({
     namaBisnis: false,
     jenisUsaha: false,
     alamat: false,
   })
+  const [owner, setOwner] = useState({ nama: '', email: '', password: '' })
+  const [ownerTouched, setOwnerTouched] = useState({ nama: false, email: false, password: false })
   const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  /** Sign-up path already provisioned the business → reuse its id, no POST. */
+  const sessionHasBusiness = Boolean(authUser?.business_id)
 
   useEffect(
     () => () => {
@@ -368,36 +534,119 @@ export default function OnboardingPage() {
     [],
   )
 
+  useEffect(() => {
+    if (!authUser) return
+    setOwner((o) => ({
+      ...o,
+      nama: o.nama || authUser.nama,
+      email: o.email || authUser.email,
+    }))
+  }, [authUser])
+
+  // Fetch platform default components for step 2. A fresh visitor has no token
+  // yet, so a 401 here simply falls back to the local default list.
+  useEffect(() => {
+    let active = true
+    ;(async () => {
+      setDefaultsLoading(true)
+      try {
+        const res = await api.get<{ components: BeSalaryComponent[] }>(
+          '/api/salary-components',
+          { defaults: 'true' },
+        )
+        if (!active) return
+        if (Array.isArray(res.components) && res.components.length > 0) {
+          wizard.setComponents(
+            res.components.map((c) => ({
+              id: c.id,
+              beId: c.id,
+              name: c.nama_komponen,
+              type: c.tipe,
+              description: c.formula
+                ? 'Dihitung dari formula'
+                : c.nominal != null
+                  ? 'Nominal tetap'
+                  : '',
+              enabled: c.aktif,
+            })),
+          )
+        }
+      } catch {
+        // No session during onboarding — keep the local defaults.
+      } finally {
+        if (active) setDefaultsLoading(false)
+      }
+    })()
+    return () => {
+      active = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const ownerValid = useMemo(() => {
+    if (sessionHasBusiness) return true
+    return (
+      owner.nama.trim() !== '' &&
+      EMAIL_RE.test(owner.email.trim()) &&
+      owner.password.length >= 8
+    )
+  }, [sessionHasBusiness, owner.nama, owner.email, owner.password])
+
+  const handleOwnerChange = (field: 'nama' | 'email' | 'password', value: string) => {
+    setOwner((o) => ({ ...o, [field]: value }))
+  }
+
   const handleComplete = async () => {
     const enabled = wizard.state.components.filter((c) => c.enabled)
     setCompleting(true)
     setSetupError(null)
-    // Optimistically close the wizard so the toast + redirect fire without
-    // waiting on the BE round-trip; if any POST fails we restore the error
-    // surface so the user can retry.
-    wizard.complete()
-    setToast('Setup selesai. Selamat datang di KaryawanKu.')
-    redirectTimer.current = setTimeout(() => router.push('/dashboard'), 800)
     try {
-      await Promise.all(
-        enabled.map((c) => {
+      let businessId: string
+      if (sessionHasBusiness) {
+        businessId = authUser?.business_id ?? ''
+      } else {
+        const res = await api.post<{ user: ApiUser; token: string; business: { id: string } }>(
+          '/api/businesses',
+          {
+            nama_bisnis: state.namaBisnis,
+            jenis_usaha: state.jenisUsaha,
+            alamat: state.alamat,
+            owner: { nama: owner.nama, email: owner.email.trim(), password: owner.password },
+          },
+        )
+        applySession(res.user, res.token)
+        businessId = res.business.id
+      }
+
+      // Mark the toggled subset as this business's default components. Rows
+      // that came from the BE defaults already exist; local defaults must be
+      // created first (their ids feed the PUT).
+      if (enabled.length > 0) {
+        const existingIds = enabled.filter((c) => c.beId).map((c) => c.beId as string)
+        const createdIds: string[] = []
+        for (const c of enabled.filter((c) => !c.beId)) {
           const draft = COMPONENT_DEFAULTS[c.id]
-          if (!draft) return Promise.resolve()
-          return apiRequest('/api/salary-components', {
-            method: 'POST',
-            body: {
-              nama_komponen: draft.nama,
-              tipe: draft.tipe,
-              mode: draft.formula ? 'formula' : 'fixed',
-              nominal: draft.nominal,
-              formula: draft.formula,
-              aktif: true,
-            },
-          }).catch(() => undefined)
-        }),
-      )
+          if (!draft) continue
+          const created = await api.post<{ component: { id: string } }>('/api/salary-components', {
+            nama_komponen: draft.nama,
+            tipe: draft.tipe,
+            nominal: draft.nominal,
+            formula: draft.formula,
+            aktif: true,
+          })
+          createdIds.push(created.component.id)
+        }
+        await api.put(`/api/businesses/${businessId}/default-salary-components`, {
+          component_ids: [...existingIds, ...createdIds],
+        })
+      }
+
+      wizard.complete()
+      setToast({ message: 'Setup selesai. Selamat datang di KaryawanKu.', tone: 'success' })
+      redirectTimer.current = setTimeout(() => router.push('/dashboard'), 800)
     } catch (e) {
       setSetupError(e instanceof Error ? e : new Error(String(e)))
+      setToast({ message: 'Gagal membuat workspace', tone: 'danger' })
     } finally {
       setCompleting(false)
     }
@@ -424,19 +673,29 @@ export default function OnboardingPage() {
         <div className="mt-4 overflow-hidden rounded-2xl border border-outline-variant bg-surface shadow-e1">
           <div className="p-5 sm:p-6">
             {step === 0 && (
-              <BusinessProfileStep wizard={wizard} touched={touched} setTouched={setTouched} />
+              <BusinessProfileStep
+                wizard={wizard}
+                touched={touched}
+                setTouched={setTouched}
+                owner={owner}
+                ownerTouched={ownerTouched}
+                setOwnerTouched={setOwnerTouched}
+                onOwnerChange={handleOwnerChange}
+                sessionHasBusiness={sessionHasBusiness}
+              />
             )}
-            {step === 1 && <SalaryComponentsStep wizard={wizard} />}
+            {step === 1 && <SalaryComponentsStep wizard={wizard} loading={defaultsLoading} />}
             {step === 2 && (
               <ConfirmationStep
                 wizard={wizard}
                 onComplete={() => void handleComplete()}
                 setupError={setupError}
                 completing={completing}
+                ownerEmail={owner.email || null}
               />
             )}
           </div>
-          <StepFooter wizard={wizard} />
+          <StepFooter wizard={wizard} step0Valid={ownerValid} />
         </div>
 
         <p className="t-caption mt-4 text-center">
@@ -450,9 +709,14 @@ export default function OnboardingPage() {
       {toast && (
         <div
           role="status"
-          className="fixed bottom-6 left-1/2 z-toast -translate-x-1/2 whitespace-nowrap rounded-full bg-success px-5 py-3 text-sm font-medium text-success-on shadow-e4"
+          className={cn(
+            'fixed bottom-6 left-1/2 z-toast -translate-x-1/2 whitespace-nowrap rounded-full px-5 py-3 text-sm font-medium shadow-e4',
+            toast.tone === 'success'
+              ? 'bg-success text-success-on'
+              : 'bg-danger text-danger-on',
+          )}
         >
-          {toast}
+          {toast.message}
         </div>
       )}
     </div>
