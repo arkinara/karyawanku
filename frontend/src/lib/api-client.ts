@@ -31,6 +31,42 @@ export interface ApiUser {
   employee_id?: string | null
 }
 
+/** BE status/contract enums — mirrors `backend/src/db/schema.ts`. */
+export type EmployeeStatus = 'aktif' | 'nonaktif'
+export type JenisKontrak = 'pkwtt' | 'pkwt' | 'pkl' | 'magang' | 'harian'
+
+/**
+ * Employee record as serialised by the BE (`GET/PATCH /api/employees/:id`,
+ * snake_case — the single API-contract source of truth for employee screens).
+ */
+export interface Employee {
+  id: string
+  business_id: string
+  nama_lengkap: string
+  no_ktp: string
+  npwp: string | null
+  tanggal_lahir: string
+  jenis_kelamin: 'L' | 'P'
+  alamat: string | null
+  kontak_darurat: string | null
+  tanggal_masuk: string
+  jenis_kontrak: JenisKontrak
+  status: EmployeeStatus
+  ptkp_status: string | null
+  custom_fields: Record<string, unknown> | null
+  created_at?: string
+  updated_at?: string
+}
+
+/** Display label for a lowercase BE contract enum. */
+export const KONTRAK_LABEL: Record<JenisKontrak, string> = {
+  pkwtt: 'PKWTT',
+  pkwt: 'PKWT',
+  pkl: 'PKL',
+  magang: 'Magang',
+  harian: 'Harian',
+}
+
 export class ApiError extends Error {
   readonly status: number
   readonly details?: unknown

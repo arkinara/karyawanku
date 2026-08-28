@@ -20,6 +20,7 @@ import {
 } from '@/components/ui'
 import type { StatusVariant } from '@/components/ui/status-chip'
 import { apiRequest } from '@/lib/api-client'
+import type { Employee } from '@/lib/api-client'
 import { AuthGuard, OWNER_ONLY } from '@/lib/route-guard'
 import { formatTanggal } from '@/lib/format'
 import { cn } from '@/lib/cn'
@@ -42,22 +43,6 @@ const KONTRAK_LABEL: Record<string, string> = {
 
 const KONTRAK_OPTIONS = ['PKWTT', 'PKWT', 'PKL', 'Magang', 'Harian']
 const JENIS_KELAMIN_LABEL: Record<string, string> = { L: 'Laki-laki', P: 'Perempuan' }
-
-interface Employee {
-  id: string
-  nama_lengkap: string
-  no_ktp: string
-  npwp: string | null
-  tanggal_lahir: string
-  jenis_kelamin: 'L' | 'P'
-  alamat: string | null
-  kontak_darurat: string | null
-  tanggal_masuk: string
-  jenis_kontrak: 'pkwtt' | 'pkwt' | 'pkl' | 'magang' | 'harian'
-  status: 'aktif' | 'nonaktif'
-  ptkp_status: string | null
-  custom_fields: Record<string, string> | null
-}
 
 interface Draft {
   nama: string

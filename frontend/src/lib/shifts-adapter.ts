@@ -9,7 +9,7 @@
  * the roster on week navigation, edit, and publish.
  */
 
-import { EMPLOYEES } from '@/lib/employees-mock'
+import type { Employee } from '@/lib/api-client'
 import { DAY_LABELS, SHIFTS, type ShiftKey } from '@/lib/shifts-mock'
 
 export interface BeShift {
@@ -40,16 +40,20 @@ const SHIFT_NAME_TO_KEY: Record<BeShift['nama_shift'], ShiftKey> = {
   Libur: 'libur',
 }
 
-/** Build a 12-row × 7-day matrix of shift keys for a given week. */
+/**
+ * Build a rows×7-day matrix of shift keys for a given week. `employees` is
+ * the roster source (fetched from the API) — unassigned rows stay `libur`.
+ */
 export function buildMatrixFromAssignments(
   assignments: BeShiftAssignment[],
   weekStartIso: string,
+  employees: Employee[],
 ): ShiftKey[][] {
-  const matrix: ShiftKey[][] = EMPLOYEES.map(() => Array.from({ length: 7 }, () => 'libur' as ShiftKey))
+  const matrix: ShiftKey[][] = employees.map(() => Array.from({ length: 7 }, () => 'libur' as ShiftKey))
   if (!weekStartIso) return matrix
   const weekStart = new Date(`${weekStartIso}T00:00:00`)
   for (const row of assignments) {
-    const empIdx = EMPLOYEES.findIndex((e) => e.id === row.employee_id)
+    const empIdx = employees.findIndex((e) => e.id === row.employee_id)
     if (empIdx === -1) continue
     const rowDate = new Date(`${row.tanggal}T00:00:00`)
     const diffDays = Math.round((rowDate.getTime() - weekStart.getTime()) / 86400000)

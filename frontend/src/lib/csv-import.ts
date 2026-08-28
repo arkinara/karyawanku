@@ -12,6 +12,7 @@ export const EMPLOYEE_FIELDS = [
   'nama_lengkap',
   'no_ktp',
   'npwp',
+  'jenis_kelamin',
   'jenis_kontrak',
   'tanggal_masuk',
   'tanggal_lahir',
@@ -25,6 +26,7 @@ export const FIELD_LABELS: Record<EmployeeField, string> = {
   nama_lengkap: 'Nama Lengkap',
   no_ktp: 'Nomor KTP',
   npwp: 'NPWP',
+  jenis_kelamin: 'Jenis Kelamin',
   jenis_kontrak: 'Jenis Kontrak',
   tanggal_masuk: 'Tanggal Masuk',
   tanggal_lahir: 'Tanggal Lahir',
@@ -112,6 +114,9 @@ export function validateRow(values: Record<EmployeeField, string>): string[] {
 
   if (values.npwp && !NPWP_REGEX.test(values.npwp)) errors.push('Format NPWP salah')
 
+  if (!values.jenis_kelamin) errors.push('Jenis kelamin kosong')
+  else if (!/^[LP]$/i.test(values.jenis_kelamin)) errors.push('Jenis kelamin tidak valid')
+
   if (!values.jenis_kontrak) errors.push('Jenis kontrak kosong')
   else if (!(KONTRAK_OPTIONS as readonly string[]).includes(values.jenis_kontrak))
     errors.push('Jenis kontrak tidak valid')
@@ -167,8 +172,21 @@ export function mapRows(parsed: ParsedCsv, mapping: Mapping): MappedRow[] {
 export function buildTemplateCsv(): string {
   const header = EMPLOYEE_FIELDS.join(',')
   const sample = [
-    'Budi Santoso,3201234567890001,01.234.567.8-901.000,PKWTT,2023-01-12,1995-04-12,"Jl. Melati No. 12, Jakarta Selatan",+62 812-3456-7890',
-    'Siti Nurhaliza,3273011234567890,02.345.678.9-012.000,PKWT,2023-03-03,1998-08-21,Jl. Anggrek No. 3 Depok,0812-9876-5432',
+    'Budi Santoso,3201234567890001,01.234.567.8-901.000,L,PKWTT,2023-01-12,1995-04-12,"Jl. Melati No. 12, Jakarta Selatan",+62 812-3456-7890',
+    'Siti Nurhaliza,3273011234567890,02.345.678.9-012.000,P,PKWT,2023-03-03,1998-08-21,Jl. Anggrek No. 3 Depok,0812-9876-5432',
   ].join('\n')
   return `${header}\n${sample}\n`
+}
+
+/**
+ * Map a validated row to the BE commit shape: display enums back to contract
+ * values (`PKWTT` → `pkwtt`, `l` → `L`). Empty strings are left as-is — the
+ * BE normalises them to null on its side.
+ */
+export function toContractRow(r: MappedRow): Record<string, string> {
+  return {
+    ...r.values,
+    jenis_kontrak: r.values.jenis_kontrak.toLowerCase(),
+    jenis_kelamin: r.values.jenis_kelamin.toUpperCase(),
+  }
 }

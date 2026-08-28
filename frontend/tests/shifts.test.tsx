@@ -14,6 +14,25 @@ const shiftsPayload = {
   ],
 }
 
+// The roster source — real employees fetched from GET /api/employees. Ids must
+// line up with the assignment fixture below so the grid renders 12 rows.
+const employeesPayload = {
+  employees: [
+    { id: '1', nama_lengkap: 'Budi Santoso', no_ktp: '3201', jabatan: 'Kepala Barista' },
+    { id: '2', nama_lengkap: 'Siti Nurhaliza', no_ktp: '3273', jabatan: 'Kasir' },
+    { id: '3', nama_lengkap: 'Ahmad Fauzi', no_ktp: '3578', jabatan: 'Barista' },
+    { id: '4', nama_lengkap: 'Dewi Lestari', no_ktp: '3275', jabatan: 'Pramusaji' },
+    { id: '5', nama_lengkap: 'Rudi Hermawan', no_ktp: '3101', jabatan: 'Kasir' },
+    { id: '6', nama_lengkap: 'Maya Sari', no_ktp: '3174', jabatan: 'Admin' },
+    { id: '7', nama_lengkap: 'Fajar Nugraha', no_ktp: '3578', jabatan: 'Barista' },
+    { id: '8', nama_lengkap: 'Lina Marlina', no_ktp: '3275', jabatan: 'Supervisor' },
+    { id: '9', nama_lengkap: 'Indra Permadi', no_ktp: '3578', jabatan: 'Pramusaji' },
+    { id: '10', nama_lengkap: 'Yusuf Hidayat', no_ktp: '3174', jabatan: 'Kurir' },
+    { id: '11', nama_lengkap: 'Ratna Dewi', no_ktp: '3275', jabatan: 'Pramusaji' },
+    { id: '12', nama_lengkap: 'Hendra Kusuma', no_ktp: '3578', jabatan: 'Kurir' },
+  ],
+}
+
 // 12 employees × 7 days for the demo week — Sidi (emp id 2) Senin = Siang.
 function buildAssignments(): { assignments: BeShiftAssignment[] } {
   const employees = [
@@ -91,6 +110,12 @@ function stubOwnerFetch(extraAssignments: BeShiftAssignment[] = []) {
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
       const url = typeof input === 'string' ? input : input.toString()
+      if (url.includes('/api/employees')) {
+        return new Response(JSON.stringify(employeesPayload), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
       if (url.includes('/api/shifts')) {
         return new Response(JSON.stringify(shiftsPayload), {
           status: 200,
@@ -125,6 +150,12 @@ function stubEmployeeFetch(opts: { published?: boolean } = {}) {
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
       const url = typeof input === 'string' ? input : input.toString()
+      if (url.includes('/api/employees')) {
+        return new Response(JSON.stringify(employeesPayload), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
       if (url.includes('/api/shift-assignments')) {
         return new Response(JSON.stringify({ assignments: sidiAssignments }), {
           status: 200,

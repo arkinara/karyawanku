@@ -15,10 +15,11 @@ import {
   StatusChip,
 } from '@/components/ui'
 import { useAuth } from '@/lib/auth-context'
-import { EMPLOYEES } from '@/lib/employees-mock'
 import { NAV } from '@/lib/nav-config'
 import type { UserRole } from '@/lib/nav-config'
 import { cn } from '@/lib/cn'
+import { api } from '@/lib/api-client'
+import type { Employee } from '@/lib/api-client'
 import {
   DAY_LABELS,
   formatDayLong,
@@ -125,9 +126,8 @@ function weekDatesOf(weekStartIso: string): string[] {
 
 function OwnerView() {
   const [weekStart, setWeekStart] = useState(() => getWeekStart())
-  const [matrix, setMatrix] = useState<ShiftKey[][]>(() =>
-    EMPLOYEES.map(() => Array.from({ length: 7 }, () => 'libur' as ShiftKey)),
-  )
+  const [employees, setEmployees] = useState<Employee[]>([])
+  const [matrix, setMatrix] = useState<ShiftKey[][]>(() => [])
   const [published, setPublished] = useState(false)
   const [shifts, setShifts] = useState<BeShift[]>([])
   const [pattern, setPattern] = useState<ShiftKey>('pagi')
@@ -139,14 +139,16 @@ function OwnerView() {
       setLoading(true)
       setError(null)
       try {
-        const [shiftsRes, assignmentsRes] = await Promise.all([
+        const [empRes, shiftsRes, assignmentsRes] = await Promise.all([
+          api.get<{ employees: Employee[] }>('/api/employees', { limit: 200 }),
           apiRequest<{ shifts: BeShift[] }>('/api/shifts'),
           apiRequest<{ assignments: BeShiftAssignment[] }>('/api/shift-assignments', {
             query: { start: ws, end: weekEndIso(ws) },
           }),
         ])
+        setEmployees(empRes.employees)
         setShifts(shiftsRes.shifts)
-        setMatrix(buildMatrixFromAssignments(assignmentsRes.assignments, ws))
+        setMatrix(buildMatrixFromAssignments(assignmentsRes.assignments, ws, empRes.employees))
         setPublished(isWeekPublishedFromAssignments(assignmentsRes.assignments))
       } catch (e) {
         setError(e instanceof Error ? e : new Error(String(e)))
@@ -170,9 +172,9 @@ function OwnerView() {
   }
 
   const changeShift = async (empIdx: number, dayIdx: number, value: ShiftKey) => {
-    const employee = EMPLOYEES[empIdx]
+    const employee = employees[empIdx]
     const shift = pickShiftRecord(shifts, value)
-    if (!shift) return
+    if (!employee || !shift) return
     const dates = weekDatesOf(weekStart)
     const tanggal = dates[dayIdx]
     // Optimistic local update.
@@ -209,7 +211,7 @@ function OwnerView() {
     setMatrix((prev) => prev.map((row) => row.map(() => pattern)))
     try {
       await Promise.all(
-        EMPLOYEES.flatMap((emp, empIdx) =>
+        employees.flatMap((emp, empIdx) =>
           dates.map((tanggal, dayIdx) => {
             const current = matrix[empIdx]?.[dayIdx]
             // Only create new rows; existing rows go through PATCH if needed.
@@ -334,18 +336,21 @@ function OwnerView() {
                 </tr>
               </thead>
               <tbody>
-                {matrix.map((row, empIdx) => (
-                  <tr key={EMPLOYEES[empIdx].id} className="transition-colors hover:bg-surface-1">
+                {matrix.map((row, empIdx) => {
+                  const employee = employees[empIdx]
+                  if (!employee) return null
+                  return (
+                    <tr key={employee.id} className="transition-colors hover:bg-surface-1">
                     <td className="sticky left-0 z-10 whitespace-nowrap border-b border-outline-variant bg-surface px-4 py-2 align-middle">
-                      <p className="font-medium text-onsurface">{EMPLOYEES[empIdx].nama}</p>
-                      <p className="text-xs text-onsurface-variant">{EMPLOYEES[empIdx].jabatan}</p>
+                      <p className="font-medium text-onsurface">{employee.nama_lengkap}</p>
+                      <p className="text-xs text-onsurface-variant">{employee.no_ktp}</p>
                     </td>
                     {row.map((cell, dayIdx) => (
                       <td key={dayIdx} className="border-b border-outline-variant px-2 py-2 align-middle">
                         <select
                           value={cell}
                           onChange={(e) => void changeShift(empIdx, dayIdx, e.target.value as ShiftKey)}
-                          aria-label={`Shift ${EMPLOYEES[empIdx].nama} ${DAY_LABELS[dayIdx]}`}
+                          aria-label={`Shift ${employee.nama_lengkap} ${DAY_LABELS[dayIdx]}`}
                           className={cn(
                             'h-9 w-full min-w-[92px] cursor-pointer rounded-lg border-0 px-2 text-center text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary',
                             SHIFT_COLOR[cell],
@@ -360,7 +365,8 @@ function OwnerView() {
                       </td>
                     ))}
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -372,12 +378,8 @@ function OwnerView() {
   )
 }
 
-function selfEmployeeId(): string {
-  const name = NAV.employee.user.name
-  return EMPLOYEES.find((e) => e.nama === name)?.id ?? EMPLOYEES[0].id
-}
-
 function EmployeeView() {
+  const { user } = useAuth()
   const [weekStart, setWeekStart] = useState(() => getWeekStart())
   const [published, setPublished] = useState(false)
   const [shifts, setShifts] = useState<ShiftKey[]>(() =>
@@ -386,13 +388,22 @@ function EmployeeView() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
 
-  const employeeId = selfEmployeeId()
-
   const loadWeek = useCallback(
     async (ws: string): Promise<void> => {
       setLoading(true)
       setError(null)
       try {
+        const empRes = await api.get<{ employees: Employee[] }>('/api/employees', { limit: 200 })
+        // Prefer the session's employee link; demo fallback matches the nav user.
+        const employeeId =
+          user?.employee_id ??
+          empRes.employees.find((e) => e.nama_lengkap === NAV.employee.user.name)?.id ??
+          empRes.employees[0]?.id
+        if (!employeeId) {
+          setShifts(Array.from({ length: 7 }, () => 'libur' as ShiftKey))
+          setPublished(false)
+          return
+        }
         const res = await apiRequest<{ assignments: BeShiftAssignment[] }>(
           '/api/shift-assignments',
           { query: { start: ws, end: weekEndIso(ws), employee_id: employeeId } },
@@ -405,7 +416,7 @@ function EmployeeView() {
         setLoading(false)
       }
     },
-    [employeeId],
+    [user?.employee_id],
   )
 
   useEffect(() => {

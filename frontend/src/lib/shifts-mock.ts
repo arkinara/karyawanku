@@ -1,13 +1,11 @@
 /**
- * KaryawanKu — mock weekly shift roster data (FE-only, ticket #12).
+ * KaryawanKu — weekly shift roster helpers (ticket #12, mock retired #53).
  *
- * A per-week roster holds a 12-employee × 7-day matrix of shift assignments
- * plus a `published` flag. Owner edits/publishes through the grid editor;
- * employee only ever sees their own published shifts. Module-level state keeps
- * edits + publish consistent across renders within a session.
+ * Pure date + shift-label helpers shared by the roster grid and the employee
+ * "Jadwal Saya" view. The demo grid was previously backed by the 12-employee
+ * `employees-mock` module; the grid now renders real employees fetched from
+ * `GET /api/employees`, so no mock employee store lives here anymore.
  */
-
-import { EMPLOYEES } from '@/lib/employees-mock'
 
 export type ShiftKey = 'libur' | 'pagi' | 'siang' | 'malam'
 
@@ -38,34 +36,6 @@ export const SHIFT_OPTIONS: ShiftDef[] = [
 export const DAYS = 7
 export const DAY_LABELS = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
 
-/**
- * Default weekly pattern: a mix of Pagi / Siang / Malam with the rest Libur,
- * applied to any week on first access (deterministic, mock).
- */
-const TEMPLATE: ShiftKey[][] = [
-  ['pagi', 'pagi', 'pagi', 'siang', 'siang', 'libur', 'libur'],
-  ['siang', 'siang', 'malam', 'pagi', 'pagi', 'pagi', 'libur'],
-  ['malam', 'malam', 'malam', 'pagi', 'pagi', 'libur', 'libur'],
-  ['pagi', 'pagi', 'siang', 'siang', 'malam', 'malam', 'libur'],
-  ['libur', 'pagi', 'pagi', 'siang', 'siang', 'pagi', 'pagi'],
-  ['siang', 'malam', 'pagi', 'pagi', 'pagi', 'libur', 'siang'],
-  ['pagi', 'pagi', 'malam', 'malam', 'malam', 'libur', 'libur'],
-  ['libur', 'libur', 'pagi', 'pagi', 'siang', 'siang', 'pagi'],
-  ['siang', 'siang', 'pagi', 'pagi', 'pagi', 'libur', 'libur'],
-  ['malam', 'malam', 'siang', 'pagi', 'pagi', 'pagi', 'libur'],
-  ['pagi', 'pagi', 'libur', 'siang', 'siang', 'malam', 'malam'],
-  ['libur', 'libur', 'siang', 'siang', 'pagi', 'pagi', 'pagi'],
-]
-
-interface WeekRoster {
-  /** `employeeId-dayIndex` → shift. */
-  cells: Record<string, ShiftKey>
-  published: boolean
-}
-
-/** Session store, keyed by the week's Monday date (YYYY-MM-DD). */
-const store = new Map<string, WeekRoster>()
-
 function toIso(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
@@ -92,7 +62,7 @@ export function weekDates(weekStart: string): string[] {
   const d = new Date(weekStart + 'T00:00:00')
   return Array.from({ length: DAYS }, (_, i) => {
     const copy = new Date(d)
-    copy.setDate(d.getDate() + i)
+    copy.setDate(copy.getDate() + i)
     return toIso(copy)
   })
 }
@@ -114,72 +84,4 @@ export function formatDayLong(iso: string): string {
     month: 'long',
     year: 'numeric',
   }).format(new Date(iso + 'T00:00:00'))
-}
-
-function ensure(weekStart: string): WeekRoster {
-  let roster = store.get(weekStart)
-  if (!roster) {
-    const cells: Record<string, ShiftKey> = {}
-    EMPLOYEES.forEach((employee, i) => {
-      const row = TEMPLATE[i] ?? TEMPLATE[0]
-      for (let day = 0; day < DAYS; day++) cells[`${employee.id}-${day}`] = row[day]
-    })
-    roster = { cells, published: false }
-    store.set(weekStart, roster)
-  }
-  return roster
-}
-
-/** 12×7 matrix for the owner grid (draft included). */
-export function getWeekShifts(weekStart: string): ShiftKey[][] {
-  const roster = ensure(weekStart)
-  return EMPLOYEES.map((employee) =>
-    Array.from({ length: DAYS }, (_, day) => roster.cells[`${employee.id}-${day}`] ?? 'libur'),
-  )
-}
-
-/** Owner assigns one shift to a specific employee/day cell. */
-export function setShift(
-  weekStart: string,
-  employeeId: string,
-  dayIndex: number,
-  shift: ShiftKey,
-): void {
-  const roster = ensure(weekStart)
-  roster.cells[`${employeeId}-${dayIndex}`] = shift
-}
-
-/** Fill every libur (empty) cell of the week with `shift`. */
-export function applyPatternToWeek(weekStart: string, shift: ShiftKey): void {
-  const roster = ensure(weekStart)
-  for (const employee of EMPLOYEES) {
-    for (let day = 0; day < DAYS; day++) {
-      const key = `${employee.id}-${day}`
-      if ((roster.cells[key] ?? 'libur') === 'libur') roster.cells[key] = shift
-    }
-  }
-}
-
-export function isWeekPublished(weekStart: string): boolean {
-  return ensure(weekStart).published
-}
-
-/** Owner publishes a week — after this, employees can see their shifts. */
-export function publishWeek(weekStart: string): void {
-  ensure(weekStart).published = true
-}
-
-/**
- * The employee's own 7 shifts for a week. Only returned once the week is
- * published — a draft roster is invisible to employees (Phase 1 read-only).
- */
-export function getEmployeeShifts(employeeId: string, weekStart: string): ShiftKey[] {
-  const roster = ensure(weekStart)
-  if (!roster.published) return Array.from({ length: DAYS }, () => 'libur' as ShiftKey)
-  return Array.from({ length: DAYS }, (_, day) => roster.cells[`${employeeId}-${day}`] ?? 'libur')
-}
-
-/** Test hook — wipe session state so each test starts clean. */
-export function __resetShiftStore(): void {
-  store.clear()
 }

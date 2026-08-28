@@ -17,19 +17,31 @@ import {
   REQUIRED_FIELDS,
   suggestField,
   TEMPLATE_FILENAME,
+  toContractRow,
 } from '@/lib/csv-import'
 import type { EmployeeField, MappedRow, Mapping } from '@/lib/csv-import'
+import { api, ApiError, errorMessage } from '@/lib/api-client'
 import { AuthGuard, OWNER_ONLY } from '@/lib/route-guard'
 import { cn } from '@/lib/cn'
 
 /**
- * /employees/import — import karyawan via CSV (ticket #7).
+ * /employees/import — import karyawan via CSV (ticket #7, wired #53).
  *
- * 3-step wizard: (1) upload a .csv (max 5 MB) with a template download,
- * (2) map CSV columns to employee fields (auto-suggested, manually editable),
- * (3) preview every parsed row with per-row validation chips, then mock-commit
- * only the valid rows. FE-only — no API call.
+ * 3-step wizard: (1) upload a .csv (max 5 MB) with a template download —
+ * the file is handed to `POST /api/employees/import/preview` (multipart) so
+ * the BE validates it and proposes the column mapping; (2) map CSV columns to
+ * employee fields (auto-suggested, manually editable); (3) preview every
+ * parsed row with per-row validation chips, then commit the mapped rows to
+ * `POST /api/employees/import/commit`. The server response reports created /
+ * skipped / per-row failures; a successful commit redirects to `/employees`
+ * with a "Berhasil mengimpor N karyawan" toast.
  */
+
+interface ImportResult {
+  created: number
+  skipped: number
+  errors: Array<{ rowIndex: number; errors: string[] }>
+}
 
 const STEPS = [
   { key: 'upload', name: 'Upload' },
@@ -50,6 +62,10 @@ export default function ImportEmployeesPage() {
   const [mapping, setMapping] = useState<Mapping | null>(null)
   const [skipErrors, setSkipErrors] = useState(true)
   const [importing, setImporting] = useState(false)
+  const [importError, setImportError] = useState<string | null>(null)
+  /** Server-side per-row errors from the commit, keyed by CSV row number. */
+  const [serverErrors, setServerErrors] = useState<Record<number, string[]>>({})
+  const [result, setResult] = useState<ImportResult | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -106,9 +122,43 @@ export default function ImportEmployeesPage() {
       return
     }
 
+    // Wire #53 — the BE preview validates the upload and proposes the mapping.
+    let serverMapping: Record<string, string> | null = null
+    try {
+      const formData = new FormData()
+      formData.append('file', file, file.name)
+      const res = await api.upload<{
+        detectedHeaders?: string[]
+        suggestedMapping?: Record<string, string>
+        totalRows?: number
+        requiredMapped?: boolean
+      }>('/api/employees/import/preview', formData)
+      if (res && Array.isArray(res.detectedHeaders) && res.suggestedMapping) {
+        serverMapping = res.suggestedMapping
+      }
+    } catch (e) {
+      setFileError(e instanceof Error ? e.message : 'Gagal memvalidasi file di server')
+      return
+    }
+
     setFileName(file.name)
     setParsed(result)
-    setMapping(autoMapping(result.headers))
+    setServerErrors({})
+    setResult(null)
+
+    if (serverMapping) {
+      const seeded: Mapping = {}
+      result.headers.forEach((header, i) => {
+        const field = serverMapping![header]
+        seeded[i] =
+          field && (EMPLOYEE_FIELDS as readonly string[]).includes(field)
+            ? (field as EmployeeField)
+            : 'ignore'
+      })
+      setMapping(seeded)
+    } else {
+      setMapping(autoMapping(result.headers))
+    }
     setStep(1)
   }
 
@@ -127,10 +177,33 @@ export default function ImportEmployeesPage() {
   const handleImport = async () => {
     if (validCount === 0 || importing) return
     setImporting(true)
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    setImporting(false)
-    setToast(`${importCount} karyawan berhasil diimport.`)
-    redirectTimer.current = setTimeout(() => router.push('/employees'), 800)
+    setImportError(null)
+    try {
+      const columnMapping: Record<string, string> = {}
+      parsed!.headers.forEach((header, i) => {
+        const field = mapping?.[i]
+        if (field && field !== 'ignore') columnMapping[header] = field
+      })
+      // Wire #53 — commit the mapped rows; the BE re-validates each row and
+      // reports created / skipped / per-row failures.
+      const res = await api.post<ImportResult>('/api/employees/import/commit', {
+        rows: rows.map(toContractRow),
+        columnMapping,
+      })
+      const byRow: Record<number, string[]> = {}
+      for (const e of res.errors ?? []) byRow[e.rowIndex] = e.errors
+      setServerErrors(byRow)
+      setResult(res)
+
+      if (res.created > 0) {
+        setToast(`Berhasil mengimpor ${res.created} karyawan`)
+        redirectTimer.current = setTimeout(() => router.push('/employees'), 1200)
+      }
+    } catch (e) {
+      setImportError(e instanceof ApiError ? errorMessage(e) : 'Gagal mengimpor karyawan')
+    } finally {
+      setImporting(false)
+    }
   }
 
   const columns: Array<DataTableColumn<MappedRow>> = [
@@ -170,8 +243,20 @@ export default function ImportEmployeesPage() {
     {
       key: 'status',
       label: 'Status',
-      render: (r) =>
-        r.valid ? (
+      render: (r) => {
+        const serverMsgs = serverErrors[r.rowNumber]
+        if (serverMsgs && serverMsgs.length > 0) {
+          return (
+            <span title={serverMsgs.join('\n')}>
+              <StatusChip
+                variant="danger"
+                icon={XCircle}
+                label={serverMsgs[0] + (serverMsgs.length > 1 ? ` +${serverMsgs.length - 1}` : '')}
+              />
+            </span>
+          )
+        }
+        return r.valid ? (
           <StatusChip variant="success" icon={CheckCircle2} label="Valid" />
         ) : (
           <span title={r.errors.join('\n')}>
@@ -181,7 +266,8 @@ export default function ImportEmployeesPage() {
               label={r.errors[0] + (r.errors.length > 1 ? ` +${r.errors.length - 1}` : '')}
             />
           </span>
-        ),
+        )
+      },
     },
   ]
 
@@ -377,6 +463,33 @@ export default function ImportEmployeesPage() {
                 className="rounded-xl border border-danger-container bg-danger-container px-4 py-3 text-sm text-danger-on"
               >
                 Tidak ada data yang bisa diimport. Perbaiki file CSV dan ulangi.
+              </div>
+            )}
+
+            {importError && (
+              <div
+                role="alert"
+                className="rounded-xl border border-danger-container bg-danger-container px-4 py-3 text-sm text-danger-on"
+              >
+                {importError}
+              </div>
+            )}
+
+            {result && (
+              <div
+                role="status"
+                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-success/40 bg-success-container/40 px-4 py-3 text-sm text-success"
+              >
+                <p>
+                  <span className="font-semibold tabular-nums">{result.created} karyawan berhasil diimport</span>
+                  <span className="text-success-on">
+                    , {result.skipped} dilewati
+                    {result.errors.length > 0 && `, ${result.errors.length} baris error`}
+                  </span>
+                </p>
+                {result.created > 0 && (
+                  <p className="t-caption">Mengarahkan ke daftar karyawan…</p>
+                )}
               </div>
             )}
 

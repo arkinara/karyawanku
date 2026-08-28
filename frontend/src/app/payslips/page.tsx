@@ -13,7 +13,6 @@ import {
   SegmentedControl,
 } from '@/components/ui'
 import { cn } from '@/lib/cn'
-import { getEmployeeById } from '@/lib/employees-mock'
 import { formatIDR, formatTanggal } from '@/lib/format'
 import {
   breakdownOf,
@@ -26,7 +25,7 @@ import type { BePayslipDetail, BePayslipRow, Payslip } from '@/lib/payslips-adap
 import { api } from '@/lib/api-client'
 import { AuthGuard, ANY_ROLE } from '@/lib/route-guard'
 
-const EMPLOYEE_ID = '2'
+const EMPLOYEE_NAME = 'Siti Nurhaliza'
 
 type YearFilter = 'semua' | '2026' | '2025'
 
@@ -305,7 +304,6 @@ function PayslipDetailDialog({
 }
 
 export default function PayslipsPage() {
-  const employee = getEmployeeById(EMPLOYEE_ID)
   const [payslips, setPayslips] = useState<Payslip[]>([])
   const [filter, setFilter] = useState<YearFilter>('semua')
   const [selected, setSelected] = useState<Payslip | null>(null)
@@ -371,7 +369,7 @@ export default function PayslipsPage() {
         userRole="employee"
         activeNav="payslip"
         title="Slip Gaji"
-        subtitle={employee?.nama ?? 'Siti Nurhaliza'}
+        subtitle={EMPLOYEE_NAME}
       >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>

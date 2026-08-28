@@ -13,8 +13,6 @@
  * `payslips-mock.ts` and this file; the mock module was folded in and removed.)
  */
 
-import { EMPLOYEES } from '@/lib/employees-mock'
-
 export interface PayslipComponentRow {
   nama: string
   nominal: number
@@ -134,7 +132,6 @@ function asComponents(value: unknown): PayslipComponentRow[] {
  * the breakdown is missing so the viewer still renders meaningful content.
  */
 export function composePayslip(row: BePayslipRow, item?: BePayslipItemDetail | null): Payslip {
-  const emp = EMPLOYEES.find((e) => e.id === row.employee.id)
   const breakdown = item?.detail_breakdown ?? null
   const tunjangan = breakdown ? asComponents(breakdown.tunjangan) : []
   const potongan = breakdown ? asComponents(breakdown.potongan) : []
@@ -167,8 +164,8 @@ export function composePayslip(row: BePayslipRow, item?: BePayslipItemDetail | n
     id: row.id,
     employeeId: row.employee.id,
     period: row.periode,
-    nama: row.employee.nama_lengkap ?? emp?.nama ?? 'Karyawan',
-    jabatan: emp?.jabatan ?? '-',
+    nama: row.employee.nama_lengkap ?? 'Karyawan',
+    jabatan: '-',
     gajiPokok,
     tunjangan: finalTunjangan,
     potongan: finalPotongan,

@@ -4,15 +4,16 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, TextField } from '@/components/ui'
 import { cn } from '@/lib/cn'
-import type { EmployeeDetail as Employee } from '@/lib/employees-mock'
+import { KONTRAK_LABEL, type Employee } from '@/lib/api-client'
 
 /**
- * KaryawanKu — shared add/edit employee form (ticket #6).
+ * KaryawanKu — shared add/edit employee form (ticket #6, wired #53).
  *
  * One component drives both `/employees/new` (empty) and
- * `/employees/[id]/edit` (prefilled via `initialValues`). Validation runs
- * on blur, all messages in Bahasa Indonesia, submit is a mock promise the
- * parent resolves before navigating.
+ * `/employees/[id]/edit` (prefilled via `initialValues`). Types come from the
+ * BE API contract (`@/lib/api-client`), not the retired mock. Validation runs
+ * on blur, all messages in Bahasa Indonesia. Parent `onSubmit` performs the
+ * real API call; BE field errors are injected back via `ServerFieldErrors`.
  */
 
 export interface EmployeeFormValues {
@@ -32,9 +33,23 @@ export interface EmployeeFormProps {
   onCancel: () => void
 }
 
-const KONTRAK_OPTIONS = ['PKWTT', 'PKWT', 'PKL', 'Magang', 'Harian']
+export type FieldErrors = Partial<Record<keyof EmployeeFormValues, string>>
 
-type FieldErrors = Partial<Record<keyof EmployeeFormValues, string>>
+/**
+ * Throw this from `onSubmit` to render BE validation failures against the
+ * matching form fields (duplicate KTP, invalid NPWP, bad date, …).
+ */
+export class ServerFieldErrors extends Error {
+  readonly fieldErrors: FieldErrors
+
+  constructor(fieldErrors: FieldErrors, message?: string) {
+    super(message ?? 'Data karyawan tidak valid')
+    this.name = 'ServerFieldErrors'
+    this.fieldErrors = fieldErrors
+  }
+}
+
+const KONTRAK_OPTIONS = ['PKWTT', 'PKWT', 'PKL', 'Magang', 'Harian']
 
 const EMPTY_VALUES: EmployeeFormValues = {
   nama_lengkap: '',
@@ -47,16 +62,17 @@ const EMPTY_VALUES: EmployeeFormValues = {
   npwp: '',
 }
 
+/** BE snake_case employee → form values (contract enums become display labels). */
 function fromEmployee(e?: Partial<Employee>): EmployeeFormValues {
   if (!e) return EMPTY_VALUES
   return {
-    nama_lengkap: e.nama ?? '',
-    tanggal_lahir: e.tanggalLahir ?? '',
-    jenis_kontrak: e.jenisKontrak ?? '',
-    tanggal_masuk: e.tanggalMasuk ?? '',
+    nama_lengkap: e.nama_lengkap ?? '',
+    tanggal_lahir: e.tanggal_lahir ?? '',
+    jenis_kontrak: e.jenis_kontrak ? KONTRAK_LABEL[e.jenis_kontrak] : '',
+    tanggal_masuk: e.tanggal_masuk ?? '',
     alamat: e.alamat ?? '',
-    kontak_darurat: e.kontakDarurat ?? '',
-    no_ktp: e.noKtp ?? '',
+    kontak_darurat: e.kontak_darurat ?? '',
+    no_ktp: e.no_ktp ?? '',
     npwp: e.npwp ?? '',
   }
 }
@@ -216,6 +232,24 @@ export function EmployeeForm({ initialValues, onSubmit, onCancel }: EmployeeForm
     setSubmitting(true)
     try {
       await onSubmit(values)
+    } catch (e) {
+      if (e instanceof ServerFieldErrors) {
+        // BE validation failures render as field-level errors; touch every
+        // field so the mapped messages are visible.
+        setErrors((prev) => ({ ...prev, ...e.fieldErrors }))
+        setTouched({
+          nama_lengkap: true,
+          tanggal_lahir: true,
+          jenis_kontrak: true,
+          tanggal_masuk: true,
+          alamat: true,
+          kontak_darurat: true,
+          no_ktp: true,
+          npwp: true,
+        })
+        return
+      }
+      throw e
     } finally {
       setSubmitting(false)
     }

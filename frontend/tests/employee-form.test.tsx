@@ -2,23 +2,23 @@ import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { EmployeeForm } from '@/components/employees/employee-form'
 import type { EmployeeFormValues } from '@/components/employees/employee-form'
-import type { EmployeeDetail } from '@/lib/employees-mock'
+import type { Employee } from '@/lib/api-client'
 
-const EMPLOYEE_1: EmployeeDetail = {
+const EMPLOYEE_1: Employee = {
   id: '1',
-  nik: 'KRY-001',
-  nama: 'Budi Santoso',
-  jabatan: 'Kepala Barista',
-  status: 'aktif',
-  jenisKelamin: 'Laki-laki',
-  tanggalLahir: '1995-04-12',
-  alamat: 'Jl. Melati No. 12, Jakarta Selatan',
-  kontakDarurat: '+62 812-3456-7890',
-  noKtp: '3201234567890001',
+  business_id: 'biz-test',
+  nama_lengkap: 'Budi Santoso',
+  no_ktp: '3201234567890001',
   npwp: '01.234.567.8-901.000',
-  tanggalMasuk: '2023-01-12',
-  jenisKontrak: 'PKWTT',
-  customFields: [],
+  tanggal_lahir: '1995-04-12',
+  jenis_kelamin: 'L',
+  alamat: 'Jl. Melati No. 12, Jakarta Selatan',
+  kontak_darurat: '+62 812-3456-7890',
+  tanggal_masuk: '2023-01-12',
+  jenis_kontrak: 'pkwtt',
+  status: 'aktif',
+  ptkp_status: null,
+  custom_fields: {},
 }
 
 const VALID_VALUES: Record<keyof EmployeeFormValues, string> = {
