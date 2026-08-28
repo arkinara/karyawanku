@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm'
 import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 import { randomUUID } from 'node:crypto'
 
-export const roles = ['owner', 'employee'] as const
+export const roles = ['owner', 'manager', 'employee'] as const
 export type Role = (typeof roles)[number]
 
 export const userStatuses = ['aktif', 'nonaktif'] as const

@@ -23,7 +23,7 @@ Sesuaikan nilai di `.env` (wajib isi `JWT_SECRET`).
 | `npm run build` | Kompilasi TypeScript ke `dist/` |
 | `npm start` | Jalankan hasil build |
 | `npm run db:migrate` | Terapkan skema ke DB (`drizzle-kit push`) |
-| `npm run db:seed` | Isi data demo (1 bisnis + 3 user) |
+| `npm run db:seed` | Isi data demo (1 bisnis + 4 user: owner, manager, 2 karyawan) |
 | `npm test` | Jalankan test (vitest) |
 
 ## Struktur
@@ -38,7 +38,8 @@ src/
     migrate.ts    # drizzle-kit push
     seed.ts       # data demo
   lib/
-    auth.ts            # hash/verify password, JWT, requireAuth/requireOwner
+    capabilities.ts # matriks capability per peran (ticket #49) + hasCapability + export frontend
+    auth.ts            # hash/verify password, JWT, requireAuth/requireOwner/requireCapability
     errors.ts          # ApiError + turunannya
     attendance-status.ts # hitung status hadir/telat + late_minutes dari jam shift
   routes/
@@ -46,24 +47,24 @@ src/
     password-reset.ts  # POST forgot-password / reset-password
     businesses.ts      # POST onboarding signup (bisnis + owner) + GET/PATCH profil bisnis (owner)
     business-default-components.ts # GET/PUT komponen gaji default per bisnis (owner)
-    users.ts           # CRUD user (owner only)
+    users.ts           # CRUD user (users.manage; penugasan role manager/owner hanya owner)
     employees.ts       # CRUD karyawan (owner / self)
     employees-import.ts # import CSV: preview + commit
     salary-components.ts   # CRUD komponen gaji + preview formula
     salary-assignments.ts  # penugasan komponen gaji ke karyawan
-    attendance.ts      # clock-in/out, list, aggregate bulanan, manual (owner)
+    attendance.ts      # clock-in/out, list, aggregate bulanan, manual (attendance.manage)
     leave-types.ts     # CRUD jenis cuti (owner) + seed default
     leave-balances.ts  # saldo cuti per karyawan/tahun + reset tahunan
-    leave-requests.ts  # pengajuan cuti (karyawan) + approve/reject (owner)
-    shifts.ts          # CRUD shift template (owner, business-scoped, soft-delete)
+    leave-requests.ts  # pengajuan cuti (karyawan) + approve/reject (leave.approve)
+    shifts.ts          # CRUD shift template (roster.publish, business-scoped, soft-delete)
     shift-assignments.ts # penugasan shift per karyawan/tanggal + upcoming 3 hari
-    roster-publish.ts  # publish/unpublish roster shift secara batch (owner)
+    roster-publish.ts  # publish/unpublish roster shift secara batch (roster.publish)
     payroll-runs.ts    # buat run payroll draft + hitung gaji/BPJS/PPh21 per karyawan + koreksi/approve/lock
     payslips.ts        # daftar & unduh slip gaji PDF (owner semua, karyawan miliknya)
     payroll-export.ts  # ekspor rekap payroll ke CSV / XLSX (owner)
     dashboard.ts       # GET /dashboard — agregasi quick dashboard sesuai role (owner tim, employee diri sendiri)
   lib/
-    auth.ts            # hash/verify password, JWT (access+refresh), sesi revocable, requireAuth/requireOwner
+    auth.ts            # hash/verify password, JWT (access+refresh), sesi revocable, requireAuth/requireOwner/requireCapability
     errors.ts          # ApiError + turunannya
     attendance-status.ts # hitung status hadir/telat + late_minutes dari jam shift
     bpjs.ts            # kalkulasi BPJS Kesehatan + Ketenagakerjaan dari gaji pokok
@@ -89,16 +90,16 @@ Prefix: `/api`
 | POST | `/auth/sign-out` | Bearer | Cabut sesi saat ini (set `revoked_at`), balas `{ ok: true }`; token lama langsung 401 |
 | POST | `/auth/sign-out-all` | Bearer | Cabut semua sesi user (semua perangkat), balas `{ ok: true, sessions_revoked: N }` |
 | POST | `/auth/refresh` | — | Tukar `{ refresh_token }` dengan access + refresh baru; sesi lama dicabut (rotasi). Refresh token bekas / sudah dicabut → 401 |
-| GET | `/auth/me` | Bearer | User saat ini (hanya access token) |
+| GET | `/auth/me` | Bearer | User saat ini (hanya access token) + `capabilities` (capability peran user) + `role_capabilities` (matriks lengkap untuk frontend) |
 | POST | `/auth/forgot-password` | — | Body `{ email }`, buat token reset sekali pakai (hash sha256, kedaluwarsa 1 jam). Pengiriman email di luar scope — tautan dicatat ke log server. Respons generik sama untuk email terdaftar/tdk (anti-enumerasi). Rate limit 3×/jam/email |
 | POST | `/auth/reset-password` | — | Body `{ token, password }`, validasi token, set hash baru, tandai token terpakai, cabut semua sesi user. Token bekas/kedaluwarsa → 400 |
 | POST | `/businesses` | — | **Signup onboarding (disarankan untuk Owner baru):** buat bisnis + user pertama (role=owner) dalam satu transaksi, balas `{ user, token, refreshToken, business }`. Body: `{ nama_bisnis, jenis_usaha: 'fnb'|'jasa', alamat, owner: { nama, email, password } }`. Email unik secara global (duplikat → 409), password minimal 8 karakter |
 | GET | `/businesses/:id` | Owner | Profil bisnis (hanya bisnis milik caller; bisnis lain → 403) |
 | PATCH | `/businesses/:id` | Owner | Update subset `{ nama_bisnis?, jenis_usaha?, alamat? }`, balas business terbaru |
-| GET | `/users?limit=&offset=` | Owner | Daftar user (scoped bisnis) |
-| POST | `/users` | Owner | Buat user |
-| PATCH | `/users/:id` | Owner | Update user (role/employee_id/status) |
-| DELETE | `/users/:id` | Owner | Soft-delete user |
+| GET | `/users?limit=&offset=` | users.manage | Daftar user (scoped bisnis) |
+| POST | `/users` | users.manage | Buat user. Penetapan role `manager`/`owner` hanya oleh owner (non-owner → 403) |
+| PATCH | `/users/:id` | users.manage | Update user (role/employee_id/status). Ubah role hanya oleh owner; status user manager/owner hanya oleh owner |
+| DELETE | `/users/:id` | users.manage | Soft-delete user. Menonaktifkan user manager/owner hanya oleh owner |
 | GET | `/employees?limit=&offset=&jenis_kontrak=&status=` | Owner | Daftar karyawan (scoped bisnis, filter & paginasi) |
 | POST | `/employees` | Owner | Buat karyawan (validasi KTP/NPWP/umur, custom_fields JSON) |
 | GET | `/employees/:id` | Owner / karyawan terkait | Detail karyawan (custom_fields ter-parse) |
@@ -122,8 +123,8 @@ Prefix: `/api`
 | GET | `/attendance/today` | Karyawan / Owner | Absensi hari ini milik user |
 | GET | `/attendance/employee/:employeeId?start=&end=` | Owner / karyawan terkait | Daftar absensi (filter rentang tanggal) |
 | GET | `/attendance/aggregate/:employeeId?period=YYYY-MM` | Owner / karyawan terkait | Rekap bulanan `{ hadir, telat, absen, izin, total_late_minutes }` |
-| POST | `/attendance/manual` | Owner | Entri/koreksi manual (upsert by `employee_id`+`tanggal`) |
-| PATCH | `/attendance/:id` | Owner | Koreksi subset field catatan absensi |
+| POST | `/attendance/manual` | attendance.manage | Entri/koreksi manual (upsert by `employee_id`+`tanggal`); owner & manager |
+| PATCH | `/attendance/:id` | attendance.manage | Koreksi subset field catatan absensi; owner & manager |
 | GET | `/leave-types` | Owner | Daftar jenis cuti (seed default otomatis: Tahunan 12/carry-over 5, Sakit 5, Izin 3, Melahirkan 90) |
 | POST | `/leave-types` | Owner | Buat jenis cuti (`nama_jenis_cuti`, `default_kuota_hari`, `kebijakan_sisa`, `carry_over_max_days`) |
 | PATCH | `/leave-types/:id` | Owner | Update subset field jenis cuti |
@@ -134,19 +135,19 @@ Prefix: `/api`
 | POST | `/leave-requests` | Karyawan / Owner | Ajukan cuti (`leave_type_id`, `tanggal_mulai`, `tanggal_selesai`, `alasan`), status default `pending`, divalidasi vs sisa kuota |
 | GET | `/leave-requests?status=&employee_id=` | Owner / Karyawan | Riwayat pengajuan cuti (owner semua di bisnis; karyawan milik sendiri) |
 | GET | `/leave-requests/:id` | Owner / karyawan terkait | Detail pengajuan cuti |
-| PATCH | `/leave-requests/:id/approve` | Owner | Setujui cuti (status → `disetujui`, tambah `terpakai_hari`, catat approver) |
-| PATCH | `/leave-requests/:id/reject` | Owner | Tolak cuti (status → `ditolak`, tanpa ubah saldo) |
-| GET | `/shifts?includeInactive=true` | Owner | Daftar shift template (scoped bisnis; default aktif saja) |
-| POST | `/shifts` | Owner | Buat shift (`nama_shift` Pagi/Siang/Malam/Libur, `jam_mulai`, `jam_selesai`, `aktif?`); `jam_selesai` tidak boleh lebih awal dari `jam_mulai` |
-| PATCH | `/shifts/:id` | Owner | Update subset field shift |
-| DELETE | `/shifts/:id` | Owner | Soft-delete shift (set `aktif=false`); assignment lama tetap mereferensikan shift ini |
+| PATCH | `/leave-requests/:id/approve` | leave.approve | Setujui cuti (status → `disetujui`, tambah `terpakai_hari`, catat approver). Manager tidak bisa menyetujui cutinya sendiri |
+| PATCH | `/leave-requests/:id/reject` | leave.approve | Tolak cuti (status → `ditolak`, tanpa ubah saldo) |
+| GET | `/shifts?includeInactive=true` | roster.publish | Daftar shift template (scoped bisnis; default aktif saja) |
+| POST | `/shifts` | roster.publish | Buat shift (`nama_shift` Pagi/Siang/Malam/Libur, `jam_mulai`, `jam_selesai`, `aktif?`); `jam_selesai` tidak boleh lebih awal dari `jam_mulai` |
+| PATCH | `/shifts/:id` | roster.publish | Update subset field shift |
+| DELETE | `/shifts/:id` | roster.publish | Soft-delete shift (set `aktif=false`); assignment lama tetap mereferensikan shift ini |
 | GET | `/shift-assignments?start=&end=&employee_id=` | Owner / Karyawan | Daftar penugasan shift dalam rentang (owner semua di bisnis + optional filter; karyawan hanya milik sendiri DAN hanya `published=true`) |
-| POST | `/shift-assignments` | Owner | Tugaskan shift ke karyawan pada tanggal (`published` default `false`); validasi shift + karyawan di bisnis yang sama |
-| PATCH | `/shift-assignments/:id` | Owner | Update subset field penugasan (validasi silang bisnis bila ganti shift/karyawan) |
-| DELETE | `/shift-assignments/:id` | Owner | Hapus penugasan shift (hard delete) → `{ ok: true }` |
+| POST | `/shift-assignments` | roster.publish | Tugaskan shift ke karyawan pada tanggal (`published` default `false`); validasi shift + karyawan di bisnis yang sama |
+| PATCH | `/shift-assignments/:id` | roster.publish | Update subset field penugasan (validasi silang bisnis bila ganti shift/karyawan) |
+| DELETE | `/shift-assignments/:id` | roster.publish | Hapus penugasan shift (hard delete) → `{ ok: true }` |
 | GET | `/shift-assignments/upcoming` | Owner / Karyawan | Jadwal 3 hari ke depan, hanya `published=true` (owner bisnis-wide, karyawan milik sendiri) |
-| POST | `/roster/publish` | Owner | Publish batch roster: body `{ assignment_ids: [] }` ATAU `{ start, end, employee_ids? }`; set `published=true` + catat `published_at` & `published_by_user_id`; balas `{ updated, published_at, published_by_user_id }`. Publish ulang = no-op |
-| POST | `/roster/unpublish` | Owner | Kembalikan `published=false` untuk koreksi owner (field audit dipertahankan) |
+| POST | `/roster/publish` | roster.publish | Publish batch roster: body `{ assignment_ids: [] }` ATAU `{ start, end, employee_ids? }`; set `published=true` + catat `published_at` & `published_by_user_id`; balas `{ updated, published_at, published_by_user_id }`. Publish ulang = no-op |
+| POST | `/roster/unpublish` | roster.publish | Kembalikan `published=false` untuk koreksi owner/manager (field audit dipertahankan) |
 | POST | `/payroll-runs` | Owner | Buat run payroll draft: body `{ periode: 'YYYY-MM' }`, auto-buat `payroll_items` utk tiap karyawan `status=aktif`, hitung gaji pokok/tunjangan/BPJS/PPh21/take-home + `detail_breakdown` JSON. Duplikat periode → 409. Balas `{ run, items }` |
 | GET | `/payroll-runs?periode=` | Owner | Daftar run payroll di bisnis (opsional filter `periode`) |
 | GET | `/payroll-runs/:id` | Owner / karyawan terkait | Detail run + item; owner lihat semua, karyawan hanya item miliknya |
@@ -174,7 +175,7 @@ Catatan: saat `POST/PATCH /users` mengirim `employee_id`, sistem memvalidasi kar
 
 - `400` validasi / aturan bisnis (mis. demote diri sendiri)
 - `401` kredensial/sesi tidak valid
-- `403` bukan owner
+- `403` bukan owner / peran tidak memiliki capability yang diminta
 - `404` sumber daya tidak ditemukan
 - `409` email duplikat secara global
 - `422` nilai role/status tidak valid
@@ -182,6 +183,30 @@ Catatan: saat `POST/PATCH /users` mengirim `employee_id`, sistem memvalidasi kar
 - `500` kesalahan server
 
 Semua pesan error dalam Bahasa Indonesia, format `{ error: { message } }`.
+
+## Peran & matriks capability (ticket #49)
+
+Tiga peran: `owner`, `manager`, `employee`. Matriks dideklarasikan satu kali di `src/lib/capabilities.ts` dan dipakai semua guard rute via `requireCapability(...)` — bukan perbandingan `role` per handler. Kolom `users.role` di SQLite adalah TEXT biasa (drizzle enum = type-level), sehingga migrasi `drizzle/0009_add-manager-role.sql` hanya pre-flight validasi dan **tidak mengubah role baris yang ada** (employee tetap employee).
+
+| Capability | owner | manager | employee |
+|---|---|---|---|
+| `attendance.manage` (entri/koreksi absensi manual) | ✅ | ✅ | — |
+| `leave.approve` (setujui/tolak cuti) | ✅ | ✅ | — |
+| `roster.publish` (kelola shift + publish roster) | ✅ | ✅ | — |
+| `payroll.run` (buat run payroll) | ✅ | — | — |
+| `payroll.approve` (setujui/lock payroll) | ✅ | — | — |
+| `employees.write` | ✅ | ✅ | — |
+| `salary.write` (komponen & penugasan gaji) | ✅ | — | — |
+| `settings.write` (profil bisnis, default komponen, jenis cuti) | ✅ | — | — |
+| `users.manage` (kelola user; role manager/owner hanya owner) | ✅ | ✅ | — |
+
+Aturan tambahan:
+- Manager hanya bisa mengelola akun ber-role `employee`; menetapkan/menurunkan/menonaktifkan `manager`/`owner` → 403.
+- Manager tidak dapat menyetujui/menolak cuti miliknya sendiri.
+- Semua aksi manager di-scope ke `business_id`-nya sendiri (divalidasi server-side, bukan dari body).
+- Payroll, salary components/assignments, settings bisnis, dan manage role tetap owner-only.
+
+`GET /api/auth/me` mengekspos `capabilities` (capability user saat ini) dan `role_capabilities` (matriks penuh) sehingga frontend bisa menurunkan gating-nya dari sumber yang sama.
 
 ## Catatan auth
 

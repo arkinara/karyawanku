@@ -3,7 +3,7 @@ import { and, eq, gte, inArray, lte } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDb } from '../db/index.js'
 import { employees, shiftAssignments } from '../db/schema.js'
-import { currentUser, requireOwner } from '../lib/auth.js'
+import { currentUser, requireCapability } from '../lib/auth.js'
 import { ApiError } from '../lib/errors.js'
 
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Tanggal wajib berformat YYYY-MM-DD')
@@ -90,7 +90,7 @@ function buildTargets(
 }
 
 export default async function rosterPublishRoutes(app: FastifyInstance): Promise<void> {
-  app.addHook('preHandler', requireOwner)
+  app.addHook('preHandler', requireCapability('roster.publish'))
 
   app.post('/roster/publish', async (req) => {
     const user = currentUser(req)

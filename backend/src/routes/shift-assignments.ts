@@ -3,7 +3,7 @@ import { and, asc, eq, gte, lte } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDb } from '../db/index.js'
 import { employees, shiftAssignments, shifts } from '../db/schema.js'
-import { currentUser, requireAuth, requireOwner } from '../lib/auth.js'
+import { currentUser, requireAuth, requireCapability } from '../lib/auth.js'
 import { ApiError } from '../lib/errors.js'
 
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Tanggal wajib berformat YYYY-MM-DD')
@@ -148,7 +148,7 @@ export default async function shiftAssignmentsRoutes(app: FastifyInstance): Prom
     return { assignments: rows.map((r) => serialize(r)) }
   })
 
-  app.post('/shift-assignments', { preHandler: requireOwner }, async (req) => {
+  app.post('/shift-assignments', { preHandler: requireCapability('roster.publish') }, async (req) => {
     const parsed = createSchema.safeParse(req.body)
     if (!parsed.success) {
       throw new ApiError(422, 'Data penugasan shift tidak valid', parsed.error.flatten())
@@ -199,7 +199,7 @@ export default async function shiftAssignmentsRoutes(app: FastifyInstance): Prom
     }
   })
 
-  app.patch('/shift-assignments/:id', { preHandler: requireOwner }, async (req) => {
+  app.patch('/shift-assignments/:id', { preHandler: requireCapability('roster.publish') }, async (req) => {
     const { id } = req.params as { id: string }
     const parsed = updateSchema.safeParse(req.body)
     if (!parsed.success) {
@@ -264,7 +264,7 @@ export default async function shiftAssignmentsRoutes(app: FastifyInstance): Prom
     return { assignment: serialize(row ?? { assignment: updated, employee_name: '', shift: null }) }
   })
 
-  app.delete('/shift-assignments/:id', { preHandler: requireOwner }, async (req) => {
+  app.delete('/shift-assignments/:id', { preHandler: requireCapability('roster.publish') }, async (req) => {
     const { id } = req.params as { id: string }
     const user = currentUser(req)
     const { db } = getDb()

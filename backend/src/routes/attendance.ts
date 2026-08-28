@@ -3,7 +3,8 @@ import { and, asc, eq, gte, lte, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDb } from '../db/index.js'
 import { attendanceRecords, employees, shiftAssignments, shifts } from '../db/schema.js'
-import { currentUser, requireAuth, requireOwner } from '../lib/auth.js'
+import { currentUser, requireAuth, requireCapability } from '../lib/auth.js'
+import { hasCapability } from '../lib/capabilities.js'
 import { ApiError, ConflictError, ForbiddenError } from '../lib/errors.js'
 import { computeAttendanceStatus, DEFAULT_SCHEDULE_START } from '../lib/attendance-status.js'
 
@@ -62,8 +63,9 @@ function parseClientTimestamp(raw: unknown): Date {
 }
 
 /**
- * Menentukan karyawan target dari request. Owner boleh menunjuk employee_id
- * (validasi dalam bisnis); employee hanya boleh untuk dirinya sendiri.
+ * Menentukan karyawan target dari request. Owner dan Manager (yang memegang
+ * `attendance.manage`) boleh menunjuk employee_id (validasi dalam bisnis);
+ * employee hanya boleh untuk dirinya sendiri.
  */
 function resolveTargetEmployee(
   req: FastifyRequest,
@@ -72,7 +74,7 @@ function resolveTargetEmployee(
   const user = currentUser(req)
   const { db } = getDb()
 
-  if (user.role === 'owner') {
+  if (user.role === 'owner' || hasCapability(user.role, 'attendance.manage')) {
     const id = employeeIdParam ?? user.employee_id
     if (!id) throw new ApiError(422, 'employee_id wajib diisi')
     const emp = db
@@ -227,7 +229,7 @@ export default async function attendanceRoutes(app: FastifyInstance): Promise<vo
       .get()
     if (!emp) throw new ApiError(404, 'Karyawan tidak ditemukan')
 
-    const isOwner = user.role === 'owner'
+    const isOwner = user.role === 'owner' || hasCapability(user.role, 'attendance.manage')
     const isSelf = user.role === 'employee' && user.employee_id === employeeId
     if (!isOwner && !isSelf) {
       throw new ForbiddenError('Anda tidak berhak mengakses data ini.')
@@ -263,7 +265,7 @@ export default async function attendanceRoutes(app: FastifyInstance): Promise<vo
       .get()
     if (!emp) throw new ApiError(404, 'Karyawan tidak ditemukan')
 
-    const isOwner = user.role === 'owner'
+    const isOwner = user.role === 'owner' || hasCapability(user.role, 'attendance.manage')
     const isSelf = user.role === 'employee' && user.employee_id === employeeId
     if (!isOwner && !isSelf) {
       throw new ForbiddenError('Anda tidak berhak mengakses data ini.')
@@ -296,7 +298,7 @@ export default async function attendanceRoutes(app: FastifyInstance): Promise<vo
     return { hadir, telat, absen, izin, total_late_minutes: totalLateMinutes }
   })
 
-  app.post('/attendance/manual', { preHandler: requireOwner }, async (req) => {
+  app.post('/attendance/manual', { preHandler: requireCapability('attendance.manage') }, async (req) => {
     const parsed = manualSchema.safeParse(req.body)
     if (!parsed.success) {
       throw new ApiError(422, 'Data absensi tidak valid', parsed.error.flatten())
@@ -351,7 +353,7 @@ export default async function attendanceRoutes(app: FastifyInstance): Promise<vo
     return { record, upserted: true }
   })
 
-  app.patch('/attendance/:id', { preHandler: requireOwner }, async (req) => {
+  app.patch('/attendance/:id', { preHandler: requireCapability('attendance.manage') }, async (req) => {
     const parsed = patchSchema.safeParse(req.body)
     if (!parsed.success) {
       throw new ApiError(422, 'Data absensi tidak valid', parsed.error.flatten())

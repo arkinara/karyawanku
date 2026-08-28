@@ -18,6 +18,7 @@ import {
 } from '../lib/auth.js'
 import { registerBusinessAndOwner } from '../lib/registration.js'
 import { UnauthorizedError, ValidationError } from '../lib/errors.js'
+import { capabilitiesForRole, ROLE_CAPABILITIES_FOR_FRONTEND } from '../lib/capabilities.js'
 
 const signUpSchema = z.object({
   nama: z.string().min(1, 'Nama wajib diisi'),
@@ -124,6 +125,10 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
   app.get('/auth/me', async (req) => {
     const user = await getCurrentUser(req)
     if (!user) throw new UnauthorizedError()
-    return { user: publicUser(user) }
+    return {
+      user: publicUser(user),
+      capabilities: capabilitiesForRole(user.role),
+      role_capabilities: ROLE_CAPABILITIES_FOR_FRONTEND,
+    }
   })
 }

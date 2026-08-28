@@ -35,7 +35,7 @@ function isoTime(dayOffset: number, hhmm: string): string {
 
 /**
  * Seed data awal untuk demo lokal:
- * 1 bisnis default + 1 owner + 2 karyawan.
+ * 1 bisnis default + 1 owner + 1 manager + 2 karyawan.
  * Idempoten — melewatkan baris yang email-nya sudah terdaftar di bisnis itu.
  */
 export async function seed(): Promise<void> {
@@ -52,8 +52,9 @@ export async function seed(): Promise<void> {
     business = inserted
   }
 
-  const seedUsers: Array<{ nama: string; email: string; password: string; role: 'owner' | 'employee' }> = [
+  const seedUsers: Array<{ nama: string; email: string; password: string; role: 'owner' | 'manager' | 'employee' }> = [
     { nama: 'Darmawan', email: 'owner@demo.com', password: 'owner123', role: 'owner' },
+    { nama: 'Rina', email: 'manager@demo.com', password: 'manager123', role: 'manager' },
     { nama: 'Siti', email: 'siti@demo.com', password: 'demo123', role: 'employee' },
     { nama: 'Budi', email: 'budi@demo.com', password: 'demo123', role: 'employee' },
   ]
@@ -77,7 +78,7 @@ export async function seed(): Promise<void> {
     }).run()
   }
 
-  console.log('[seed] selesai: 1 bisnis, 3 user demo')
+  console.log('[seed] selesai: 1 bisnis, 4 user demo')
 
   await seedEmployeeData(business.id)
 }

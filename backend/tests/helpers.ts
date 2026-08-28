@@ -15,6 +15,7 @@ export interface TestCtx {
   cleanup: () => void
   businessId: string
   ownerToken: string
+  managerToken: string
   employeeToken: string
   otherBusinessId: string
 }
@@ -35,6 +36,7 @@ export async function setupTest(): Promise<TestCtx> {
   const { db } = instance
 
   const ownerPassword = await hashPassword('owner123')
+  const managerPassword = await hashPassword('manager123')
   const employeePassword = await hashPassword('demo123')
 
   const business = db
@@ -67,6 +69,18 @@ export async function setupTest(): Promise<TestCtx> {
     .returning()
     .get()
 
+  const manager = db
+    .insert(users)
+    .values({
+      business_id: business.id,
+      nama: 'Rina',
+      email: 'manager@demo.com',
+      password_hash: managerPassword,
+      role: 'manager',
+    })
+    .returning()
+    .get()
+
   const otherBusiness = db
     .insert(businesses)
     .values({ nama_bisnis: 'Kedai Lain', jenis_usaha: 'fnb' })
@@ -88,6 +102,12 @@ export async function setupTest(): Promise<TestCtx> {
 
   const { signToken } = await import('../src/lib/auth.js')
   const ownerIssued = await signToken({ id: owner.id, business_id: owner.business_id, role: owner.role, email: owner.email })
+  const managerIssued = await signToken({
+    id: manager.id,
+    business_id: manager.business_id,
+    role: manager.role,
+    email: manager.email,
+  })
   const employeeIssued = await signToken({
     id: employee.id,
     business_id: employee.business_id,
@@ -107,6 +127,7 @@ export async function setupTest(): Promise<TestCtx> {
     cleanup,
     businessId: business.id,
     ownerToken: ownerIssued.accessToken,
+    managerToken: managerIssued.accessToken,
     employeeToken: employeeIssued.accessToken,
     otherBusinessId: otherBusiness.id,
   }

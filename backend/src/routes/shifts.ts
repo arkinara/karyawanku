@@ -3,7 +3,7 @@ import { and, asc, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDb } from '../db/index.js'
 import { shifts } from '../db/schema.js'
-import { currentUser, requireOwner } from '../lib/auth.js'
+import { currentUser, requireCapability } from '../lib/auth.js'
 import { ApiError } from '../lib/errors.js'
 
 const timeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Jam wajib berformat HH:MM')
@@ -33,7 +33,7 @@ function validateTimeRange(jamMulai: string, jamSelesai: string): void {
 }
 
 export default async function shiftsRoutes(app: FastifyInstance): Promise<void> {
-  app.addHook('preHandler', requireOwner)
+  app.addHook('preHandler', requireCapability('roster.publish'))
 
   app.get('/shifts', async (req) => {
     const user = currentUser(req)

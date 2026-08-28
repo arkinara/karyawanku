@@ -5,6 +5,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import { getDb } from '../db/index.js'
 import { sessions, users, type Role, type Session, type User } from '../db/schema.js'
+import { hasCapability, type Capability } from './capabilities.js'
 import { ForbiddenError, UnauthorizedError } from './errors.js'
 
 const BCRYPT_ROUNDS = 10
@@ -192,6 +193,21 @@ export async function requireOwner(req: FastifyRequest, reply: FastifyReply): Pr
   const user = (req as AuthRequest).user
   if (user.role !== 'owner') {
     throw new ForbiddenError('Hanya pemilik yang dapat mengakses sumber daya ini.')
+  }
+}
+
+/**
+ * Middleware berbasis capability. Memastikan user terautentikasi dan perannya
+ * memegang capability yang diminta (lihat `src/lib/capabilities.ts`). Bila
+ * tidak → 403.
+ */
+export function requireCapability(capability: Capability) {
+  return async function (req: FastifyRequest, reply: FastifyReply): Promise<void> {
+    await requireAuth(req, reply)
+    const user = (req as AuthRequest).user
+    if (!hasCapability(user.role, capability)) {
+      throw new ForbiddenError('Anda tidak memiliki izin untuk aksi ini.')
+    }
   }
 }
 

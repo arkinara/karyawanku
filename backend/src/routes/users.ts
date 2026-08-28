@@ -3,8 +3,8 @@ import { z } from 'zod'
 import { and, eq } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
 import { employees, roles, users, type Role, type UserStatus } from '../db/schema.js'
-import { currentUser, hashPassword, publicUser, requireOwner, revokeAllSessionsForUser } from '../lib/auth.js'
-import { ApiError, ConflictError, ValidationError } from '../lib/errors.js'
+import { currentUser, hashPassword, publicUser, requireCapability, revokeAllSessionsForUser } from '../lib/auth.js'
+import { ApiError, ConflictError, ForbiddenError, ValidationError } from '../lib/errors.js'
 
 const createUserSchema = z.object({
   email: z.string().email('Format email tidak valid').toLowerCase(),
@@ -23,7 +23,7 @@ const updateUserSchema = z.object({
 })
 
 export default async function usersRoutes(app: FastifyInstance): Promise<void> {
-  app.addHook('preHandler', requireOwner)
+  app.addHook('preHandler', requireCapability('users.manage'))
 
   app.get('/users', async (req) => {
     const q = req.query as Record<string, unknown>
@@ -69,6 +69,9 @@ export default async function usersRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const role: Role = data.role ?? 'employee'
+    if (role !== 'employee' && owner.role !== 'owner') {
+      throw new ForbiddenError('Hanya pemilik yang dapat menetapkan role manager atau owner.')
+    }
     if (data.employee_id) {
       await assertEmployeeInBusiness(db, owner.business_id, data.employee_id)
     }
@@ -103,6 +106,9 @@ export default async function usersRoutes(app: FastifyInstance): Promise<void> {
     if (data.status !== undefined && !['aktif', 'nonaktif'].includes(data.status)) {
       throw new ApiError(422, 'Status tidak valid')
     }
+    if (data.role !== undefined && owner.role !== 'owner') {
+      throw new ForbiddenError('Hanya pemilik yang dapat mengubah role pengguna.')
+    }
 
     const { db } = getDb()
     const target = db
@@ -112,6 +118,9 @@ export default async function usersRoutes(app: FastifyInstance): Promise<void> {
       .get()
     if (!target) {
       throw new ApiError(404, 'Pengguna tidak ditemukan')
+    }
+    if (target.role !== 'employee' && owner.role !== 'owner' && data.status !== undefined) {
+      throw new ForbiddenError('Hanya pemilik yang dapat mengubah status pengguna ini.')
     }
 
     if (data.role && target.role === 'owner' && data.role !== 'owner' && target.id === owner.id) {
@@ -161,6 +170,9 @@ export default async function usersRoutes(app: FastifyInstance): Promise<void> {
     }
     if (target.role === 'owner' && !(await hasOtherOwner(owner.business_id, id))) {
       throw new ApiError(400, 'Bisnis harus memiliki minimal satu pemilik')
+    }
+    if (target.role !== 'employee' && owner.role !== 'owner') {
+      throw new ForbiddenError('Hanya pemilik yang dapat menonaktifkan pengguna ini.')
     }
 
     db.update(users).set({ status: 'nonaktif' as UserStatus }).where(eq(users.id, id)).run()

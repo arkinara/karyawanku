@@ -3,7 +3,8 @@ import { and, desc, eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDb } from '../db/index.js'
 import { employees, leaveBalances, leaveRequests, leaveTypes } from '../db/schema.js'
-import { currentUser, requireAuth, requireOwner } from '../lib/auth.js'
+import { currentUser, requireAuth, requireCapability } from '../lib/auth.js'
+import { hasCapability } from '../lib/capabilities.js'
 import { ApiError, ConflictError, ForbiddenError } from '../lib/errors.js'
 import { ensureLeaveBalance, referenceDateForYear } from '../lib/leave-reset.js'
 
@@ -187,17 +188,17 @@ export default async function leaveRequestsRoutes(app: FastifyInstance): Promise
         .from(employees)
         .where(and(eq(employees.id, row.request.employee_id), eq(employees.business_id, user.business_id)))
         .get()
-      if (user.role === 'owner' && emp) {
+      if (user.role === 'owner' || hasCapability(user.role, 'leave.approve')) {
+        if (!emp) throw new ApiError(404, 'Pengajuan cuti tidak ditemukan')
         return serialize({ request: row.request, employee_name: row.employee_name, leave_type_name: row.leave_type_name })
       }
-      if (user.role === 'owner') throw new ApiError(404, 'Pengajuan cuti tidak ditemukan')
       throw new ForbiddenError('Anda hanya dapat melihat pengajuan cuti Anda sendiri.')
     }
 
     return { request: serialize({ request: row.request, employee_name: row.employee_name, leave_type_name: row.leave_type_name }) }
   })
 
-  app.patch('/leave-requests/:id/approve', { preHandler: requireOwner }, async (req) => {
+  app.patch('/leave-requests/:id/approve', { preHandler: requireCapability('leave.approve') }, async (req) => {
     const { id } = req.params as { id: string }
     const parsed = catatanSchema.safeParse(req.body ?? {})
     if (!parsed.success) {
@@ -214,6 +215,9 @@ export default async function leaveRequestsRoutes(app: FastifyInstance): Promise
       .get()
     if (!row || row.employee.business_id !== user.business_id) {
       throw new ApiError(404, 'Pengajuan cuti tidak ditemukan')
+    }
+    if (user.employee_id && row.request.employee_id === user.employee_id) {
+      throw new ForbiddenError('Anda tidak dapat menyetujui pengajuan cuti Anda sendiri.')
     }
     if (row.request.status !== 'pending') {
       throw new ConflictError('Pengajuan cuti sudah diputuskan')
@@ -254,7 +258,7 @@ export default async function leaveRequestsRoutes(app: FastifyInstance): Promise
     return { request: serialize({ request: updated, employee_name: row.employee.nama_lengkap, leave_type_name: type?.nama_jenis_cuti ?? '' }) }
   })
 
-  app.patch('/leave-requests/:id/reject', { preHandler: requireOwner }, async (req) => {
+  app.patch('/leave-requests/:id/reject', { preHandler: requireCapability('leave.approve') }, async (req) => {
     const { id } = req.params as { id: string }
     const parsed = catatanSchema.safeParse(req.body ?? {})
     if (!parsed.success) {
@@ -271,6 +275,9 @@ export default async function leaveRequestsRoutes(app: FastifyInstance): Promise
       .get()
     if (!row || row.employee.business_id !== user.business_id) {
       throw new ApiError(404, 'Pengajuan cuti tidak ditemukan')
+    }
+    if (user.employee_id && row.request.employee_id === user.employee_id) {
+      throw new ForbiddenError('Anda tidak dapat menolak pengajuan cuti Anda sendiri.')
     }
     if (row.request.status !== 'pending') {
       throw new ConflictError('Pengajuan cuti sudah diputuskan')

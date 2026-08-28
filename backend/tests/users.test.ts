@@ -18,8 +18,8 @@ describe('GET /api/users', () => {
     const res = await ctx.app.inject({ method: 'GET', url: '/api/users', headers: auth(ctx.ownerToken) })
     expect(res.statusCode).toBe(200)
     const body = res.json()
-    expect(body.users.length).toBe(2)
-    expect(body.total).toBe(2)
+    expect(body.users.length).toBe(3)
+    expect(body.total).toBe(3)
   })
 
   it('employee mendapat 403', async () => {
@@ -158,9 +158,23 @@ describe('PATCH /api/users/:id', () => {
       method: 'PATCH',
       url: `/api/users/${target.id}`,
       headers: auth(ctx.ownerToken),
-      payload: { role: 'manager' },
+      payload: { role: 'superadmin' },
     })
     expect(res.statusCode).toBe(422)
+  })
+
+  it('owner menaikkan employee menjadi manager', async () => {
+    ctx = await setupTest()
+    const list = await ctx.app.inject({ method: 'GET', url: '/api/users', headers: auth(ctx.ownerToken) })
+    const target = list.json().users.find((u: { email: string }) => u.email === 'siti@demo.com')
+    const res = await ctx.app.inject({
+      method: 'PATCH',
+      url: `/api/users/${target.id}`,
+      headers: auth(ctx.ownerToken),
+      payload: { role: 'manager' },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().user.role).toBe('manager')
   })
 })
 
