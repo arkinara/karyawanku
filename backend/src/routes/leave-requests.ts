@@ -5,6 +5,7 @@ import { getDb } from '../db/index.js'
 import { employees, leaveBalances, leaveRequests, leaveTypes } from '../db/schema.js'
 import { currentUser, requireAuth, requireCapability } from '../lib/auth.js'
 import { hasCapability } from '../lib/capabilities.js'
+import { recordAudit } from '../lib/audit.js'
 import { ApiError, ConflictError, ForbiddenError } from '../lib/errors.js'
 import { ensureLeaveBalance, referenceDateForYear } from '../lib/leave-reset.js'
 
@@ -231,29 +232,49 @@ export default async function leaveRequestsRoutes(app: FastifyInstance): Promise
     const tahun = Number(row.request.tanggal_mulai.split('-')[0])
     const requestedDays = daysBetween(row.request.tanggal_mulai, row.request.tanggal_selesi)
 
-    if (type && type.default_kuota_hari > 0) {
-      const balance = ensureLeaveBalance(row.employee, type, tahun, referenceDateForYear(tahun))
-      const remaining = balance.kuota_hari - balance.terpakai_hari
-      if (requestedDays > remaining) {
-        throw new ConflictError('Sisa kuota cuti tidak mencukupi')
+    const updated = db.transaction((tx) => {
+      if (type && type.default_kuota_hari > 0) {
+        const balance = ensureLeaveBalance(row.employee, type, tahun, referenceDateForYear(tahun))
+        const remaining = balance.kuota_hari - balance.terpakai_hari
+        if (requestedDays > remaining) {
+          throw new ConflictError('Sisa kuota cuti tidak mencukupi')
+        }
+        tx.update(leaveBalances)
+          .set({ terpakai_hari: sql`${leaveBalances.terpakai_hari} + ${requestedDays}` })
+          .where(eq(leaveBalances.id, balance.id))
+          .run()
       }
-      db.update(leaveBalances)
-        .set({ terpakai_hari: sql`${leaveBalances.terpakai_hari} + ${requestedDays}` })
-        .where(eq(leaveBalances.id, balance.id))
-        .run()
-    }
 
-    const updated = db
-      .update(leaveRequests)
-      .set({
-        status: 'disetujui',
-        approver_user_id: user.id,
-        catatan_approver: parsed.data.catatan_approver ?? row.request.catatan_approver,
-        decided_at: new Date(),
+      const changed = tx
+        .update(leaveRequests)
+        .set({
+          status: 'disetujui',
+          approver_user_id: user.id,
+          catatan_approver: parsed.data.catatan_approver ?? row.request.catatan_approver,
+          decided_at: new Date(),
+        })
+        .where(eq(leaveRequests.id, id))
+        .returning()
+        .get()
+
+      recordAudit({
+        db: tx,
+        businessId: user.business_id,
+        actorUserId: user.id,
+        action: 'leave.approve',
+        entityType: 'leave_request',
+        entityId: id,
+        before: { status: row.request.status },
+        after: {
+          status: changed.status,
+          approver_user_id: changed.approver_user_id,
+          catatan_approver: changed.catatan_approver,
+          decided_at: changed.decided_at,
+        },
       })
-      .where(eq(leaveRequests.id, id))
-      .returning()
-      .get()
+
+      return changed
+    })
 
     return { request: serialize({ request: updated, employee_name: row.employee.nama_lengkap, leave_type_name: type?.nama_jenis_cuti ?? '' }) }
   })
@@ -285,17 +306,37 @@ export default async function leaveRequestsRoutes(app: FastifyInstance): Promise
 
     const type = db.select().from(leaveTypes).where(eq(leaveTypes.id, row.request.leave_type_id)).get()
 
-    const updated = db
-      .update(leaveRequests)
-      .set({
-        status: 'ditolak',
-        approver_user_id: user.id,
-        catatan_approver: parsed.data.catatan_approver ?? row.request.catatan_approver,
-        decided_at: new Date(),
+    const updated = db.transaction((tx) => {
+      const changed = tx
+        .update(leaveRequests)
+        .set({
+          status: 'ditolak',
+          approver_user_id: user.id,
+          catatan_approver: parsed.data.catatan_approver ?? row.request.catatan_approver,
+          decided_at: new Date(),
+        })
+        .where(eq(leaveRequests.id, id))
+        .returning()
+        .get()
+
+      recordAudit({
+        db: tx,
+        businessId: user.business_id,
+        actorUserId: user.id,
+        action: 'leave.reject',
+        entityType: 'leave_request',
+        entityId: id,
+        before: { status: row.request.status },
+        after: {
+          status: changed.status,
+          approver_user_id: changed.approver_user_id,
+          catatan_approver: changed.catatan_approver,
+          decided_at: changed.decided_at,
+        },
       })
-      .where(eq(leaveRequests.id, id))
-      .returning()
-      .get()
+
+      return changed
+    })
 
     return { request: serialize({ request: updated, employee_name: row.employee.nama_lengkap, leave_type_name: type?.nama_jenis_cuti ?? '' }) }
   })

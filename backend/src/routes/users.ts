@@ -4,6 +4,7 @@ import { and, eq } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
 import { employees, roles, users, type Role, type UserStatus } from '../db/schema.js'
 import { currentUser, hashPassword, publicUser, requireCapability, revokeAllSessionsForUser } from '../lib/auth.js'
+import { recordAudit } from '../lib/audit.js'
 import { ApiError, ConflictError, ForbiddenError, ValidationError } from '../lib/errors.js'
 
 const createUserSchema = z.object({
@@ -143,7 +144,22 @@ export default async function usersRoutes(app: FastifyInstance): Promise<void> {
     if (data.nama !== undefined) patch.nama = data.nama
     if (data.password !== undefined) patch.password_hash = await hashPassword(data.password)
 
-    const updated = db.update(users).set(patch).where(eq(users.id, id)).returning().get()
+    const updated = db.transaction((tx) => {
+      const changed = tx.update(users).set(patch).where(eq(users.id, id)).returning().get()
+
+      recordAudit({
+        db: tx,
+        businessId: owner.business_id,
+        actorUserId: owner.id,
+        action: 'user.update',
+        entityType: 'user',
+        entityId: id,
+        before: target,
+        after: changed,
+      })
+
+      return changed
+    })
 
     if (updated.status === 'nonaktif') {
       revokeAllSessionsForUser(updated.id)
@@ -175,7 +191,20 @@ export default async function usersRoutes(app: FastifyInstance): Promise<void> {
       throw new ForbiddenError('Hanya pemilik yang dapat menonaktifkan pengguna ini.')
     }
 
-    db.update(users).set({ status: 'nonaktif' as UserStatus }).where(eq(users.id, id)).run()
+    db.transaction((tx) => {
+      tx.update(users).set({ status: 'nonaktif' as UserStatus }).where(eq(users.id, id)).run()
+
+      recordAudit({
+        db: tx,
+        businessId: owner.business_id,
+        actorUserId: owner.id,
+        action: 'user.deactivate',
+        entityType: 'user',
+        entityId: id,
+        before: target,
+        after: { ...target, status: 'nonaktif' as UserStatus },
+      })
+    })
     revokeAllSessionsForUser(id)
     return { ok: true }
   })

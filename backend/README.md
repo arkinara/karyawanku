@@ -63,9 +63,11 @@ src/
     payslips.ts        # daftar & unduh slip gaji PDF (owner semua, karyawan miliknya)
     payroll-export.ts  # ekspor rekap payroll ke CSV / XLSX (owner)
     dashboard.ts       # GET /dashboard — agregasi quick dashboard sesuai role (owner tim, employee diri sendiri)
+    audit-logs.ts      # GET /audit-logs — riwayat audit append-only, owner-only, read-only (ticket #57)
   lib/
     auth.ts            # hash/verify password, JWT (access+refresh), sesi revocable, requireAuth/requireOwner/requireCapability
     errors.ts          # ApiError + turunannya
+    audit.ts           # recordAudit(...): satu-satunya jalur tulis audit_logs + redaksi field sensitif (ticket #57)
     attendance-status.ts # hitung status hadir/telat + late_minutes dari jam shift
     bpjs.ts            # kalkulasi BPJS Kesehatan + Ketenagakerjaan dari gaji pokok
     pph21.ts           # kalkulasi PPh21 progresif (PTKP + lapisan tarif)
@@ -74,7 +76,7 @@ src/
     payslip-pdf.ts     # generator PDF slip gaji (pdfkit) → Buffer
     payslip-store.ts   # simpan/baca file PDF slip gaji di filesystem
     payslip-generator.ts # buat record payslips + generate PDF untuk seluruh item satu run
-tests/            # vitest: auth, sessions, refresh, forgot-password, businesses, business-default-components, users, employees, employees-import, schema, salary-components, salary-assignments, attendance-*, leave-*, shifts, shift-assignments, roster-publish, payroll-runs, payroll-approval, payslips, payroll-export, bpjs, pph21
+tests/            # vitest: auth, sessions, refresh, forgot-password, businesses, business-default-components, users, employees, employees-import, schema, salary-components, salary-assignments, attendance-*, leave-*, shifts, shift-assignments, roster-publish, payroll-runs, payroll-approval, payslips, payroll-export, audit-log, bpjs, pph21
 drizzle/          # file migrasi SQL (generated)
 data/             # file DB lokal (git-ignored) + data/payslips/ (PDF slip gaji, git-ignored)
 ```
@@ -160,6 +162,7 @@ Prefix: `/api`
 | GET | `/payslips/:id/download` | Owner / Karyawan terkait | Unduh PDF slip gaji (`Content-Type: application/pdf`, nama `slip-gaji-{nama}-{periode}.pdf`) |
 | GET | `/payroll-runs/:id/export.csv` | Owner | Ekspor rekap payroll CSV (BOM UTF-8) atau XLSX (`?format=xlsx`), termasuk baris total |
 | GET | `/dashboard` | Owner / Karyawan | Ringkasan quick dashboard, payload berbeda sesuai role. **Owner**: `today_attendance` (hadir/telat/absen/izin hari ini), `pending_leaves` (5 pengajuan pending terbaru + nama karyawan), `upcoming_shifts` (3 hari ke depan, published, seluruh tim), `payroll_summary` (total & take-home periode berjalan + `last_run_periode`), `metrics` (total_karyawan/total_aktif). **Employee**: `my_today` (status check-in hari ini, `null` bila belum ada), `upcoming_shifts` (3 hari ke depan, published, milik sendiri), `my_recent_payslips` (3 slip terakhir, terbaru dulu). Semua query di-scope server-side (`business_id`/`employee_id` dari token); employee tidak bisa memfilter via `?employee_id=` (403) |
+| GET | `/audit-logs?entity_type=&entity_id=&actor_user_id=&start=&end=&limit=&offset=` | Owner | Riwayat audit (append-only, ticket #57) bisnis caller, terbaru dulu. Filter: `entity_type`, `entity_id`, `actor_user_id`, rentang `start`/`end` (YYYY-MM-DD). Paginasi `limit` (default 50, clamp maks 100) + `offset`. Balas `{ logs: [{ id, actor: { id, nama, email }, action, entity_type, entity_id, before, after, created_at }], total, limit, offset }`. Manager/karyawan → 403. **Tidak ada rute update/delete** |
 
 Catatan absensi: status `hadir`/`telat` dihitung otomatis dari `jam_mulai` shift (shift_assignments) saat clock-in, fallback `08:00` bila tak ada shift. `client_timestamp` (untuk kasus offline) divalidasi tidak boleh di masa depan. Owner boleh clock-in/out atas nama karyawan lain via `employee_id`; employee hanya untuk dirinya sendiri.
 
@@ -170,6 +173,8 @@ Catatan payroll: `POST /api/payroll-runs` membuat satu run `status=draft` per `(
 Catatan persetujuan & slip gaji: `PATCH /api/payroll-items/:id` memungkinkan Owner mengoreksi item saat run `status=draft` (nilai `koreksi` ditambahkan ke `take_home`); setelah approve/lock semua edit ditolak 409. `POST /api/payroll-runs/:id/approve` memindahkan run ke `disetujui`, mencatat `approved_at` + `approved_by_user_id`, lalu otomatis membuat satu record `payslips` per item dan men-generate PDF slip gaji (pdfkit) yang disimpan di `backend/data/payslips/{payslip_id}.pdf` (lokasi bisa di-override via env `PAYSLIP_DIR`); `pdf_url` disimpan di DB. Re-approve idempoten — tidak menduplikasi payslip. `POST /api/payroll-runs/:id/lock` mengunci run setelah disetujui. `GET /api/payslips*` scoped: Owner melihat semua di bisnis, karyawan hanya miliknya. `GET /api/payslips/:id` mengembalikan breakdown inline (earnings/deductions dengan `nama_komponen`, `nominal`, `formula`) yang disusun dari `detail_breakdown` + komponen BPJS/PPh21; PDF slip gaji merender bagian Pendapatan & Potongan per komponen sebelum take-home (maks 10 baris per bagian, sisanya diringkas "+N komponen lainnya"). `GET /api/payroll-runs/:id/export.csv` (owner) menghasilkan CSV UTF-8 (BOM) berisi Nama, NIP/ID, Gaji Pokok, Total Tunjangan, BPJS Kesehatan (employee), BPJS Ketenagakerjaan (employee), PPh 21, Koreksi, Take-Home plus baris total; `?format=xlsx` menghasilkan file XLSX (exceljs).
 
 Catatan: saat `POST/PATCH /users` mengirim `employee_id`, sistem memvalidasi karyawan tsb ada di bisnis yang sama.
+
+Catatan audit (ticket #57): setiap perubahan consequential pada payroll (buat run, koreksi item, approve, lock), komponen & penugasan gaji, absensi manual/koreksi, keputusan cuti (approve/reject), mutasi role/status user, dan pengaturan bisnis dicatat ke tabel append-only `audit_logs` lewat satu helper `src/lib/audit.ts` (`recordAudit(...)`). Actor diambil dari sesi terautentikasi (JWT), **bukan** dari body request; `before`/`after` menyimpan snapshot JSON dengan field sensitif (password hash, token/jti/refresh, secret) otomatis diredaksi menjadi `[redacted]`. Perubahan dan baris audit-nya ditulis dalam transaksi yang sama sehingga atomik — gagal satu, batal keduanya. Tidak ada rute API yang mengubah/menghapus baris audit, dan helper-nya memperingatkan agar tidak pernah backdate/edit. Pembaca: `GET /api/audit-logs` (owner-only).
 
 ## Kode status
 

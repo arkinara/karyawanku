@@ -71,6 +71,13 @@
       "when": 1788076800000,
       "tag": "0009_add-manager-role",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1788163200000,
+      "tag": "0010_audit-logs",
+      "breakpoints": true
     }
   ]
 }

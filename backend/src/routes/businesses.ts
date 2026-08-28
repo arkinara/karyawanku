@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
 import { businesses } from '../db/schema.js'
 import { currentUser, publicUser, requireOwner, signToken } from '../lib/auth.js'
+import { recordAudit } from '../lib/audit.js'
 import { registerBusinessAndOwner } from '../lib/registration.js'
 import { ForbiddenError, ValidationError } from '../lib/errors.js'
 
@@ -99,7 +100,22 @@ export default async function businessesRoutes(app: FastifyInstance): Promise<vo
       if (data.jenis_usaha !== undefined) patch.jenis_usaha = data.jenis_usaha
       if (data.alamat !== undefined) patch.alamat = data.alamat
 
-      const updated = db.update(businesses).set(patch).where(eq(businesses.id, id)).returning().get()
+      const updated = db.transaction((tx) => {
+        const changed = tx.update(businesses).set(patch).where(eq(businesses.id, id)).returning().get()
+
+        recordAudit({
+          db: tx,
+          businessId: user.business_id,
+          actorUserId: user.id,
+          action: 'business.update',
+          entityType: 'business',
+          entityId: id,
+          before: business,
+          after: changed,
+        })
+
+        return changed
+      })
       return { business: businessShape(updated) }
     },
   )

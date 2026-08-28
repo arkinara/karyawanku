@@ -380,6 +380,37 @@ export const payslips = sqliteTable(
   (table) => [index('payslips_payroll_item_id_idx').on(table.payroll_item_id)],
 )
 
+/**
+ * Catatan audit append-only (ticket #57). Satu-satunya jalur tulis adalah
+ * `recordAudit` dari `src/lib/audit.ts`, dipanggil DI DALAM transaksi yang sama
+ * dengan perubahan yang dideskripsikannya. TIDAK ADA rute update/delete untuk
+ * tabel ini; `before`/`after` disimpan sebagai JSON dengan field sensitif
+ * (password hash, token, secret) otomatis diredaksi.
+ */
+export const auditLogs = sqliteTable(
+  'audit_logs',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    business_id: text('business_id')
+      .notNull()
+      .references(() => businesses.id, { onDelete: 'cascade' }),
+    actor_user_id: text('actor_user_id')
+      .notNull()
+      .references(() => users.id),
+    action: text('action').notNull(),
+    entity_type: text('entity_type').notNull(),
+    entity_id: text('entity_id').notNull(),
+    before: text('before', { mode: 'json' }),
+    after: text('after', { mode: 'json' }),
+    created_at: integer('created_at', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (table) => [index('audit_logs_business_created_at_idx').on(table.business_id, table.created_at)],
+)
+
 export type Business = typeof businesses.$inferSelect
 export type NewBusiness = typeof businesses.$inferInsert
 export type User = typeof users.$inferSelect
@@ -401,3 +432,5 @@ export type AttendanceRecord = typeof attendanceRecords.$inferSelect
 export type PayrollRun = typeof payrollRuns.$inferSelect
 export type PayrollItem = typeof payrollItems.$inferSelect
 export type Payslip = typeof payslips.$inferSelect
+export type AuditLog = typeof auditLogs.$inferSelect
+export type NewAuditLog = typeof auditLogs.$inferInsert

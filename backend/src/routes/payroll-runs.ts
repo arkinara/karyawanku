@@ -11,6 +11,7 @@ import {
   salaryComponents,
 } from '../db/schema.js'
 import { currentUser, requireAuth, requireOwner } from '../lib/auth.js'
+import { recordAudit } from '../lib/audit.js'
 import { ApiError, ConflictError } from '../lib/errors.js'
 import { generatePayslipsForRun } from '../lib/payslip-generator.js'
 import {
@@ -28,7 +29,13 @@ const correctionSchema = z.object({
   catatan_koreksi: z.string().trim().max(500).optional(),
 })
 
-function recomputeRunTotals(db: ReturnType<typeof getDb>['db'], runId: string): void {
+function recomputeRunTotals(
+  db: {
+    select: ReturnType<typeof getDb>['db']['select']
+    update: ReturnType<typeof getDb>['db']['update']
+  },
+  runId: string,
+): void {
   const items = db.select().from(payrollItems).where(eq(payrollItems.payroll_run_id, runId)).all()
   let totalGaji = 0
   let totalPotongan = 0
@@ -222,6 +229,24 @@ export default async function payrollRunsRoutes(app: FastifyInstance): Promise<v
         .where(eq(payrollRuns.id, createdRun.id))
         .run()
 
+      recordAudit({
+        db: tx,
+        businessId: user.business_id,
+        actorUserId: user.id,
+        action: 'payroll.create',
+        entityType: 'payroll_run',
+        entityId: createdRun.id,
+        before: null,
+        after: {
+          id: createdRun.id,
+          periode,
+          status: 'draft',
+          total_gaji: totalGaji,
+          total_potongan: totalPotongan,
+          take_home: totalTakeHome,
+        },
+      })
+
       return createdRun
     })
 
@@ -292,17 +317,43 @@ export default async function payrollRunsRoutes(app: FastifyInstance): Promise<v
     }
 
     const newTakeHome = Math.round(baseTakeHome(item) + koreksi)
-    db.update(payrollItems)
-      .set({
-        koreksi,
-        catatan_koreksi: catatan_koreksi ?? item.catatan_koreksi ?? null,
-        take_home: newTakeHome,
-      })
-      .where(eq(payrollItems.id, item.id))
-      .run()
+    const updated = db.transaction((tx) => {
+      tx.update(payrollItems)
+        .set({
+          koreksi,
+          catatan_koreksi: catatan_koreksi ?? item.catatan_koreksi ?? null,
+          take_home: newTakeHome,
+        })
+        .where(eq(payrollItems.id, item.id))
+        .run()
 
-    recomputeRunTotals(db, run.id)
-    const updated = db.select().from(payrollItems).where(eq(payrollItems.id, item.id)).get()
+      recomputeRunTotals(tx, run.id)
+
+      const changed = tx.select().from(payrollItems).where(eq(payrollItems.id, item.id)).get()
+      if (!changed) throw new ApiError(404, 'Item payroll tidak ditemukan')
+
+      recordAudit({
+        db: tx,
+        businessId: user.business_id,
+        actorUserId: user.id,
+        action: 'payroll.item_correction',
+        entityType: 'payroll_item',
+        entityId: item.id,
+        before: {
+          koreksi: item.koreksi,
+          catatan_koreksi: item.catatan_koreksi,
+          take_home: item.take_home,
+        },
+        after: {
+          koreksi: changed.koreksi,
+          catatan_koreksi: changed.catatan_koreksi,
+          take_home: changed.take_home,
+        },
+      })
+
+      return changed
+    })
+
     const emp = db.select().from(employees).where(eq(employees.id, item.employee_id)).get()
     return {
       ...updated,
@@ -327,18 +378,39 @@ export default async function payrollRunsRoutes(app: FastifyInstance): Promise<v
       throw new ConflictError('Run payroll sudah dikunci dan tidak dapat diubah')
     }
 
-    db.update(payrollRuns)
-      .set({
-        status: 'disetujui',
-        approved_at: new Date(),
-        approved_by_user_id: user.id,
+    const updatedRun = db.transaction((tx) => {
+      tx.update(payrollRuns)
+        .set({
+          status: 'disetujui',
+          approved_at: new Date(),
+          approved_by_user_id: user.id,
+        })
+        .where(eq(payrollRuns.id, run.id))
+        .run()
+
+      const changed = tx.select().from(payrollRuns).where(eq(payrollRuns.id, run.id)).get()
+      if (!changed) throw new ApiError(404, 'Run payroll tidak ditemukan')
+
+      recordAudit({
+        db: tx,
+        businessId: user.business_id,
+        actorUserId: user.id,
+        action: 'payroll.approve',
+        entityType: 'payroll_run',
+        entityId: run.id,
+        before: { status: run.status },
+        after: {
+          status: changed.status,
+          approved_by_user_id: changed.approved_by_user_id,
+          approved_at: changed.approved_at,
+        },
       })
-      .where(eq(payrollRuns.id, run.id))
-      .run()
+
+      return changed
+    })
 
     await generatePayslipsForRun(run.id)
 
-    const updatedRun = db.select().from(payrollRuns).where(eq(payrollRuns.id, run.id)).get()
     const items = serializeItems(db, run.id)
     return { run: updatedRun, items, payslips_generated: true }
   })
@@ -356,12 +428,29 @@ export default async function payrollRunsRoutes(app: FastifyInstance): Promise<v
       throw new ConflictError('Run hanya dapat dikunci setelah disetujui')
     }
 
-    db.update(payrollRuns)
-      .set({ status: 'locked' })
-      .where(eq(payrollRuns.id, run.id))
-      .run()
+    const updatedRun = db.transaction((tx) => {
+      tx.update(payrollRuns)
+        .set({ status: 'locked' })
+        .where(eq(payrollRuns.id, run.id))
+        .run()
 
-    const updatedRun = db.select().from(payrollRuns).where(eq(payrollRuns.id, run.id)).get()
+      const changed = tx.select().from(payrollRuns).where(eq(payrollRuns.id, run.id)).get()
+      if (!changed) throw new ApiError(404, 'Run payroll tidak ditemukan')
+
+      recordAudit({
+        db: tx,
+        businessId: user.business_id,
+        actorUserId: user.id,
+        action: 'payroll.lock',
+        entityType: 'payroll_run',
+        entityId: run.id,
+        before: { status: run.status },
+        after: { status: changed.status },
+      })
+
+      return changed
+    })
+
     return { run: updatedRun }
   })
 }

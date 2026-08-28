@@ -5,6 +5,7 @@ import { getDb } from '../db/index.js'
 import { attendanceRecords, employees, shiftAssignments, shifts } from '../db/schema.js'
 import { currentUser, requireAuth, requireCapability } from '../lib/auth.js'
 import { hasCapability } from '../lib/capabilities.js'
+import { recordAudit } from '../lib/audit.js'
 import { ApiError, ConflictError, ForbiddenError } from '../lib/errors.js'
 import { computeAttendanceStatus, DEFAULT_SCHEDULE_START } from '../lib/attendance-status.js'
 
@@ -124,6 +125,23 @@ function assertRecordInBusiness(recordId: string, businessId: string) {
     .get()
   if (!emp) throw new ApiError(404, 'Catatan absensi tidak ditemukan')
   return record
+}
+
+/** Snapshot jam + status absensi untuk payload audit before/after. */
+function attendanceSnapshot(rec: {
+  clock_in: string | null
+  clock_out: string | null
+  catatan: string | null
+  status: string
+  late_minutes: number
+}) {
+  return {
+    clock_in: rec.clock_in,
+    clock_out: rec.clock_out,
+    catatan: rec.catatan,
+    status: rec.status,
+    late_minutes: rec.late_minutes,
+  }
 }
 
 export default async function attendanceRoutes(app: FastifyInstance): Promise<void> {
@@ -320,37 +338,64 @@ export default async function attendanceRoutes(app: FastifyInstance): Promise<vo
       .where(and(eq(attendanceRecords.employee_id, body.employee_id), eq(attendanceRecords.tanggal, body.tanggal)))
       .get()
 
-    if (existing) {
-      const patch: Record<string, unknown> = {}
-      if (body.clock_in !== undefined) patch.clock_in = body.clock_in
-      if (body.clock_out !== undefined) patch.clock_out = body.clock_out
-      if (body.catatan !== undefined) patch.catatan = body.catatan
-      if (body.status !== undefined) patch.status = body.status
-      if (body.late_minutes !== undefined) patch.late_minutes = body.late_minutes
-      const record = db
-        .update(attendanceRecords)
-        .set(patch)
-        .where(eq(attendanceRecords.id, existing.id))
+    const { record, upserted } = db.transaction((tx) => {
+      if (existing) {
+        const patch: Record<string, unknown> = {}
+        if (body.clock_in !== undefined) patch.clock_in = body.clock_in
+        if (body.clock_out !== undefined) patch.clock_out = body.clock_out
+        if (body.catatan !== undefined) patch.catatan = body.catatan
+        if (body.status !== undefined) patch.status = body.status
+        if (body.late_minutes !== undefined) patch.late_minutes = body.late_minutes
+        const changed = tx
+          .update(attendanceRecords)
+          .set(patch)
+          .where(eq(attendanceRecords.id, existing.id))
+          .returning()
+          .get()
+
+        recordAudit({
+          db: tx,
+          businessId: user.business_id,
+          actorUserId: user.id,
+          action: 'attendance.manual.correct',
+          entityType: 'attendance_record',
+          entityId: changed.id,
+          before: attendanceSnapshot(existing),
+          after: attendanceSnapshot(changed),
+        })
+
+        return { record: changed, upserted: false }
+      }
+
+      const changed = tx
+        .insert(attendanceRecords)
+        .values({
+          employee_id: body.employee_id,
+          tanggal: body.tanggal,
+          clock_in: body.clock_in ?? null,
+          clock_out: body.clock_out ?? null,
+          catatan: body.catatan ?? null,
+          status: body.status ?? 'hadir',
+          late_minutes: body.late_minutes ?? 0,
+        })
         .returning()
         .get()
-      return { record, upserted: false }
-    }
 
-    const record = db
-      .insert(attendanceRecords)
-      .values({
-        employee_id: body.employee_id,
-        tanggal: body.tanggal,
-        clock_in: body.clock_in ?? null,
-        clock_out: body.clock_out ?? null,
-        catatan: body.catatan ?? null,
-        status: body.status ?? 'hadir',
-        late_minutes: body.late_minutes ?? 0,
+      recordAudit({
+        db: tx,
+        businessId: user.business_id,
+        actorUserId: user.id,
+        action: 'attendance.manual.create',
+        entityType: 'attendance_record',
+        entityId: changed.id,
+        before: null,
+        after: attendanceSnapshot(changed),
       })
-      .returning()
-      .get()
 
-    return { record, upserted: true }
+      return { record: changed, upserted: true }
+    })
+
+    return { record, upserted }
   })
 
   app.patch('/attendance/:id', { preHandler: requireCapability('attendance.manage') }, async (req) => {
@@ -363,7 +408,7 @@ export default async function attendanceRoutes(app: FastifyInstance): Promise<vo
     const { id } = req.params as { id: string }
     const { db } = getDb()
 
-    assertRecordInBusiness(id, user.business_id)
+    const before = assertRecordInBusiness(id, user.business_id)
 
     const patch: Record<string, unknown> = {}
     if (body.tanggal !== undefined) patch.tanggal = body.tanggal
@@ -373,12 +418,27 @@ export default async function attendanceRoutes(app: FastifyInstance): Promise<vo
     if (body.status !== undefined) patch.status = body.status
     if (body.late_minutes !== undefined) patch.late_minutes = body.late_minutes
 
-    const record = db
-      .update(attendanceRecords)
-      .set(patch)
-      .where(eq(attendanceRecords.id, id))
-      .returning()
-      .get()
+    const record = db.transaction((tx) => {
+      const changed = tx
+        .update(attendanceRecords)
+        .set(patch)
+        .where(eq(attendanceRecords.id, id))
+        .returning()
+        .get()
+
+      recordAudit({
+        db: tx,
+        businessId: user.business_id,
+        actorUserId: user.id,
+        action: 'attendance.correct',
+        entityType: 'attendance_record',
+        entityId: id,
+        before: attendanceSnapshot(before),
+        after: attendanceSnapshot(changed),
+      })
+
+      return changed
+    })
 
     return { record }
   })

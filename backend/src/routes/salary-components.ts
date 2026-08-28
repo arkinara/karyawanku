@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { getDb } from '../db/index.js'
 import { salaryComponents } from '../db/schema.js'
 import { currentUser, requireOwner } from '../lib/auth.js'
+import { recordAudit } from '../lib/audit.js'
 import { ApiError } from '../lib/errors.js'
 import { evaluate, validateFormula } from '../lib/formula.js'
 
@@ -95,18 +96,33 @@ export default async function salaryComponentsRoutes(app: FastifyInstance): Prom
     }
 
     const { db } = getDb()
-    const component = db
-      .insert(salaryComponents)
-      .values({
-        business_id: user.business_id,
-        nama_komponen: data.nama_komponen,
-        tipe: data.tipe,
-        nominal: data.nominal ?? null,
-        formula: data.formula ?? null,
-        aktif: data.aktif ?? true,
+    const component = db.transaction((tx) => {
+      const created = tx
+        .insert(salaryComponents)
+        .values({
+          business_id: user.business_id,
+          nama_komponen: data.nama_komponen,
+          tipe: data.tipe,
+          nominal: data.nominal ?? null,
+          formula: data.formula ?? null,
+          aktif: data.aktif ?? true,
+        })
+        .returning()
+        .get()
+
+      recordAudit({
+        db: tx,
+        businessId: user.business_id,
+        actorUserId: user.id,
+        action: 'salary_component.create',
+        entityType: 'salary_component',
+        entityId: created.id,
+        before: null,
+        after: created,
       })
-      .returning()
-      .get()
+
+      return created
+    })
 
     return { component }
   })
@@ -149,7 +165,22 @@ export default async function salaryComponentsRoutes(app: FastifyInstance): Prom
     if (data.formula !== undefined) patch.formula = data.formula
     if (data.aktif !== undefined) patch.aktif = data.aktif
 
-    const updated = db.update(salaryComponents).set(patch).where(eq(salaryComponents.id, id)).returning().get()
+    const updated = db.transaction((tx) => {
+      const changed = tx.update(salaryComponents).set(patch).where(eq(salaryComponents.id, id)).returning().get()
+
+      recordAudit({
+        db: tx,
+        businessId: user.business_id,
+        actorUserId: user.id,
+        action: 'salary_component.update',
+        entityType: 'salary_component',
+        entityId: id,
+        before: target,
+        after: changed,
+      })
+
+      return changed
+    })
     return { component: updated }
   })
 
@@ -167,7 +198,20 @@ export default async function salaryComponentsRoutes(app: FastifyInstance): Prom
       throw new ApiError(404, 'Komponen tidak ditemukan')
     }
 
-    db.update(salaryComponents).set({ aktif: false }).where(eq(salaryComponents.id, id)).run()
+    db.transaction((tx) => {
+      tx.update(salaryComponents).set({ aktif: false }).where(eq(salaryComponents.id, id)).run()
+
+      recordAudit({
+        db: tx,
+        businessId: user.business_id,
+        actorUserId: user.id,
+        action: 'salary_component.delete',
+        entityType: 'salary_component',
+        entityId: id,
+        before: target,
+        after: { ...target, aktif: false },
+      })
+    })
     return { ok: true }
   })
 }

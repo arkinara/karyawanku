@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { getDb } from '../db/index.js'
 import { employeeSalaryAssignments, employees, salaryComponents } from '../db/schema.js'
 import { currentUser, requireAuth, requireOwner } from '../lib/auth.js'
+import { recordAudit } from '../lib/audit.js'
 import { ApiError, ConflictError } from '../lib/errors.js'
 
 const overrideSchema = z.union([
@@ -124,16 +125,31 @@ export default async function salaryAssignmentsRoutes(app: FastifyInstance): Pro
       }
     }
 
-    const assignment = db
-      .insert(employeeSalaryAssignments)
-      .values({
-        employee_id: employeeId,
-        salary_component_id: data.salary_component_id,
-        override_nominal: data.override_nominal ?? null,
-        aktif,
+    const assignment = db.transaction((tx) => {
+      const created = tx
+        .insert(employeeSalaryAssignments)
+        .values({
+          employee_id: employeeId,
+          salary_component_id: data.salary_component_id,
+          override_nominal: data.override_nominal ?? null,
+          aktif,
+        })
+        .returning()
+        .get()
+
+      recordAudit({
+        db: tx,
+        businessId: user.business_id,
+        actorUserId: user.id,
+        action: 'salary_assignment.create',
+        entityType: 'salary_assignment',
+        entityId: created.id,
+        before: null,
+        after: created,
       })
-      .returning()
-      .get()
+
+      return created
+    })
 
     return { assignment }
   })
@@ -180,7 +196,27 @@ export default async function salaryAssignmentsRoutes(app: FastifyInstance): Pro
     if (data.override_nominal !== undefined) patch.override_nominal = data.override_nominal
     if (data.aktif !== undefined) patch.aktif = data.aktif
 
-    const updated = db.update(employeeSalaryAssignments).set(patch).where(eq(employeeSalaryAssignments.id, id)).returning().get()
+    const updated = db.transaction((tx) => {
+      const changed = tx
+        .update(employeeSalaryAssignments)
+        .set(patch)
+        .where(eq(employeeSalaryAssignments.id, id))
+        .returning()
+        .get()
+
+      recordAudit({
+        db: tx,
+        businessId: user.business_id,
+        actorUserId: user.id,
+        action: 'salary_assignment.update',
+        entityType: 'salary_assignment',
+        entityId: id,
+        before: target,
+        after: changed,
+      })
+
+      return changed
+    })
     return { assignment: updated }
   })
 
