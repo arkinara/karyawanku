@@ -29,7 +29,7 @@ import { MetricCard } from '@/components/dashboard/metric-card'
 import { MetricGrid } from '@/components/dashboard/metric-grid'
 import { apiRequest, ApiError, getStoredUser } from '@/lib/api-client'
 import { useAuth } from '@/lib/auth-context'
-import { AuthGuard, OWNER_ONLY } from '@/lib/route-guard'
+import { AuthGuard, MANAGER_ROLES, OWNER_ONLY } from '@/lib/route-guard'
 import { formatIDR } from '@/lib/format'
 
 const RANGES = [
@@ -84,6 +84,211 @@ function formatIdr(n: number): string {
   return formatIDR(n)
 }
 
+function AttendanceStatsGrid({ data }: { data: OwnerDashboard['today_attendance'] }) {
+  const stats = [
+    { count: data.hadir, label: 'Hadir', variant: 'success' as const },
+    { count: data.telat, label: 'Telat', variant: 'warning' as const },
+    { count: data.absen, label: 'Absen', variant: 'danger' as const },
+    { count: data.izin, label: 'Izin', variant: 'info' as const },
+  ]
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {stats.map((s) => (
+        <div
+          key={s.label}
+          className="flex flex-col items-start gap-2 rounded-xl bg-surface-2 p-3"
+        >
+          <StatusChip variant={s.variant} label={s.label} />
+          <p className="text-[22px] font-bold leading-none tabular-nums text-onsurface">
+            {s.count}
+          </p>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function PendingLeaveList({
+  pending,
+  onReview,
+}: {
+  pending: OwnerDashboard['pending_leaves']
+  onReview: () => void
+}) {
+  if (pending.length === 0) {
+    return (
+      <li className="p-5 text-center text-on-surface-variant">
+        Tidak ada cuti menunggu saat ini.
+      </li>
+    )
+  }
+  return (
+    <>
+      {pending.slice(0, 5).map((l) => (
+        <li key={l.id} className="flex items-center gap-3 p-5">
+          <Avatar name={l.employee.nama} />
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="t-h3">{l.employee.nama}</p>
+              <StatusChip
+                variant={l.leave_type.toLowerCase().includes('sakit') ? 'warning' : 'info'}
+                label={l.leave_type}
+              />
+            </div>
+            <p className="t-body-sm mt-1 tabular-nums">
+              {l.tanggal_mulai} – {l.tanggal_selesai}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button variant="tonal" size="sm" onClick={onReview}>
+              Setujui
+            </Button>
+            <Button variant="text" size="sm" onClick={onReview}>
+              Tolak
+            </Button>
+          </div>
+        </li>
+      ))}
+    </>
+  )
+}
+
+/**
+ * Manager dashboard (ticket #50): operational widgets only — today's attendance
+ * across the team, the pending leave queue, and the next 3 days of shifts.
+ * No payroll totals, no total_karyawan metric.
+ */
+function ManagerDashboardView({
+  data,
+  loading,
+  error,
+  onRetry,
+}: {
+  data: OwnerDashboard | null
+  loading: boolean
+  error: Error | null
+  onRetry: () => void
+}) {
+  const router = useRouter()
+  const pendingLeaves = data?.pending_leaves ?? []
+  const upcomingShifts = (data?.upcoming_shifts ?? []).slice(0, 3)
+  const attendance = data?.today_attendance ?? { hadir: 0, telat: 0, absen: 0, izin: 0 }
+
+  return (
+    <>
+      {loading && !data && (
+        <div className="mt-4">
+          <LoadingSurface label="Memuat ringkasan…" />
+        </div>
+      )}
+
+      {error && (
+        <div className="mt-4">
+          <ErrorSurface error={error} onRetry={onRetry} />
+        </div>
+      )}
+
+      {data && (
+        <>
+          {pendingLeaves.length > 0 && (
+            <div className="mt-4">
+              <PriorityBanner
+                variant="warning"
+                icon={AlertTriangle}
+                title={`${pendingLeaves.length} pengajuan cuti menunggu keputusan Anda`}
+                description={`Karyawan tidak bisa mengatur jadwal sebelum disetujui.`}
+                action={{ label: 'Tinjau', href: '/leave' }}
+              />
+            </div>
+          )}
+
+          <div className="mt-4 grid gap-4 xl:grid-cols-2">
+            <section
+              className="rounded-2xl border border-outline-variant bg-surface shadow-e1"
+              aria-labelledby="h-attendance"
+            >
+              <div className="flex items-center justify-between border-b border-outline-variant px-5 py-4">
+                <div>
+                  <h2 className="t-h2" id="h-attendance">
+                    Kehadiran Hari Ini
+                  </h2>
+                  <p className="t-caption mt-0.5">Semua tim · Shift Pagi 07:00 mulai</p>
+                </div>
+                <Button variant="text" size="sm" onClick={() => router.push('/attendance')}>
+                  Semua
+                </Button>
+              </div>
+
+              <div className="p-5">
+                <AttendanceStatsGrid data={attendance} />
+              </div>
+            </section>
+
+            <section
+              className="rounded-2xl border border-outline-variant bg-surface shadow-e1"
+              aria-labelledby="h-leave"
+            >
+              <div className="flex items-center justify-between border-b border-outline-variant px-5 py-4">
+                <div>
+                  <h2 className="t-h2" id="h-leave">
+                    Cuti Menunggu Persetujuan
+                  </h2>
+                  <p className="t-caption mt-0.5">
+                    {pendingLeaves.length} pengajuan · urut dari yang paling lama
+                  </p>
+                </div>
+                <Button variant="text" size="sm" onClick={() => router.push('/leave')}>
+                  Lihat semua
+                </Button>
+              </div>
+
+              <ul className="divide-y divide-outline-variant">
+                <PendingLeaveList pending={pendingLeaves} onReview={() => router.push('/leave')} />
+              </ul>
+            </section>
+          </div>
+
+          <section className="mt-4" aria-labelledby="h-shifts">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="t-h2" id="h-shifts">
+                  Jadwal Shift 3 Hari ke Depan
+                </h2>
+                <p className="t-caption mt-0.5">Shift berikutnya untuk seluruh tim</p>
+              </div>
+              <Button variant="text" size="sm" onClick={() => router.push('/shifts')}>
+                Kelola jadwal
+              </Button>
+            </div>
+            <div className="mt-3 rounded-2xl border border-outline-variant bg-surface shadow-e1">
+              {upcomingShifts.length === 0 ? (
+                <p className="p-5 text-center text-on-surface-variant">
+                  Tidak ada shift terjadwal.
+                </p>
+              ) : (
+                <ul className="divide-y divide-outline-variant">
+                  {upcomingShifts.map((s) => (
+                    <li key={`${s.employee.nama}-${s.tanggal}`} className="flex items-center gap-3 p-5">
+                      <Avatar name={s.employee.nama} />
+                      <div className="min-w-0 flex-1">
+                        <p className="t-h3">{s.employee.nama}</p>
+                        <p className="t-body-sm mt-1 tabular-nums">
+                          {s.tanggal} · {s.jam_mulai} – {s.jam_selesai}
+                        </p>
+                      </div>
+                      <StatusChip variant="info" label={s.shift} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </section>
+        </>
+      )}
+    </>
+  )
+}
+
 export default function DashboardPage() {
   const router = useRouter()
   const [range, setRange] = useState('today')
@@ -94,6 +299,7 @@ export default function DashboardPage() {
   const { user: authUser } = useAuth()
   const user = authUser ?? getStoredUser()
   const greeting = user?.nama ? `Selamat pagi, ${user.nama}` : 'Selamat pagi, Pak Darmawan'
+  const isManager = user?.role === 'manager'
 
   const reload = async (): Promise<void> => {
     setLoading(true)
@@ -165,6 +371,27 @@ export default function DashboardPage() {
       },
     ]
   }, [data])
+
+  if (isManager) {
+    return (
+      <AuthGuard requiredRoles={MANAGER_ROLES}>
+        <AppShell
+          userRole="manager"
+          activeNav="dashboard"
+          title={greeting}
+          subtitle={`Warung Kopi Nusantara · ${indonesianDate()}`}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h1 className="t-h1">Ringkasan hari ini</h1>
+              <p className="t-caption mt-1">{indonesianDate()}</p>
+            </div>
+          </div>
+          <ManagerDashboardView data={data} loading={loading} error={error} onRetry={reload} />
+        </AppShell>
+      </AuthGuard>
+    )
+  }
 
   return (
     <AuthGuard requiredRoles={OWNER_ONLY}>
@@ -288,40 +515,10 @@ export default function DashboardPage() {
               </div>
 
               <ul className="divide-y divide-outline-variant">
-                {data.pending_leaves.slice(0, 5).map((l) => (
-                  <li key={l.id} className="flex items-center gap-3 p-5">
-                    <Avatar name={l.employee.nama} />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="t-h3">{l.employee.nama}</p>
-                        <StatusChip
-                          variant={l.leave_type.toLowerCase().includes('sakit') ? 'warning' : 'info'}
-                          label={l.leave_type}
-                        />
-                      </div>
-                      <p className="t-body-sm mt-1 tabular-nums">
-                        {l.tanggal_mulai} – {l.tanggal_selesai}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <Button
-                        variant="tonal"
-                        size="sm"
-                        onClick={() => router.push('/leave')}
-                      >
-                        Setujui
-                      </Button>
-                      <Button variant="text" size="sm" onClick={() => router.push('/leave')}>
-                        Tolak
-                      </Button>
-                    </div>
-                  </li>
-                ))}
-                {data.pending_leaves.length === 0 && (
-                  <li className="p-5 text-center text-on-surface-variant">
-                    Tidak ada cuti menunggu saat ini.
-                  </li>
-                )}
+                <PendingLeaveList
+                  pending={data.pending_leaves}
+                  onReview={() => router.push('/leave')}
+                />
               </ul>
             </section>
           </div>

@@ -26,7 +26,7 @@ export interface AuthUser {
   id: string
   email: string
   nama: string
-  role: 'owner' | 'employee'
+  role: 'owner' | 'manager' | 'employee'
   business_id: string
   employee_id?: string | null
 }

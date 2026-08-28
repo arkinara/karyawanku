@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import type { NavKey, RoleNav, UserRole } from '@/lib/nav-config'
-import { NAV } from '@/lib/nav-config'
+import { getNavForRole, ROLE_LABEL } from '@/lib/nav-config'
 import { NavRail } from '@/components/ui/nav-rail'
 import { AppBar } from '@/components/ui/app-bar'
 import { BottomNav } from '@/components/ui/bottom-nav'
@@ -53,10 +53,10 @@ export function AppShell({ userRole, activeNav, title, subtitle, children, nav: 
   }
 
   const nav: RoleNav = navOverride ?? {
-    ...NAV[userRole],
+    ...getNavForRole(userRole),
     user: {
       name: user.nama,
-      role: user.role === 'owner' ? 'Pemilik' : 'Karyawan',
+      role: ROLE_LABEL[user.role] ?? 'Karyawan',
       mono: initials(user.nama),
     },
   }

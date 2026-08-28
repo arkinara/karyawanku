@@ -18,7 +18,9 @@ import {
 import type { DataTableColumn } from '@/components/ui'
 import type { StatusVariant } from '@/components/ui/status-chip'
 import { api } from '@/lib/api-client'
-import { AuthGuard, OWNER_ONLY } from '@/lib/route-guard'
+import { useAuth } from '@/lib/auth-context'
+import { AuthGuard, MANAGER_ROLES } from '@/lib/route-guard'
+import { useCapabilities } from '@/lib/role-capabilities'
 import { formatTanggal } from '@/lib/format'
 
 type EmployeeStatus = 'aktif' | 'nonaktif'
@@ -69,6 +71,10 @@ const KONTRAK_VALUES: Record<string, JenisKontrak | undefined> = {
 }
 
 export default function EmployeesPage() {
+  const caps = useCapabilities()
+  const canEdit = caps.canEditEmployees
+  const { user: authUser } = useAuth()
+  const userRole = authUser?.role ?? 'owner'
   const [all, setAll] = useState<Employee[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
@@ -174,7 +180,7 @@ export default function EmployeesPage() {
     }
   }
 
-  const columns: Array<DataTableColumn<Employee>> = [
+  const columnsBase: Array<DataTableColumn<Employee>> = [
     {
       key: 'nama',
       label: 'Nama',
@@ -219,38 +225,46 @@ export default function EmployeesPage() {
         </time>
       ),
     },
-    {
-      key: 'aksi',
-      label: 'Aksi',
-      align: 'right',
-      render: (e) => (
-        <div className="flex items-center justify-end gap-1">
-          <Button
-            variant="icon"
-            size="sm"
-            aria-label={`${e.status === 'aktif' ? 'Nonaktifkan' : 'Aktifkan'} ${e.nama_lengkap}`}
-            aria-busy={togglingId === e.id}
-            disabled={togglingId !== null}
-            onClick={() => void toggleStatus(e)}
-            title={e.status === 'aktif' ? 'Nonaktifkan' : 'Aktifkan'}
-          >
-            <Power className="h-4 w-4" />
-          </Button>
-          <Button variant="icon" size="sm" aria-label={`Edit ${e.nama_lengkap}`}>
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button variant="icon" size="sm" aria-label={`Hapus ${e.nama_lengkap}`}>
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-      ),
-    },
+  ]
+
+  const actionColumn: DataTableColumn<Employee> = {
+    key: 'aksi',
+    label: 'Aksi',
+    align: 'right',
+    render: (e) => (
+      <div className="flex items-center justify-end gap-1">
+        <Button
+          variant="icon"
+          size="sm"
+          aria-label={`${e.status === 'aktif' ? 'Nonaktifkan' : 'Aktifkan'} ${e.nama_lengkap}`}
+          aria-busy={togglingId === e.id}
+          disabled={togglingId !== null}
+          onClick={() => void toggleStatus(e)}
+          title={e.status === 'aktif' ? 'Nonaktifkan' : 'Aktifkan'}
+        >
+          <Power className="h-4 w-4" />
+        </Button>
+        <Button variant="icon" size="sm" aria-label={`Edit ${e.nama_lengkap}`}>
+          <Pencil className="h-4 w-4" />
+        </Button>
+        <Button variant="icon" size="sm" aria-label={`Hapus ${e.nama_lengkap}`}>
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+    ),
+  }
+
+  // The Aksi column (edit / toggle status / hapus) only renders for roles that
+  // can edit employees — managers get a read-only directory (ticket #50).
+  const columns: Array<DataTableColumn<Employee>> = [
+    ...columnsBase,
+    ...(canEdit ? [actionColumn] : []),
   ]
 
   return (
-    <AuthGuard requiredRoles={OWNER_ONLY}>
+    <AuthGuard requiredRoles={MANAGER_ROLES}>
       <AppShell
-        userRole="owner"
+        userRole={userRole}
         activeNav="employees"
         title="Karyawan"
         subtitle="Warung KopiKu"
@@ -260,13 +274,15 @@ export default function EmployeesPage() {
           <h1 className="t-h1">Daftar Karyawan</h1>
           <p className="t-caption mt-1">{all.length} karyawan terdaftar</p>
         </div>
-        <Link
-          href="/employees/new"
-          className="inline-flex h-11 items-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-on shadow-e1 transition-all duration-fast ease-standard hover:opacity-90 hover:shadow-e2 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-        >
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          Tambah Karyawan
-        </Link>
+        {canEdit && (
+          <Link
+            href="/employees/new"
+            className="inline-flex h-11 items-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-on shadow-e1 transition-all duration-fast ease-standard hover:opacity-90 hover:shadow-e2 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Tambah Karyawan
+          </Link>
+        )}
       </div>
 
       {error && (

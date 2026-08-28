@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import { ApiError, api, apiRequest, setToken } from '@/lib/api-client'
-import { AuthGuard, ANY_ROLE, OWNER_ONLY } from '@/lib/route-guard'
+import { AuthGuard, ANY_ROLE, EMPLOYEE_ONLY, OWNER_ONLY } from '@/lib/route-guard'
 
 const { replaceMock, locationAssignMock } = vi.hoisted(() => ({
   replaceMock: vi.fn(),
@@ -12,7 +12,7 @@ const authState = vi.hoisted(() => ({
     id: string
     email: string
     nama: string
-    role: 'owner' | 'employee'
+    role: 'owner' | 'manager' | 'employee'
     business_id?: string
     employee_id?: string | null
   } | null,
@@ -45,6 +45,13 @@ vi.mock('@/lib/auth-context', () => ({
 }))
 
 const ownerUser = { id: 'u', email: 'o@x', nama: 'Owner', role: 'owner' as const, business_id: 'b' }
+const managerUser = {
+  id: 'u',
+  email: 'm@x',
+  nama: 'Manager',
+  role: 'manager' as const,
+  business_id: 'b',
+}
 const employeeUser = {
   id: 'u',
   email: 'e@x',
@@ -146,6 +153,41 @@ describe('AuthGuard — route gating', () => {
     )
     expect(screen.getByText('RAHASIA')).toBeInTheDocument()
     expect(replaceMock).not.toHaveBeenCalled()
+  })
+
+  it('manager di route shared (ANY_ROLE) → konten dirender', () => {
+    authState.user = managerUser
+    render(
+      <AuthGuard requiredRoles={ANY_ROLE}>
+        <div>RAHASIA</div>
+      </AuthGuard>,
+    )
+    expect(screen.getByText('RAHASIA')).toBeInTheDocument()
+    expect(replaceMock).not.toHaveBeenCalled()
+  })
+
+  it('manager di route employee-only (/beranda) → redirect ke /dashboard (bukan /beranda)', async () => {
+    authState.user = managerUser
+    render(
+      <AuthGuard requiredRoles={EMPLOYEE_ONLY}>
+        <div>RAHASIA</div>
+      </AuthGuard>,
+    )
+    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith('/dashboard'))
+    expect(await screen.findByText('Akses ditolak')).toBeInTheDocument()
+    expect(screen.queryByText('RAHASIA')).not.toBeInTheDocument()
+  })
+
+  it('manager di route owner-only (/salary-components) → redirect ke /dashboard + toast', async () => {
+    authState.user = managerUser
+    render(
+      <AuthGuard requiredRoles={OWNER_ONLY}>
+        <div>RAHASIA</div>
+      </AuthGuard>,
+    )
+    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith('/dashboard'))
+    expect(await screen.findByText('Akses ditolak')).toBeInTheDocument()
+    expect(screen.queryByText('RAHASIA')).not.toBeInTheDocument()
   })
 })
 

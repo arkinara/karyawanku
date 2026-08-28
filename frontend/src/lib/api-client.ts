@@ -26,7 +26,7 @@ export interface ApiUser {
   business_id: string
   nama: string
   email: string
-  role: 'owner' | 'employee'
+  role: 'owner' | 'manager' | 'employee'
   status?: 'aktif' | 'nonaktif'
   employee_id?: string | null
 }

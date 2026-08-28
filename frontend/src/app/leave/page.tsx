@@ -25,6 +25,8 @@ import { MetricCard } from '@/components/dashboard/metric-card'
 import { MetricGrid } from '@/components/dashboard/metric-grid'
 import { useAuth } from '@/lib/auth-context'
 import { AuthGuard, ANY_ROLE } from '@/lib/route-guard'
+import { capabilitiesForRole } from '@/lib/role-capabilities'
+import type { UserRole } from '@/lib/nav-config'
 import { formatTanggal } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { api } from '@/lib/api-client'
@@ -45,7 +47,11 @@ import {
   mapLeaveRequests,
 } from '@/lib/leave-adapter'
 
-type Role = 'owner' | 'employee'
+function readRoleParam(): UserRole | null {
+  if (typeof window === 'undefined') return null
+  const role = new URLSearchParams(window.location.search).get('role')
+  return role === 'owner' || role === 'manager' || role === 'employee' ? role : null
+}
 
 type StatusFilter = 'semua' | LeaveStatus
 
@@ -60,12 +66,6 @@ const STATUS_CHIP: Record<LeaveStatus, { variant: 'success' | 'warning' | 'dange
   pending: { variant: 'warning', label: 'Menunggu' },
   approved: { variant: 'success', label: 'Disetujui' },
   rejected: { variant: 'danger', label: 'Ditolak' },
-}
-
-function readRoleParam(): Role | null {
-  if (typeof window === 'undefined') return null
-  const role = new URLSearchParams(window.location.search).get('role')
-  return role === 'owner' || role === 'employee' ? role : null
 }
 
 function toIsoToday(): string {
@@ -911,13 +911,14 @@ function AjukanCutiDialog({ open, balance, leaveTypes, onClose, onSubmit }: Ajuk
 export default function LeavePage() {
   const { user } = useAuth()
   const [paramRole] = useState(readRoleParam)
-  const role: Role = paramRole ?? user?.role ?? 'owner'
+  const role: UserRole = paramRole ?? user?.role ?? 'owner'
+  const canApprove = capabilitiesForRole(role).canApproveLeave
 
-  if (role === 'employee') {
+  if (!canApprove) {
     return (
       <AuthGuard requiredRoles={ANY_ROLE}>
         <AppShell
-          userRole="employee"
+          userRole={role}
           activeNav="leave"
           title="Cuti"
           subtitle={user?.nama ?? 'Karyawan'}
@@ -930,7 +931,7 @@ export default function LeavePage() {
 
   return (
     <AuthGuard requiredRoles={ANY_ROLE}>
-      <AppShell userRole="owner" activeNav="leave" title="Cuti" subtitle={formatTodayLong()}>
+      <AppShell userRole={role} activeNav="leave" title="Cuti" subtitle={formatTodayLong()}>
         <OwnerView />
       </AppShell>
     </AuthGuard>

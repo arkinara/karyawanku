@@ -28,7 +28,7 @@ interface BeUser {
   id: string
   email: string
   nama: string
-  role: 'owner' | 'employee'
+  role: 'owner' | 'manager' | 'employee'
   status: 'aktif' | 'nonaktif'
   employee_id: string | null
   created_at: string
@@ -988,6 +988,8 @@ function UsersTab() {
       render: (u) =>
         u.role === 'owner' ? (
           <StatusChip variant="info" label="Owner" />
+        ) : u.role === 'manager' ? (
+          <StatusChip variant="warning" label="Manager" />
         ) : (
           <StatusChip variant="neutral" label="Employee" />
         ),
@@ -1015,6 +1017,7 @@ function UsersTab() {
             className={cn(fieldSelectClass, 'w-auto px-2 py-1 text-xs')}
           >
             <option value="owner">Owner</option>
+            <option value="manager">Manager</option>
             <option value="employee">Employee</option>
           </select>
           <Button variant="text" size="sm" onClick={() => toggleStatus(u.id)}>
@@ -1104,6 +1107,7 @@ function UsersTab() {
               className={fieldSelectClass}
             >
               <option value="employee">Employee</option>
+              <option value="manager">Manager</option>
               <option value="owner">Owner</option>
             </select>
           </div>

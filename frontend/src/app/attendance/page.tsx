@@ -43,15 +43,15 @@ import {
 import { OfflineQueue } from '@/lib/offline-queue'
 import type { QueuedItem } from '@/lib/offline-queue'
 import { AuthGuard, ANY_ROLE } from '@/lib/route-guard'
+import { capabilitiesForRole } from '@/lib/role-capabilities'
+import type { UserRole } from '@/lib/nav-config'
 import { cn } from '@/lib/cn'
 import { formatJam } from '@/lib/format'
 
-type Role = 'owner' | 'employee'
-
-interface ClockEventPayload {
-  employeeId: string
-  type: 'clock-in' | 'clock-out'
-  catatan?: string
+function readRoleParam(): UserRole | null {
+  if (typeof window === 'undefined') return null
+  const role = new URLSearchParams(window.location.search).get('role')
+  return role === 'owner' || role === 'manager' || role === 'employee' ? role : null
 }
 
 interface EmployeeBrief {
@@ -59,6 +59,12 @@ interface EmployeeBrief {
   nama_lengkap: string
   no_ktp: string
   status: string
+}
+
+interface ClockEventPayload {
+  employeeId: string
+  type: 'clock-in' | 'clock-out'
+  catatan?: string
 }
 
 const RANGES = [
@@ -85,12 +91,6 @@ const STATUS_LABEL: Record<AttendanceStatus, string> = {
   telat: 'Telat',
   absen: 'Absen',
   izin: 'Izin',
-}
-
-function readRoleParam(): Role | null {
-  if (typeof window === 'undefined') return null
-  const role = new URLSearchParams(window.location.search).get('role')
-  return role === 'owner' || role === 'employee' ? role : null
 }
 
 function toIsoDate(date: Date): string {
@@ -817,13 +817,14 @@ function EmployeeView() {
 export default function AttendancePage() {
   const { user } = useAuth()
   const [paramRole] = useState(readRoleParam)
-  const role: Role = paramRole ?? user?.role ?? 'owner'
+  const role: UserRole = paramRole ?? user?.role ?? 'owner'
+  const canViewTeam = capabilitiesForRole(role).canViewEmployees
 
-  if (role === 'employee') {
+  if (!canViewTeam) {
     return (
       <AuthGuard requiredRoles={ANY_ROLE}>
         <AppShell
-          userRole="employee"
+          userRole={role}
           activeNav="attendance"
           title="Absensi"
           subtitle={user?.nama ?? 'Karyawan'}
@@ -836,7 +837,7 @@ export default function AttendancePage() {
 
   return (
     <AuthGuard requiredRoles={ANY_ROLE}>
-      <AppShell userRole="owner" activeNav="attendance" title="Absensi Hari Ini" subtitle={formatTodayLong()}>
+      <AppShell userRole={role} activeNav="attendance" title="Absensi Hari Ini" subtitle={formatTodayLong()}>
         <OwnerView />
       </AppShell>
     </AuthGuard>

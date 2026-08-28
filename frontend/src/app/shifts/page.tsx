@@ -17,6 +17,7 @@ import {
 import { useAuth } from '@/lib/auth-context'
 import { EMPLOYEES } from '@/lib/employees-mock'
 import { NAV } from '@/lib/nav-config'
+import type { UserRole } from '@/lib/nav-config'
 import { cn } from '@/lib/cn'
 import {
   DAY_LABELS,
@@ -37,14 +38,13 @@ import {
 } from '@/lib/shifts-adapter'
 import type { ShiftKey } from '@/lib/shifts-mock'
 import { apiRequest } from '@/lib/api-client'
-import { AuthGuard, OWNER_ONLY } from '@/lib/route-guard'
+import { AuthGuard, MANAGER_ROLES } from '@/lib/route-guard'
+import { capabilitiesForRole } from '@/lib/role-capabilities'
 
-type Role = 'owner' | 'employee'
-
-function readRoleParam(): Role | null {
+function readRoleParam(): UserRole | null {
   if (typeof window === 'undefined') return null
   const role = new URLSearchParams(window.location.search).get('role')
-  return role === 'owner' || role === 'employee' ? role : null
+  return role === 'owner' || role === 'manager' || role === 'employee' ? role : null
 }
 
 const SHIFT_COLOR: Record<ShiftKey, string> = {
@@ -490,13 +490,14 @@ function EmployeeView() {
 export default function ShiftsPage() {
   const { user } = useAuth()
   const [paramRole] = useState(readRoleParam)
-  const role: Role = paramRole ?? user?.role ?? 'owner'
+  const role: UserRole = paramRole ?? user?.role ?? 'owner'
+  const canPublish = capabilitiesForRole(role).canPublishRoster
 
-  if (role === 'employee') {
+  if (!canPublish) {
     return (
-      <AuthGuard requiredRoles={OWNER_ONLY}>
+      <AuthGuard requiredRoles={MANAGER_ROLES}>
         <AppShell
-          userRole="employee"
+          userRole={role}
           activeNav="shifts"
           title="Jadwal Saya"
           subtitle={NAV.employee.user.name}
@@ -508,9 +509,9 @@ export default function ShiftsPage() {
   }
 
   return (
-    <AuthGuard requiredRoles={OWNER_ONLY}>
+    <AuthGuard requiredRoles={MANAGER_ROLES}>
       <AppShell
-        userRole="owner"
+        userRole={role}
         activeNav="shifts"
         title="Jadwal Shift"
         subtitle={formatWeekLabel(getWeekStart())}

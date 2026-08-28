@@ -7,7 +7,7 @@ type BeUserFixture = {
   id: string
   email: string
   nama: string
-  role: 'owner' | 'employee'
+  role: 'owner' | 'manager' | 'employee'
   status: 'aktif' | 'nonaktif'
   employee_id: string | null
   created_at: string

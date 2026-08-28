@@ -26,7 +26,7 @@ export interface LeaveTypeSetting {
   kebijakanSisa: CarryOverPolicy
 }
 
-export type UserRole = 'owner' | 'employee'
+export type UserRole = 'owner' | 'manager' | 'employee'
 
 export interface WorkspaceUser {
   id: string

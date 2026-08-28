@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { NAV } from '@/lib/nav-config'
+import { getNavForRole, NAV, roleHome } from '@/lib/nav-config'
 
 describe('NAV model (kk.js NAV map port)', () => {
   it('owner: 5 primary + 1 secondary, settings hanya di secondary', () => {
@@ -38,5 +38,49 @@ describe('NAV model (kk.js NAV map port)', () => {
     const employeeLeave = NAV.employee.primary.find((i) => i.key === 'leave')
     expect(ownerLeave?.badge).toBe(2)
     expect(employeeLeave?.badge).toBe(1)
+  })
+})
+
+describe('Manager nav (ticket #50)', () => {
+  it('manager: 5 primary [dashboard, attendance, leave, shifts, employees], no payroll', () => {
+    expect(NAV.manager.primary.map((i) => i.key)).toEqual([
+      'dashboard',
+      'attendance',
+      'leave',
+      'shifts',
+      'employees',
+    ])
+    expect(NAV.manager.primary.some((i) => i.key === 'payroll')).toBe(false)
+    expect(NAV.manager.secondary.map((i) => i.key)).toEqual([])
+  })
+
+  it('manager nav tidak pernah memuat payroll atau settings di surface mana pun', () => {
+    for (const item of [...NAV.manager.primary, ...NAV.manager.secondary]) {
+      expect(item.href).not.toMatch(/^\/payroll/)
+      expect(item.href).not.toMatch(/^\/settings/)
+    }
+  })
+
+  it('getNavForRole mengembalikan nav yang tepat per role', () => {
+    expect(getNavForRole('owner').primary.map((i) => i.key)).toContain('payroll')
+    expect(getNavForRole('manager').primary.map((i) => i.key)).toContain('shifts')
+    expect(getNavForRole('employee').primary.map((i) => i.key)).toEqual([
+      'home',
+      'attendance',
+      'leave',
+      'payslip',
+    ])
+  })
+
+  it('role tidak dikenal jatuh ke nav employee (paling aman)', () => {
+    const nav = getNavForRole('superadmin' as never)
+    expect(nav.role).toBe('employee')
+    expect(nav.primary.some((i) => i.key === 'payroll')).toBe(false)
+  })
+
+  it('roleHome: owner dan manager ke /dashboard, employee ke /beranda', () => {
+    expect(roleHome('owner')).toBe('/dashboard')
+    expect(roleHome('manager')).toBe('/dashboard')
+    expect(roleHome('employee')).toBe('/beranda')
   })
 })

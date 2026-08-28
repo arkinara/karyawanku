@@ -35,7 +35,7 @@ vi.mock('@/lib/auth-context', () => {
     id: string
     nama: string
     email: string
-    role: 'owner' | 'employee'
+    role: 'owner' | 'manager' | 'employee'
     business_id?: string
     employee_id?: string | null
   }

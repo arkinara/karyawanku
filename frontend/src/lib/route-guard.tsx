@@ -28,7 +28,9 @@ export const ACCESS_DENIED_KEY = 'kk-access-denied'
 /** Stable role sets — pass these, not inline arrays, to keep the effect deps stable. */
 export const OWNER_ONLY: UserRole[] = ['owner']
 export const EMPLOYEE_ONLY: UserRole[] = ['employee']
-export const ANY_ROLE: UserRole[] = ['owner', 'employee']
+/** Owner + manager: management surfaces (dashboard, roster, employees). */
+export const MANAGER_ROLES: UserRole[] = ['owner', 'manager']
+export const ANY_ROLE: UserRole[] = ['owner', 'manager', 'employee']
 
 export interface AuthGuardProps {
   /** Roles allowed to see `children`. */
