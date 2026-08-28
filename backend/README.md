@@ -33,7 +33,7 @@ src/
   index.ts        # entry: migrate + start server
   app.ts          # build Fastify app + global error handler + log
   db/
-    schema.ts     # tabel businesses, users, employees + scaffold (cuti, shift, absensi, payroll)
+    schema.ts     # tabel businesses, users, sessions, password_resets, employees + scaffold (cuti, shift, absensi, payroll)
     index.ts      # koneksi DB
     migrate.ts    # drizzle-kit push
     seed.ts       # data demo
@@ -42,7 +42,8 @@ src/
     errors.ts          # ApiError + turunannya
     attendance-status.ts # hitung status hadir/telat + late_minutes dari jam shift
   routes/
-    auth.ts            # POST sign-up/sign-in/sign-out, GET me
+    auth.ts            # POST sign-up/sign-in/sign-out/sign-out-all/refresh, GET me
+    password-reset.ts  # POST forgot-password / reset-password
     businesses.ts      # POST onboarding signup (bisnis + owner) + GET/PATCH profil bisnis (owner)
     business-default-components.ts # GET/PUT komponen gaji default per bisnis (owner)
     users.ts           # CRUD user (owner only)
@@ -62,10 +63,9 @@ src/
     payroll-export.ts  # ekspor rekap payroll ke CSV / XLSX (owner)
     dashboard.ts       # GET /dashboard — agregasi quick dashboard sesuai role (owner tim, employee diri sendiri)
   lib/
-    auth.ts            # hash/verify password, JWT, requireAuth/requireOwner
+    auth.ts            # hash/verify password, JWT (access+refresh), sesi revocable, requireAuth/requireOwner
     errors.ts          # ApiError + turunannya
     attendance-status.ts # hitung status hadir/telat + late_minutes dari jam shift
-    leave-reset.ts     # hitung kuota cuti tahunan (masa kerja) + reset tahunan
     bpjs.ts            # kalkulasi BPJS Kesehatan + Ketenagakerjaan dari gaji pokok
     pph21.ts           # kalkulasi PPh21 progresif (PTKP + lapisan tarif)
     payroll.ts         # engine komputasi payroll per karyawan (gaji/BPJS/PPh21/take-home)
@@ -73,7 +73,7 @@ src/
     payslip-pdf.ts     # generator PDF slip gaji (pdfkit) → Buffer
     payslip-store.ts   # simpan/baca file PDF slip gaji di filesystem
     payslip-generator.ts # buat record payslips + generate PDF untuk seluruh item satu run
-tests/            # vitest: auth, businesses, business-default-components, users, employees, employees-import, schema, salary-components, salary-assignments, attendance-*, leave-*, shifts, shift-assignments, roster-publish, payroll-runs, payroll-approval, payslips, payroll-export, bpjs, pph21
+tests/            # vitest: auth, sessions, refresh, forgot-password, businesses, business-default-components, users, employees, employees-import, schema, salary-components, salary-assignments, attendance-*, leave-*, shifts, shift-assignments, roster-publish, payroll-runs, payroll-approval, payslips, payroll-export, bpjs, pph21
 drizzle/          # file migrasi SQL (generated)
 data/             # file DB lokal (git-ignored) + data/payslips/ (PDF slip gaji, git-ignored)
 ```
@@ -84,11 +84,15 @@ Prefix: `/api`
 
 | Method | Path | Auth | Deskripsi |
 |---|---|---|---|
-| POST | `/auth/sign-up` | — | Buat bisnis + owner dalam satu transaksi, balas `{ user, token }`. Email unik secara global (duplikat di bisnis mana pun → 409, tanpa baris yatim) |
-| POST | `/auth/sign-in` | — | Masuk, balas `{ user, token }` |
-| POST | `/auth/sign-out` | — | Keluar (JWT stateless), balas `{ ok: true }` |
-| GET | `/auth/me` | Bearer | User saat ini |
-| POST | `/businesses` | — | **Signup onboarding (disarankan untuk Owner baru):** buat bisnis + user pertama (role=owner) dalam satu transaksi, balas `{ user, token, business }`. Body: `{ nama_bisnis, jenis_usaha: 'fnb'|'jasa', alamat, owner: { nama, email, password } }`. Email unik secara global (duplikat → 409), password minimal 8 karakter |
+| POST | `/auth/sign-up` | — | Buat bisnis + owner dalam satu transaksi, balas `{ user, token, refreshToken }`. Email unik secara global (duplikat di bisnis mana pun → 409, tanpa baris yatim) |
+| POST | `/auth/sign-in` | — | Masuk, balas `{ user, token, refreshToken }` |
+| POST | `/auth/sign-out` | Bearer | Cabut sesi saat ini (set `revoked_at`), balas `{ ok: true }`; token lama langsung 401 |
+| POST | `/auth/sign-out-all` | Bearer | Cabut semua sesi user (semua perangkat), balas `{ ok: true, sessions_revoked: N }` |
+| POST | `/auth/refresh` | — | Tukar `{ refresh_token }` dengan access + refresh baru; sesi lama dicabut (rotasi). Refresh token bekas / sudah dicabut → 401 |
+| GET | `/auth/me` | Bearer | User saat ini (hanya access token) |
+| POST | `/auth/forgot-password` | — | Body `{ email }`, buat token reset sekali pakai (hash sha256, kedaluwarsa 1 jam). Pengiriman email di luar scope — tautan dicatat ke log server. Respons generik sama untuk email terdaftar/tdk (anti-enumerasi). Rate limit 3×/jam/email |
+| POST | `/auth/reset-password` | — | Body `{ token, password }`, validasi token, set hash baru, tandai token terpakai, cabut semua sesi user. Token bekas/kedaluwarsa → 400 |
+| POST | `/businesses` | — | **Signup onboarding (disarankan untuk Owner baru):** buat bisnis + user pertama (role=owner) dalam satu transaksi, balas `{ user, token, refreshToken, business }`. Body: `{ nama_bisnis, jenis_usaha: 'fnb'|'jasa', alamat, owner: { nama, email, password } }`. Email unik secara global (duplikat → 409), password minimal 8 karakter |
 | GET | `/businesses/:id` | Owner | Profil bisnis (hanya bisnis milik caller; bisnis lain → 403) |
 | PATCH | `/businesses/:id` | Owner | Update subset `{ nama_bisnis?, jenis_usaha?, alamat? }`, balas business terbaru |
 | GET | `/users?limit=&offset=` | Owner | Daftar user (scoped bisnis) |
@@ -174,6 +178,7 @@ Catatan: saat `POST/PATCH /users` mengirim `employee_id`, sistem memvalidasi kar
 - `404` sumber daya tidak ditemukan
 - `409` email duplikat secara global
 - `422` nilai role/status tidak valid
+- `429` rate limit (forgot/reset-password) tercapai
 - `500` kesalahan server
 
 Semua pesan error dalam Bahasa Indonesia, format `{ error: { message } }`.
@@ -182,7 +187,11 @@ Semua pesan error dalam Bahasa Indonesia, format `{ error: { message } }`.
 
 - **Flow signup Owner**: `POST /api/businesses` adalah endpoint yang disarankan untuk Owner baru (membuat workspace bisnis + owner dalam satu transaksi, email unik secara global, password minimal 8 karakter). `POST /api/auth/sign-up` tetap ada untuk kompatibilitas & pembuatan user tambahan, dan kini menegakkan aturan yang sama.
 - Password di-hash dengan bcryptjs (tidak pernah dikirim balik; semua respons user membuang `password_hash`).
-- JWT HS256, kedaluwarsa 7 hari, dikirim via header `Authorization: Bearer <token>`.
+- **Sesi & token revocable**: tiap sign-in membuat baris di tabel `sessions` (id, user_id, `jti`, `issued_at`, `expires_at`, `revoked_at`, `user_agent`, `ip`). JWT HS256 membawa klaim `jti` (id token/sesi) + `sid` (id baris sesi). **Access token** kedaluwarsa 1 jam (override via env `ACCESS_TOKEN_TTL_SECONDS`); **refresh token** 7 hari (sama dengan umur sesi). Keduanya dikirim via header `Authorization: Bearer <access_token>`. `GET /api/auth/me` dan semua guard menerima access token saja.
+- **Pencabutan**: `POST /auth/sign-out` mencabut sesi saat ini; `POST /auth/sign-out-all` mencabut semua sesi user. `verifyToken` menolak token yang sesinya sudah `revoked_at` ≠ null, sudah kedaluwarsa, atau milik subjek lain → 401.
+- **Refresh & rotasi**: `POST /auth/refresh` menerima `{ refresh_token }`, memvalidasi sesi, lalu **mencabut sesi lama** dan menerbitkan access + refresh baru (rotasi). Refresh token yang sudah dipakai/dirotasi/dicabut → 401. Klien yang refresh berkala tetap login tanpa memasukkan ulang kredensial.
+- **Deaktivasi mencabut sesi**: `PATCH /users/:id` `{ status: 'nonaktif' }` dan `DELETE /users/:id` (soft-delete) mencabut seluruh sesi user tsb; token lama langsung 401.
+- **Lupa password**: `POST /auth/forgot-password` membuat token reset sekali pakai (disimpan ter-hash sha256 di tabel `password_resets`, kedaluwarsa 1 jam). Pengiriman email **di luar scope** — tautan dicatat ke log server (`console.log`, prefix `[password-reset]`); integrasi email nyata menyusul. Respons identik untuk email terdaftar vs tidak (anti-enumerasi). `POST /auth/reset-password` memvalidasi token (bekas/kedaluwarsa → 400), menegakkan policy password (min 6 karakter), menetapkan hash baru, menandai token terpakai, dan mencabut semua sesi user. Rate limit in-memory: forgot-password 3×/jam/email, reset-password 10×/jam/IP (persisten di luar scope).
 - **Invariant keunikan email (global)**: `users.email` unik di seluruh tenant, dijamin oleh indeks unik DB (`users_email_unique`), bukan hanya cek aplikasi. Kedua jalur pendaftaran (`/auth/sign-up` dan `/businesses`) berbagi satu helper transaksional (`src/lib/registration.ts` → `registerBusinessAndOwner`) yang menolak 409 bila email sudah dipakai tenant lain dan tidak meninggalkan bisnis yatim. Migrasi `drizzle/0007_user-email-global-unique.sql` mengganti indeks `(business_id, email)` dengan indeks global `email`, lengkap dengan pre-flight yang membatalkan migrasi bila data lama mengandung email duplikat.
 - Sign-in menyelesaikan user dari `users.email` (maks 1 baris oleh constraint), sehingga JWT `businessId` selalu milik bisnis user tersebut. Password salah → 401 pesan generik (tidak membocorkan keberadaan email); user `status='nonaktif'` tidak bisa masuk.
 - Guard: tidak bisa menurunkan role diri sendiri, tidak bisa membuat bisnis tanpa owner (min. satu owner).

@@ -2,8 +2,20 @@ import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { eq } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
-import { users } from '../db/schema.js'
-import { getCurrentUser, publicUser, signToken, verifyPassword } from '../lib/auth.js'
+import { sessions, users, type User } from '../db/schema.js'
+import {
+  currentUser,
+  extractBearer,
+  getCurrentUser,
+  publicUser,
+  requireAuth,
+  revokeAllSessionsForUser,
+  revokeSession,
+  rotateSession,
+  signToken,
+  verifyPassword,
+  verifyToken,
+} from '../lib/auth.js'
 import { registerBusinessAndOwner } from '../lib/registration.js'
 import { UnauthorizedError, ValidationError } from '../lib/errors.js'
 
@@ -19,14 +31,13 @@ const signInSchema = z.object({
   password: z.string().min(1, 'Kata sandi wajib diisi'),
 })
 
-function issue(user: NonNullable<ReturnType<typeof getCurrentUser>>) {
-  const token = signToken({
-    sub: user.id,
-    businessId: user.business_id,
-    role: user.role,
-    email: user.email,
-  })
-  return { user: publicUser(user), token }
+const refreshSchema = z.object({
+  refresh_token: z.string().min(1, 'refresh_token wajib diisi'),
+})
+
+async function issue(user: User, req: Parameters<typeof signToken>[1]) {
+  const { accessToken, refreshToken } = await signToken(user, req)
+  return { user: publicUser(user), token: accessToken, refreshToken }
 }
 
 export default async function authRoutes(app: FastifyInstance): Promise<void> {
@@ -45,7 +56,7 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
       { nama, email, password },
     )
 
-    return issue(user)
+    return issue(user, req)
   })
 
   app.post('/auth/sign-in', async (req) => {
@@ -69,15 +80,49 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
       throw new UnauthorizedError('Akun dinonaktifkan')
     }
 
-    return issue(user)
+    return issue(user, req)
   })
 
-  app.post('/auth/sign-out', async () => {
+  app.post('/auth/sign-out', { preHandler: requireAuth }, async (req) => {
+    currentUser(req)
+    const token = extractBearer(req)
+    const payload = await verifyToken(token!)
+    revokeSession(payload.sid)
     return { ok: true }
   })
 
+  app.post('/auth/sign-out-all', { preHandler: requireAuth }, async (req) => {
+    const user = currentUser(req)
+    const sessionsRevoked = revokeAllSessionsForUser(user.id)
+    return { ok: true, sessions_revoked: sessionsRevoked }
+  })
+
+  app.post('/auth/refresh', async (req) => {
+    const parsed = refreshSchema.safeParse(req.body)
+    if (!parsed.success) {
+      throw new ValidationError('Data tidak valid', parsed.error.flatten())
+    }
+    const payload = await verifyToken(parsed.data.refresh_token)
+    if (payload.type !== 'refresh') {
+      throw new UnauthorizedError()
+    }
+
+    const { db } = getDb()
+    const user = db.select().from(users).where(eq(users.id, payload.sub)).get()
+    if (!user || user.status !== 'aktif') {
+      throw new UnauthorizedError()
+    }
+    const session = db.select().from(sessions).where(eq(sessions.jti, payload.jti)).get()
+    if (!session) {
+      throw new UnauthorizedError()
+    }
+
+    const { accessToken, refreshToken } = await rotateSession(user, session, req)
+    return { accessToken, refreshToken, user: publicUser(user) }
+  })
+
   app.get('/auth/me', async (req) => {
-    const user = getCurrentUser(req)
+    const user = await getCurrentUser(req)
     if (!user) throw new UnauthorizedError()
     return { user: publicUser(user) }
   })

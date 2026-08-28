@@ -52,14 +52,9 @@ export default async function businessesRoutes(app: FastifyInstance): Promise<vo
       owner,
     )
 
-    const token = signToken({
-      sub: user.id,
-      businessId: user.business_id,
-      role: user.role,
-      email: user.email,
-    })
+    const { accessToken, refreshToken } = await signToken(user, req)
 
-    return { user: publicUser(user), token, business: businessShape(business) }
+    return { user: publicUser(user), token: accessToken, refreshToken, business: businessShape(business) }
   })
 
   app.get(

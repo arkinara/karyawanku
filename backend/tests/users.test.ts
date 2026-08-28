@@ -209,6 +209,69 @@ describe('DELETE /api/users/:id (soft-delete)', () => {
   })
 })
 
+describe('deaktivasi user mencabut sesi', () => {
+  it('PATCH status nonaktif → sesi yang sudah terbit langsung ditolak', async () => {
+    ctx = await setupTest()
+    const signedIn = await ctx.app.inject({
+      method: 'POST',
+      url: '/api/auth/sign-in',
+      payload: { email: 'siti@demo.com', password: 'demo123' },
+    })
+    expect(signedIn.statusCode).toBe(200)
+    const employeeToken = signedIn.json().token
+
+    const list = await ctx.app.inject({ method: 'GET', url: '/api/users', headers: auth(ctx.ownerToken) })
+    const target = list.json().users.find((u: { email: string }) => u.email === 'siti@demo.com')
+    const res = await ctx.app.inject({
+      method: 'PATCH',
+      url: `/api/users/${target.id}`,
+      headers: auth(ctx.ownerToken),
+      payload: { status: 'nonaktif' },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().user.status).toBe('nonaktif')
+
+    const me = await ctx.app.inject({ method: 'GET', url: '/api/auth/me', headers: auth(employeeToken) })
+    expect(me.statusCode).toBe(401)
+  })
+
+  it('DELETE (soft-delete) juga mencabut semua sesi user', async () => {
+    ctx = await setupTest()
+    const signedIn = await ctx.app.inject({
+      method: 'POST',
+      url: '/api/auth/sign-in',
+      payload: { email: 'siti@demo.com', password: 'demo123' },
+    })
+    const employeeToken = signedIn.json().token
+
+    const list = await ctx.app.inject({ method: 'GET', url: '/api/users', headers: auth(ctx.ownerToken) })
+    const target = list.json().users.find((u: { email: string }) => u.email === 'siti@demo.com')
+    await ctx.app.inject({ method: 'DELETE', url: `/api/users/${target.id}`, headers: auth(ctx.ownerToken) })
+
+    const me = await ctx.app.inject({ method: 'GET', url: '/api/auth/me', headers: auth(employeeToken) })
+    expect(me.statusCode).toBe(401)
+  })
+
+  it('user nonaktif tidak bisa sign-in ulang', async () => {
+    ctx = await setupTest()
+    const list = await ctx.app.inject({ method: 'GET', url: '/api/users', headers: auth(ctx.ownerToken) })
+    const target = list.json().users.find((u: { email: string }) => u.email === 'siti@demo.com')
+    await ctx.app.inject({
+      method: 'PATCH',
+      url: `/api/users/${target.id}`,
+      headers: auth(ctx.ownerToken),
+      payload: { status: 'nonaktif' },
+    })
+
+    const res = await ctx.app.inject({
+      method: 'POST',
+      url: '/api/auth/sign-in',
+      payload: { email: 'siti@demo.com', password: 'demo123' },
+    })
+    expect(res.statusCode).toBe(401)
+  })
+})
+
 describe('isolasi antar-bisnis', () => {
   it('owner tidak melihat user dari bisnis lain', async () => {
     ctx = await setupTest()

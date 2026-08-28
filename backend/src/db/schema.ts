@@ -69,6 +69,52 @@ export const users = sqliteTable(
   ],
 )
 
+export const sessions = sqliteTable(
+  'sessions',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    user_id: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    jti: text('jti').notNull(),
+    issued_at: integer('issued_at', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    expires_at: integer('expires_at', { mode: 'timestamp' }).notNull(),
+    revoked_at: integer('revoked_at', { mode: 'timestamp' }),
+    user_agent: text('user_agent'),
+    ip: text('ip'),
+  },
+  (table) => [
+    uniqueIndex('sessions_jti_unique').on(table.jti),
+    index('sessions_user_id_idx').on(table.user_id),
+  ],
+)
+
+export const passwordResets = sqliteTable(
+  'password_resets',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    user_id: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    token_hash: text('token_hash').notNull(),
+    expires_at: integer('expires_at', { mode: 'timestamp' }).notNull(),
+    used_at: integer('used_at', { mode: 'timestamp' }),
+    created_at: integer('created_at', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (table) => [
+    uniqueIndex('password_resets_token_hash_unique').on(table.token_hash),
+    index('password_resets_user_id_idx').on(table.user_id),
+  ],
+)
+
 export const employees = sqliteTable(
   'employees',
   {
@@ -338,6 +384,10 @@ export type Business = typeof businesses.$inferSelect
 export type NewBusiness = typeof businesses.$inferInsert
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
+export type Session = typeof sessions.$inferSelect
+export type NewSession = typeof sessions.$inferInsert
+export type PasswordReset = typeof passwordResets.$inferSelect
+export type NewPasswordReset = typeof passwordResets.$inferInsert
 export type Employee = typeof employees.$inferSelect
 export type NewEmployee = typeof employees.$inferInsert
 export type SalaryComponent = typeof salaryComponents.$inferSelect

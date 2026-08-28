@@ -328,12 +328,13 @@ describe('approve/reject', () => {
       .from(users)
       .where(eq(users.email, 'oranglain@demo.com'))
       .get()!
-    const otherToken = signToken({
-      sub: otherUser.id,
-      businessId: otherUser.business_id,
+    const issued = await signToken({
+      id: otherUser.id,
+      business_id: otherUser.business_id,
       role: otherUser.role,
       email: otherUser.email,
     })
+    const otherToken = issued.accessToken
     const res = await ctx.app.inject({
       method: 'PATCH',
       url: `/api/leave-requests/${id}/approve`,

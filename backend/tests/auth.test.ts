@@ -123,7 +123,7 @@ describe('POST /api/auth/sign-in', () => {
     })
     expect(res.statusCode).toBe(200)
     const { verifyToken } = await import('../src/lib/auth.js')
-    const payload = verifyToken(res.json().token)
+    const payload = await verifyToken(res.json().token)
     expect(payload.businessId).toBe(ctx.businessId)
     expect(payload.sub).toBeTruthy()
   })
@@ -144,11 +144,28 @@ describe('POST /api/auth/sign-in', () => {
 })
 
 describe('POST /api/auth/sign-out', () => {
-  it('mengembalikan { ok: true }', async () => {
+  it('tanpa token → 401', async () => {
     ctx = await setupTest()
     const res = await ctx.app.inject({ method: 'POST', url: '/api/auth/sign-out' })
+    expect(res.statusCode).toBe(401)
+  })
+
+  it('mencabut sesi saat ini → token lama tidak bisa dipakai lagi', async () => {
+    ctx = await setupTest()
+    const res = await ctx.app.inject({
+      method: 'POST',
+      url: '/api/auth/sign-out',
+      headers: { authorization: `Bearer ${ctx.ownerToken}` },
+    })
     expect(res.statusCode).toBe(200)
     expect(res.json()).toEqual({ ok: true })
+
+    const me = await ctx.app.inject({
+      method: 'GET',
+      url: '/api/auth/me',
+      headers: { authorization: `Bearer ${ctx.ownerToken}` },
+    })
+    expect(me.statusCode).toBe(401)
   })
 })
 

@@ -87,10 +87,10 @@ export async function setupTest(): Promise<TestCtx> {
   await app.ready()
 
   const { signToken } = await import('../src/lib/auth.js')
-  const ownerToken = signToken({ sub: owner.id, businessId: owner.business_id, role: owner.role, email: owner.email })
-  const employeeToken = signToken({
-    sub: employee.id,
-    businessId: employee.business_id,
+  const ownerIssued = await signToken({ id: owner.id, business_id: owner.business_id, role: owner.role, email: owner.email })
+  const employeeIssued = await signToken({
+    id: employee.id,
+    business_id: employee.business_id,
     role: employee.role,
     email: employee.email,
   })
@@ -106,8 +106,8 @@ export async function setupTest(): Promise<TestCtx> {
     db: instance,
     cleanup,
     businessId: business.id,
-    ownerToken,
-    employeeToken,
+    ownerToken: ownerIssued.accessToken,
+    employeeToken: employeeIssued.accessToken,
     otherBusinessId: otherBusiness.id,
   }
 }

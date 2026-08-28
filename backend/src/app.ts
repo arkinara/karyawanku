@@ -4,6 +4,7 @@ import multipart from '@fastify/multipart'
 import { ZodError } from 'zod'
 import { getDb } from './db/index.js'
 import authRoutes from './routes/auth.js'
+import passwordResetRoutes from './routes/password-reset.js'
 import businessesRoutes from './routes/businesses.js'
 import businessDefaultComponentsRoutes from './routes/business-default-components.js'
 import usersRoutes from './routes/users.js'
@@ -33,6 +34,7 @@ export function buildApp(): FastifyInstance {
   app.register(
     async (api) => {
       await api.register(authRoutes)
+      await api.register(passwordResetRoutes)
       await api.register(businessesRoutes)
       await api.register(businessDefaultComponentsRoutes)
       await api.register(usersRoutes)

@@ -57,6 +57,13 @@
       "when": 1787912128669,
       "tag": "0007_user-email-global-unique",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1787990400000,
+      "tag": "0008_sessions",
+      "breakpoints": true
     }
   ]
 }

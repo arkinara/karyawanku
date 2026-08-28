@@ -45,7 +45,7 @@ describe('multi-tenant auth', () => {
     })
     expect(signIn.statusCode).toBe(200)
     const { verifyToken } = await import('../src/lib/auth.js')
-    const payload = verifyToken(signIn.json().token)
+    const payload = await verifyToken(signIn.json().token)
     expect(payload.businessId).toBe(newBusinessId)
     expect(payload.businessId).not.toBe(ctx.businessId)
   })
@@ -101,16 +101,17 @@ describe('migrasi keunikan email global', () => {
     const dbPath = join(dir, 'dup.db')
     const { sqlite, db } = createDb(dbPath)
 
-    // Terapkan 0000–0006 saja (tanpa 0007) dengan folder migrasi parsial.
+    // Terapkan 0000–0006 saja (tanpa 0007 dan semua migrasi setelahnya) dengan folder migrasi parsial.
     const partialFolder = join(dir, 'drizzle-partial')
     cpSync(migrationsFolder, partialFolder, { recursive: true })
     const journalPath = join(partialFolder, 'meta/_journal.json')
     const journal = JSON.parse(readFileSync(journalPath, 'utf8')) as {
-      entries: Array<{ tag: string }>
+      entries: Array<{ idx: number; tag: string }>
     }
-    journal.entries = journal.entries.filter((e) => e.tag !== '0007_user-email-global-unique')
+    journal.entries = journal.entries.filter((e) => e.idx < 7)
     writeFileSync(journalPath, JSON.stringify(journal))
     rmSync(join(partialFolder, '0007_user-email-global-unique.sql'), { force: true })
+    rmSync(join(partialFolder, '0008_sessions.sql'), { force: true })
     rmSync(join(partialFolder, 'meta/0007_user-email-global-unique_snapshot.json'), { force: true })
 
     migrate(db, { migrationsFolder: partialFolder })

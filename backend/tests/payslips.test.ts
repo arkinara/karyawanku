@@ -355,12 +355,13 @@ describe('GET /api/payslips/:id', () => {
     const { signToken } = await import('../src/lib/auth.js')
     const crossUser = ctx.db.db.select().from(users).where(eq(users.business_id, ctx.otherBusinessId)).get()
     expect(crossUser).toBeTruthy()
-    const crossToken = signToken({
-      sub: crossUser.id,
-      businessId: ctx.otherBusinessId,
+    const issued = await signToken({
+      id: crossUser.id,
+      business_id: ctx.otherBusinessId,
       role: crossUser.role,
       email: crossUser.email,
     })
+    const crossToken = issued.accessToken
 
     const res = await ctx.app.inject({
       method: 'GET',

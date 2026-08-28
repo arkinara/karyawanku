@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { and, eq } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
 import { employees, roles, users, type Role, type UserStatus } from '../db/schema.js'
-import { currentUser, hashPassword, publicUser, requireOwner } from '../lib/auth.js'
+import { currentUser, hashPassword, publicUser, requireOwner, revokeAllSessionsForUser } from '../lib/auth.js'
 import { ApiError, ConflictError, ValidationError } from '../lib/errors.js'
 
 const createUserSchema = z.object({
@@ -135,6 +135,11 @@ export default async function usersRoutes(app: FastifyInstance): Promise<void> {
     if (data.password !== undefined) patch.password_hash = await hashPassword(data.password)
 
     const updated = db.update(users).set(patch).where(eq(users.id, id)).returning().get()
+
+    if (updated.status === 'nonaktif') {
+      revokeAllSessionsForUser(updated.id)
+    }
+
     return { user: publicUser(updated) }
   })
 
@@ -159,6 +164,7 @@ export default async function usersRoutes(app: FastifyInstance): Promise<void> {
     }
 
     db.update(users).set({ status: 'nonaktif' as UserStatus }).where(eq(users.id, id)).run()
+    revokeAllSessionsForUser(id)
     return { ok: true }
   })
 }
