@@ -45,10 +45,10 @@ describe('GET /api/leave-types', () => {
     expect(names).not.toContain('Milik Lain')
   })
 
-  it('employee → 403', async () => {
+  it('employee → 200 (employee dapat membaca jenis cuti untuk kebutuhan form pengajuan)', async () => {
     ctx = await setupTest()
     const res = await ctx.app.inject({ method: 'GET', url: '/api/leave-types', headers: auth(ctx.employeeToken) })
-    expect(res.statusCode).toBe(403)
+    expect(res.statusCode).toBe(200)
   })
 })
 
