@@ -42,6 +42,7 @@ import {
 } from '@/lib/attendance-adapter'
 import { OfflineQueue } from '@/lib/offline-queue'
 import type { QueuedItem } from '@/lib/offline-queue'
+import { AuthGuard, ANY_ROLE } from '@/lib/route-guard'
 import { cn } from '@/lib/cn'
 import { formatJam } from '@/lib/format'
 
@@ -820,20 +821,24 @@ export default function AttendancePage() {
 
   if (role === 'employee') {
     return (
-      <AppShell
-        userRole="employee"
-        activeNav="attendance"
-        title="Absensi"
-        subtitle={user?.nama ?? 'Karyawan'}
-      >
-        <EmployeeView />
-      </AppShell>
+      <AuthGuard requiredRoles={ANY_ROLE}>
+        <AppShell
+          userRole="employee"
+          activeNav="attendance"
+          title="Absensi"
+          subtitle={user?.nama ?? 'Karyawan'}
+        >
+          <EmployeeView />
+        </AppShell>
+      </AuthGuard>
     )
   }
 
   return (
-    <AppShell userRole="owner" activeNav="attendance" title="Absensi Hari Ini" subtitle={formatTodayLong()}>
-      <OwnerView />
-    </AppShell>
+    <AuthGuard requiredRoles={ANY_ROLE}>
+      <AppShell userRole="owner" activeNav="attendance" title="Absensi Hari Ini" subtitle={formatTodayLong()}>
+        <OwnerView />
+      </AppShell>
+    </AuthGuard>
   )
 }

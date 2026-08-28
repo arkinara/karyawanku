@@ -23,6 +23,7 @@ import {
 import type { DataTableColumn } from '@/components/ui'
 import { cn } from '@/lib/cn'
 import { apiRequest } from '@/lib/api-client'
+import { AuthGuard, OWNER_ONLY } from '@/lib/route-guard'
 import { formatIDR } from '@/lib/format'
 
 interface Employee {
@@ -443,29 +444,34 @@ export default function EmployeeSalaryPage() {
 
   if (loading) {
     return (
-      <AppShell userRole="owner" activeNav="employees" title="Komponen Gaji Karyawan">
-        <LoadingSurface label="Memuat setup gaji…" />
-      </AppShell>
+      <AuthGuard requiredRoles={OWNER_ONLY}>
+        <AppShell userRole="owner" activeNav="employees" title="Komponen Gaji Karyawan">
+          <LoadingSurface label="Memuat setup gaji…" />
+        </AppShell>
+      </AuthGuard>
     )
   }
 
   if (error || !employee) {
     return (
-      <AppShell userRole="owner" activeNav="employees" title="Komponen Gaji Karyawan">
-        {error && <ErrorSurface error={error} onRetry={reload} />}
-      </AppShell>
+      <AuthGuard requiredRoles={OWNER_ONLY}>
+        <AppShell userRole="owner" activeNav="employees" title="Komponen Gaji Karyawan">
+          {error && <ErrorSurface error={error} onRetry={reload} />}
+        </AppShell>
+      </AuthGuard>
     )
   }
 
   const deactivatingName = deactivating ? componentById(deactivating.component_id)?.nama_komponen : undefined
 
   return (
-    <AppShell
-      userRole="owner"
-      activeNav="employees"
-      title="Komponen Gaji Karyawan"
-      subtitle={employee.nama_lengkap}
-    >
+    <AuthGuard requiredRoles={OWNER_ONLY}>
+      <AppShell
+        userRole="owner"
+        activeNav="employees"
+        title="Komponen Gaji Karyawan"
+        subtitle={employee.nama_lengkap}
+      >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-start gap-3">
           <Button
@@ -575,6 +581,7 @@ export default function EmployeeSalaryPage() {
           </>
         }
       />
-    </AppShell>
+      </AppShell>
+    </AuthGuard>
   )
 }

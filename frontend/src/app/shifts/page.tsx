@@ -37,6 +37,7 @@ import {
 } from '@/lib/shifts-adapter'
 import type { ShiftKey } from '@/lib/shifts-mock'
 import { apiRequest } from '@/lib/api-client'
+import { AuthGuard, OWNER_ONLY } from '@/lib/route-guard'
 
 type Role = 'owner' | 'employee'
 
@@ -493,25 +494,29 @@ export default function ShiftsPage() {
 
   if (role === 'employee') {
     return (
-      <AppShell
-        userRole="employee"
-        activeNav="shifts"
-        title="Jadwal Saya"
-        subtitle={NAV.employee.user.name}
-      >
-        <EmployeeView />
-      </AppShell>
+      <AuthGuard requiredRoles={OWNER_ONLY}>
+        <AppShell
+          userRole="employee"
+          activeNav="shifts"
+          title="Jadwal Saya"
+          subtitle={NAV.employee.user.name}
+        >
+          <EmployeeView />
+        </AppShell>
+      </AuthGuard>
     )
   }
 
   return (
-    <AppShell
-      userRole="owner"
-      activeNav="shifts"
-      title="Jadwal Shift"
-      subtitle={formatWeekLabel(getWeekStart())}
-    >
-      <OwnerView />
-    </AppShell>
+    <AuthGuard requiredRoles={OWNER_ONLY}>
+      <AppShell
+        userRole="owner"
+        activeNav="shifts"
+        title="Jadwal Shift"
+        subtitle={formatWeekLabel(getWeekStart())}
+      >
+        <OwnerView />
+      </AppShell>
+    </AuthGuard>
   )
 }

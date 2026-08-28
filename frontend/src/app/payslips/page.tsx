@@ -24,6 +24,7 @@ import {
 } from '@/lib/payslips-adapter'
 import type { BePayslipDetail, BePayslipRow, Payslip } from '@/lib/payslips-adapter'
 import { api } from '@/lib/api-client'
+import { AuthGuard, ANY_ROLE } from '@/lib/route-guard'
 
 const EMPLOYEE_ID = '2'
 
@@ -365,12 +366,13 @@ export default function PayslipsPage() {
   }, [payslips, filter])
 
   return (
-    <AppShell
-      userRole="employee"
-      activeNav="payslip"
-      title="Slip Gaji"
-      subtitle={employee?.nama ?? 'Siti Nurhaliza'}
-    >
+    <AuthGuard requiredRoles={ANY_ROLE}>
+      <AppShell
+        userRole="employee"
+        activeNav="payslip"
+        title="Slip Gaji"
+        subtitle={employee?.nama ?? 'Siti Nurhaliza'}
+      >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="t-h1">Slip Gaji</h1>
@@ -444,6 +446,7 @@ export default function PayslipsPage() {
           onClose={closeDialog}
         />
       )}
-    </AppShell>
+      </AppShell>
+    </AuthGuard>
   )
 }

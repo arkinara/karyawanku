@@ -16,6 +16,7 @@ import {
 import type { DataTableColumn } from '@/components/ui'
 import { cn } from '@/lib/cn'
 import { apiRequest } from '@/lib/api-client'
+import { AuthGuard, OWNER_ONLY } from '@/lib/route-guard'
 import { formatIDR } from '@/lib/format'
 
 type ComponentType = 'earning' | 'deduction'
@@ -640,12 +641,13 @@ export default function SalaryComponentsPage() {
   ]
 
   return (
-    <AppShell
-      userRole="owner"
-      activeNav="payroll"
-      title="Komponen Gaji"
-      subtitle="Kelola komponen gaji (pendapatan & potongan) untuk seluruh karyawan"
-    >
+    <AuthGuard requiredRoles={OWNER_ONLY}>
+      <AppShell
+        userRole="owner"
+        activeNav="payroll"
+        title="Komponen Gaji"
+        subtitle="Kelola komponen gaji (pendapatan & potongan) untuk seluruh karyawan"
+      >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="t-h1">Komponen Gaji</h1>
@@ -714,6 +716,7 @@ export default function SalaryComponentsPage() {
           </>
         }
       />
-    </AppShell>
+      </AppShell>
+    </AuthGuard>
   )
 }

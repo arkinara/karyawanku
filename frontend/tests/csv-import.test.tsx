@@ -5,7 +5,8 @@ import ImportEmployeesPage from '@/app/employees/import/page'
 const pushMock = vi.fn()
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: pushMock }),
+  useRouter: () => ({ push: pushMock, replace: vi.fn(), back: vi.fn(), prefetch: vi.fn() }),
+  usePathname: () => '/mock-path',
 }))
 
 /** Header auto-maps to every field; rows are otherwise valid. */

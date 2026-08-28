@@ -18,6 +18,9 @@ export const API_BASE_URL =
 export const TOKEN_KEY = 'kk-token'
 export const USER_KEY = 'kk-user'
 
+/** sessionStorage flag read by /signin to show the "sesi berakhir" notice. */
+export const SESSION_EXPIRED_KEY = 'kk-session-expired'
+
 export interface ApiUser {
   id: string
   business_id: string
@@ -52,8 +55,12 @@ export function getToken(): string | null {
 export function setToken(token: string | null): void {
   const ls = safeLocalStorage()
   if (!ls) return
-  if (token) ls.setItem(TOKEN_KEY, token)
-  else ls.removeItem(TOKEN_KEY)
+  if (token) {
+    // A fresh session invalidates any previous expiry handling so the next
+    // expired token is still caught.
+    sessionExpiryHandled = false
+    ls.setItem(TOKEN_KEY, token)
+  } else ls.removeItem(TOKEN_KEY)
 }
 
 export function getStoredUser(): ApiUser | null {
@@ -129,7 +136,9 @@ export async function apiRequest<T = unknown>(
     res = await fetch(buildUrl(path, opts.query), fetchInit)
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Gagal menghubungi server'
-    throw new ApiError(0, msg)
+    const err = new ApiError(0, msg)
+    notifyError(err)
+    throw err
   }
 
   const contentType = res.headers.get('content-type') ?? ''
@@ -147,7 +156,9 @@ export async function apiRequest<T = unknown>(
         // body wasn't JSON, keep default message
       }
     }
-    throw new ApiError(res.status, message, details)
+    const err = new ApiError(res.status, message, details)
+    handleApiFailure(err, opts.anonymous === true)
+    throw err
   }
 
   if (res.status === 204) return undefined as T
@@ -197,6 +208,75 @@ function notifyError(error: ApiError): void {
   })
 }
 
+/* ------------------------------------------------------------------ *
+ * Session-expiry handling.
+ *
+ * Any 401 on an authenticated request means the stored token is dead:
+ * clear the session, notify subscribers (auth-context clears its in-memory
+ * user), stamp a flag the sign-in page turns into a notice, and bounce to
+ * `/signin?redirect=<current-path>`. Deduped so a burst of parallel 401s
+ * produces exactly one redirect and one notice — never a loop.
+ * ------------------------------------------------------------------ */
+
+type SessionExpiredListener = () => void
+
+const sessionExpiredListeners = new Set<SessionExpiredListener>()
+
+/** Subscribe to session-expiry events (used by the auth context). */
+export function onSessionExpired(listener: SessionExpiredListener): () => void {
+  sessionExpiredListeners.add(listener)
+  return () => sessionExpiredListeners.delete(listener)
+}
+
+function notifySessionExpired(): void {
+  sessionExpiredListeners.forEach((listener) => {
+    try {
+      listener()
+    } catch {
+      // listener must never break the request pipeline
+    }
+  })
+}
+
+let sessionExpiryHandled = false
+
+function redirectToSignIn(): void {
+  if (typeof window === 'undefined') return
+  const current = window.location.pathname + window.location.search
+  window.location.assign(`/signin?redirect=${encodeURIComponent(current)}`)
+}
+
+function handleSessionExpired(): void {
+  if (sessionExpiryHandled) return
+  sessionExpiryHandled = true
+  clearSession()
+  notifySessionExpired()
+  notifyError(new ApiError(401, 'Sesi telah berakhir. Silakan masuk kembali.'))
+  try {
+    window.sessionStorage.setItem(SESSION_EXPIRED_KEY, '1')
+  } catch {
+    // best-effort — the toast above still fires
+  }
+  redirectToSignIn()
+}
+
+/**
+ * Route an API failure: a 401 on an authenticated request is treated as
+ * session loss; anonymous calls (sign-in / sign-up) surface their own errors
+ * in the form and must never clear a session or bounce. Everything else
+ * (network, 4xx, 5xx) is surfaced to the error toast.
+ */
+function handleApiFailure(error: ApiError, anonymous: boolean): void {
+  if (anonymous) {
+    if (error.status === 401) return
+    notifyError(error)
+    return
+  }
+  const expired = error.status === 401 && Boolean(getToken())
+  if (expired) handleSessionExpired()
+  else notifyError(error)
+}
+
 /**
  * Map a transport failure (status 0) to a friendly Bahasa message.
  * Non-zero statuses keep the server-provided message (which the BE already
@@ -204,7 +284,7 @@ function notifyError(error: ApiError): void {
  */
 export function errorMessage(error: ApiError): string {
   if (error.status === 0) return 'Tidak terhubung ke server'
-  if (error.status === 401) return 'Sesi berakhir, silakan masuk ulang'
+  if (error.status === 401) return 'Sesi telah berakhir. Silakan masuk kembali.'
   if (error.status >= 500) return 'Gagal memuat data'
   return error.message || 'Gagal memuat data'
 }
@@ -214,10 +294,8 @@ export function errorMessage(error: ApiError): string {
  * ------------------------------------------------------------------ */
 
 function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
-  return apiRequest<T>(path, opts).catch((e: unknown) => {
-    if (e instanceof ApiError) notifyError(e)
-    throw e
-  })
+  // apiRequest already routes failures (error toast / session expiry).
+  return apiRequest<T>(path, opts)
 }
 
 export interface ApiClient {
@@ -271,7 +349,7 @@ export const api: ApiClient = {
         // non-JSON error body — keep default
       }
       const err = new ApiError(res.status, message)
-      notifyError(err)
+      handleApiFailure(err, false)
       throw err
     }
     return res.blob()

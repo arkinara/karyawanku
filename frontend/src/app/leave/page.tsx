@@ -24,6 +24,7 @@ import type { DataTableColumn } from '@/components/ui'
 import { MetricCard } from '@/components/dashboard/metric-card'
 import { MetricGrid } from '@/components/dashboard/metric-grid'
 import { useAuth } from '@/lib/auth-context'
+import { AuthGuard, ANY_ROLE } from '@/lib/route-guard'
 import { formatTanggal } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { api } from '@/lib/api-client'
@@ -914,20 +915,24 @@ export default function LeavePage() {
 
   if (role === 'employee') {
     return (
-      <AppShell
-        userRole="employee"
-        activeNav="leave"
-        title="Cuti"
-        subtitle={user?.nama ?? 'Karyawan'}
-      >
-        <EmployeeView />
-      </AppShell>
+      <AuthGuard requiredRoles={ANY_ROLE}>
+        <AppShell
+          userRole="employee"
+          activeNav="leave"
+          title="Cuti"
+          subtitle={user?.nama ?? 'Karyawan'}
+        >
+          <EmployeeView />
+        </AppShell>
+      </AuthGuard>
     )
   }
 
   return (
-    <AppShell userRole="owner" activeNav="leave" title="Cuti" subtitle={formatTodayLong()}>
-      <OwnerView />
-    </AppShell>
+    <AuthGuard requiredRoles={ANY_ROLE}>
+      <AppShell userRole="owner" activeNav="leave" title="Cuti" subtitle={formatTodayLong()}>
+        <OwnerView />
+      </AppShell>
+    </AuthGuard>
   )
 }

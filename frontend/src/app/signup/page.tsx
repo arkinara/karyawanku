@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -9,6 +9,7 @@ import { PasswordField } from '@/components/auth/password-field'
 import { Button } from '@/components/ui/button'
 import { TextField } from '@/components/ui/text-field'
 import { useAuth } from '@/lib/auth-context'
+import { roleHome } from '@/lib/nav-config'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const HAS_LETTER = /[a-zA-Z]/
@@ -41,7 +42,14 @@ function validateConfirm(v: string, password: string): string | undefined {
 
 export default function SignUpPage() {
   const router = useRouter()
-  const { signUp } = useAuth()
+  const { signUp, user, loading } = useAuth()
+
+  // Already authenticated (e.g. visited /signup while logged in) → role home.
+  const hadSessionOnMount = useRef(Boolean(user))
+  useEffect(() => {
+    if (loading || !hadSessionOnMount.current) return
+    if (user) router.replace(roleHome(user.role))
+  }, [loading, user, router])
 
   const [nama, setNama] = useState('')
   const [email, setEmail] = useState('')

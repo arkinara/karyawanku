@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import DashboardPage from '@/app/dashboard/page'
+import BerandaPage from '@/app/beranda/page'
 
 const ownerDashboard = {
   today_attendance: { hadir: 10, telat: 2, absen: 0, izin: 0 },
@@ -58,6 +59,7 @@ const employeeDashboardNoCheckin = {
 const { pushMock } = vi.hoisted(() => ({ pushMock: vi.fn() }))
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: pushMock, prefetch: vi.fn(), replace: vi.fn(), back: vi.fn() }),
+  usePathname: () => '/mock-path',
 }))
 
 beforeEach(() => {
@@ -182,7 +184,7 @@ describe('Quick Dashboard (Employee)', () => {
   })
 
   it('merender widget check-in, jadwal 3 hari, dan slip gaji terakhir dari API', async () => {
-    render(<DashboardPage />)
+    render(<BerandaPage />)
     await waitFor(() => expect(screen.getByText('Sedang bekerja')).toBeInTheDocument())
     expect(screen.getByText(/Check-in sejak/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Clock Out' })).toBeInTheDocument()
@@ -220,7 +222,7 @@ describe('Quick Dashboard (Employee)', () => {
         return new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } })
       }),
     )
-    const { container } = render(<DashboardPage />)
+    const { container } = render(<BerandaPage />)
     await waitFor(() => expect(screen.getByRole('button', { name: 'Clock In' })).toBeInTheDocument())
     fireEvent.click(screen.getByRole('button', { name: 'Clock In' }))
     await waitFor(() => expect(screen.getByRole('button', { name: 'Clock Out' })).toBeInTheDocument())

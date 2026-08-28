@@ -1,14 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { AuthLayout } from '@/components/auth/auth-layout'
 import { PasswordField } from '@/components/auth/password-field'
 import { Button } from '@/components/ui/button'
 import { TextField } from '@/components/ui/text-field'
+import { getStoredUser, SESSION_EXPIRED_KEY } from '@/lib/api-client'
 import { useAuth } from '@/lib/auth-context'
+import { roleHome } from '@/lib/nav-config'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -18,9 +20,17 @@ function validateEmail(v: string): string | undefined {
   return undefined
 }
 
-export default function SignInPage() {
+/** Only same-app paths are allowed as a redirect target (no open redirects). */
+function safeRedirect(raw: string | null): string | null {
+  if (!raw) return null
+  if (!raw.startsWith('/') || raw.startsWith('//')) return null
+  return raw
+}
+
+function SignInForm() {
   const router = useRouter()
-  const { signIn } = useAuth()
+  const searchParams = useSearchParams()
+  const { signIn, user, loading } = useAuth()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -28,6 +38,30 @@ export default function SignInPage() {
   const [submitted, setSubmitted] = useState(false)
   const [busy, setBusy] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [sessionExpired, setSessionExpired] = useState(false)
+
+  const redirect = safeRedirect(searchParams.get('redirect'))
+  // If a session already existed on mount (deep link while logged in), the
+  // user is sent to their role home. A user that just signed in on this page
+  // navigates via the submit handler instead, so the effect must not hijack it.
+  const hadSessionOnMount = useRef(Boolean(user))
+
+  useEffect(() => {
+    if (loading || !hadSessionOnMount.current) return
+    if (user) router.replace(roleHome(user.role))
+  }, [loading, user, router])
+
+  // Show the "sesi telah berakhir" notice exactly once after an expiry bounce.
+  useEffect(() => {
+    try {
+      if (window.sessionStorage.getItem(SESSION_EXPIRED_KEY)) {
+        window.sessionStorage.removeItem(SESSION_EXPIRED_KEY)
+        setSessionExpired(true)
+      }
+    } catch {
+      // sessionStorage unavailable — ignore
+    }
+  }, [])
 
   const emailError = submitted || touched.email ? validateEmail(email) : undefined
   const passwordError =
@@ -48,7 +82,8 @@ export default function SignInPage() {
     setBusy(true)
     try {
       await signIn(email, password)
-      router.push('/dashboard')
+      const target = redirect ?? roleHome(getStoredUser()?.role ?? 'owner')
+      router.push(target)
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Masuk gagal')
     } finally {
@@ -67,6 +102,15 @@ export default function SignInPage() {
 
       <h1 className="t-h1 mt-6">Masuk</h1>
       <p className="t-body-sm t-muted mt-1.5">Masuk untuk melanjutkan.</p>
+
+      {sessionExpired && (
+        <div
+          role="alert"
+          className="mt-4 rounded-xl border border-warning/40 bg-warning-container/30 px-4 py-3 text-sm text-warning"
+        >
+          Sesi telah berakhir. Silakan masuk kembali.
+        </div>
+      )}
 
       <form className="mt-6 flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
         <TextField
@@ -131,5 +175,13 @@ export default function SignInPage() {
         </p>
       </form>
     </AuthLayout>
+  )
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={null}>
+      <SignInForm />
+    </Suspense>
   )
 }

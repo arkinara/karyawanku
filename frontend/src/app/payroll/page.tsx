@@ -19,6 +19,7 @@ import { MetricGrid } from '@/components/dashboard/metric-grid'
 import { cn } from '@/lib/cn'
 import { formatIDR } from '@/lib/format'
 import { api } from '@/lib/api-client'
+import { AuthGuard, OWNER_ONLY } from '@/lib/route-guard'
 import {
   gross,
   potongan,
@@ -404,12 +405,13 @@ export default function PayrollPage() {
   ]
 
   return (
-    <AppShell
-      userRole="owner"
-      activeNav="payroll"
-      title="Payroll"
-      subtitle="Periode Agustus 2026"
-    >
+    <AuthGuard requiredRoles={OWNER_ONLY}>
+      <AppShell
+        userRole="owner"
+        activeNav="payroll"
+        title="Payroll"
+        subtitle="Periode Agustus 2026"
+      >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="t-h1">Payroll Run</h1>
@@ -527,6 +529,7 @@ export default function PayrollPage() {
           {toast}
         </div>
       )}
-    </AppShell>
+      </AppShell>
+    </AuthGuard>
   )
 }

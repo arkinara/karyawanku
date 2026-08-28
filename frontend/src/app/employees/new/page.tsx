@@ -6,6 +6,7 @@ import { AppShell } from '@/components/ui'
 import { EmployeeForm } from '@/components/employees/employee-form'
 import type { EmployeeFormValues } from '@/components/employees/employee-form'
 import { apiRequest } from '@/lib/api-client'
+import { AuthGuard, OWNER_ONLY } from '@/lib/route-guard'
 
 /**
  * /employees/new — tambah karyawan (Wiring phase).
@@ -56,12 +57,13 @@ export default function NewEmployeePage() {
   }
 
   return (
-    <AppShell
-      userRole="owner"
-      activeNav="employees"
-      title="Tambah Karyawan"
-      subtitle="Warung KopiKu"
-    >
+    <AuthGuard requiredRoles={OWNER_ONLY}>
+      <AppShell
+        userRole="owner"
+        activeNav="employees"
+        title="Tambah Karyawan"
+        subtitle="Warung KopiKu"
+      >
       <div>
         <h1 className="t-h1">Tambah Karyawan</h1>
         <p className="t-caption mt-1">Lengkapi data pribadi, kontak, dan dokumen karyawan baru.</p>
@@ -92,5 +94,6 @@ export default function NewEmployeePage() {
         </div>
       )}
     </AppShell>
+    </AuthGuard>
   )
 }

@@ -9,6 +9,7 @@ const notFoundMock = vi.fn()
 vi.mock('next/navigation', () => ({
   useParams: () => ({ id: mockId }),
   useRouter: () => ({ push: mockPush, prefetch: vi.fn(), replace: vi.fn(), back: vi.fn() }),
+  usePathname: () => '/mock-path',
   notFound: () => notFoundMock(),
 }))
 

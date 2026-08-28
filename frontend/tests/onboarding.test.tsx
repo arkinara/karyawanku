@@ -7,6 +7,7 @@ const { pushMock } = vi.hoisted(() => ({ pushMock: vi.fn() }))
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: pushMock, prefetch: vi.fn(), replace: vi.fn(), back: vi.fn() }),
+  usePathname: () => '/mock-path',
 }))
 
 /** Captured requests for assertions (path → body). */

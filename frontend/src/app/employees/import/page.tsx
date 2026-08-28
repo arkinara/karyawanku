@@ -19,6 +19,7 @@ import {
   TEMPLATE_FILENAME,
 } from '@/lib/csv-import'
 import type { EmployeeField, MappedRow, Mapping } from '@/lib/csv-import'
+import { AuthGuard, OWNER_ONLY } from '@/lib/route-guard'
 import { cn } from '@/lib/cn'
 
 /**
@@ -185,12 +186,13 @@ export default function ImportEmployeesPage() {
   ]
 
   return (
-    <AppShell
-      userRole="owner"
-      activeNav="employees"
-      title="Import Karyawan"
-      subtitle="Upload file CSV"
-    >
+    <AuthGuard requiredRoles={OWNER_ONLY}>
+      <AppShell
+        userRole="owner"
+        activeNav="employees"
+        title="Import Karyawan"
+        subtitle="Upload file CSV"
+      >
       <div className="mx-auto flex max-w-3xl flex-col gap-4">
         <Stepper steps={STEPS} currentStep={step} />
 
@@ -412,5 +414,6 @@ export default function ImportEmployeesPage() {
         </div>
       )}
     </AppShell>
+    </AuthGuard>
   )
 }

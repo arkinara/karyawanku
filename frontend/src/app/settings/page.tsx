@@ -19,6 +19,7 @@ import { JENIS_USAHA_OPTIONS } from '@/lib/settings-mock'
 import type { BusinessProfile, CarryOverPolicy, LeaveTypeSetting, UserRole, WorkspaceUser } from '@/lib/settings-mock'
 import { api } from '@/lib/api-client'
 import { useAuth } from '@/lib/auth-context'
+import { AuthGuard, OWNER_ONLY } from '@/lib/route-guard'
 import { formatIDR } from '@/lib/format'
 import { apiRequest } from '@/lib/api-client'
 import type { BeLeaveTypeListResponse } from '@/lib/leave-adapter'
@@ -1122,12 +1123,13 @@ export default function SettingsPage() {
   }, [tab])
 
   return (
-    <AppShell
-      userRole={user?.role ?? 'owner'}
-      activeNav="settings"
-      title="Pengaturan"
-      subtitle="Warung Kopi Nusantara"
-    >
+    <AuthGuard requiredRoles={OWNER_ONLY}>
+      <AppShell
+        userRole={user?.role ?? 'owner'}
+        activeNav="settings"
+        title="Pengaturan"
+        subtitle="Warung Kopi Nusantara"
+      >
       <div className="flex flex-col gap-6 lg:flex-row">
         <nav
           aria-label="Pengaturan"
@@ -1164,5 +1166,6 @@ export default function SettingsPage() {
         </section>
       </div>
     </AppShell>
+    </AuthGuard>
   )
 }

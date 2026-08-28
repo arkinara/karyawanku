@@ -18,6 +18,7 @@ import {
 import type { DataTableColumn } from '@/components/ui'
 import type { StatusVariant } from '@/components/ui/status-chip'
 import { api } from '@/lib/api-client'
+import { AuthGuard, OWNER_ONLY } from '@/lib/route-guard'
 import { formatTanggal } from '@/lib/format'
 
 type EmployeeStatus = 'aktif' | 'nonaktif'
@@ -247,12 +248,13 @@ export default function EmployeesPage() {
   ]
 
   return (
-    <AppShell
-      userRole="owner"
-      activeNav="employees"
-      title="Karyawan"
-      subtitle="Warung KopiKu"
-    >
+    <AuthGuard requiredRoles={OWNER_ONLY}>
+      <AppShell
+        userRole="owner"
+        activeNav="employees"
+        title="Karyawan"
+        subtitle="Warung KopiKu"
+      >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="t-h1">Daftar Karyawan</h1>
@@ -365,6 +367,7 @@ export default function EmployeesPage() {
           </div>
         </div>
       </div>
-    </AppShell>
+      </AppShell>
+    </AuthGuard>
   )
 }

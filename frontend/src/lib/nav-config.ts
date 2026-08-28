@@ -69,7 +69,7 @@ export const NAV: Record<UserRole, RoleNav> = {
     org: { name: 'Warung Kopi Nusantara', meta: 'Cabang Kemang', mono: 'WK' },
     user: { name: 'Siti Nurhaliza', role: 'Kasir', mono: 'SN' },
     primary: [
-      { key: 'home', label: 'Beranda', icon: 'home', href: '/dashboard' },
+      { key: 'home', label: 'Beranda', icon: 'home', href: '/beranda' },
       { key: 'attendance', label: 'Absensi', icon: 'clock', href: '/attendance' },
       { key: 'leave', label: 'Cuti', icon: 'calendar', href: '/leave', badge: 1 },
       { key: 'payslip', label: 'Slip Gaji', icon: 'payslip', href: '/payslips' },
@@ -80,3 +80,16 @@ export const NAV: Record<UserRole, RoleNav> = {
 
 /** Alias kept for callers that prefer an explicit name. */
 export type NavConfig = RoleNav
+
+/**
+ * Landing page per role, used by the route guard for role denials and by the
+ * sign-in/sign-up pages when a user is already authenticated.
+ */
+export const ROLE_HOME: Record<UserRole, string> = {
+  owner: '/dashboard',
+  employee: '/beranda',
+}
+
+export function roleHome(role: UserRole): string {
+  return ROLE_HOME[role] ?? '/signin'
+}

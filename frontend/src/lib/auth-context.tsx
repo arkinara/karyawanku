@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
-import { api, ApiError } from '@/lib/api-client'
+import { api, ApiError, apiRequest, onSessionExpired } from '@/lib/api-client'
 import {
   clearSession,
   getStoredUser,
@@ -73,13 +73,25 @@ function useAuthImpl(): AuthApi {
       .finally(() => setLoading(false))
   }, [])
 
+  // Any 401 on an API call (expired / revoked token) also drops the in-memory
+  // user so the guard and app shell see an authenticated=false state right
+  // away instead of a stale session after the redirect.
+  useEffect(() => {
+    return onSessionExpired(() => {
+      clearSession()
+      setUser(null)
+      setError(null)
+    })
+  }, [])
+
   const signIn = useCallback(
     async (email: string, password: string): Promise<{ ok: boolean }> => {
       setError(null)
       try {
-        const res = await api.post<{ token: string; user: AuthUser }>('/api/auth/sign-in', {
-          email,
-          password,
+        const res = await apiRequest<{ token: string; user: AuthUser }>('/api/auth/sign-in', {
+          method: 'POST',
+          anonymous: true,
+          body: { email, password },
         })
         setToken(res.token)
         setStoredUser(res.user)
@@ -103,7 +115,11 @@ function useAuthImpl(): AuthApi {
     }): Promise<{ ok: boolean }> => {
       setError(null)
       try {
-        const res = await api.post<{ token: string; user: AuthUser }>('/api/auth/sign-up', input)
+        const res = await apiRequest<{ token: string; user: AuthUser }>('/api/auth/sign-up', {
+          method: 'POST',
+          anonymous: true,
+          body: input,
+        })
         setToken(res.token)
         setStoredUser(res.user)
         setUser(res.user)

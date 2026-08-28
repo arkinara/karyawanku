@@ -3,15 +3,20 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import SignInPage from '@/app/signin/page'
 import SignUpPage from '@/app/signup/page'
 
-const { pushMock } = vi.hoisted(() => ({ pushMock: vi.fn() }))
+const { pushMock, replaceMock } = vi.hoisted(() => ({ pushMock: vi.fn(), replaceMock: vi.fn() }))
+const searchParamsMock = vi.hoisted(() => ({ value: new URLSearchParams() }))
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: pushMock, prefetch: vi.fn(), replace: vi.fn(), back: vi.fn() }),
+  useRouter: () => ({ push: pushMock, prefetch: vi.fn(), replace: replaceMock, back: vi.fn() }),
+  useSearchParams: () => searchParamsMock.value,
 }))
 
 beforeEach(() => {
   localStorage.clear()
+  sessionStorage.clear()
   pushMock.mockClear()
+  replaceMock.mockClear()
+  searchParamsMock.value = new URLSearchParams()
 })
 
 describe('SignInPage', () => {
@@ -38,6 +43,47 @@ describe('SignInPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Masuk' }))
 
     await waitFor(() => expect(pushMock).toHaveBeenCalledWith('/dashboard'), { timeout: 3000 })
+  })
+
+  it('setelah sign-in dari redirect, kembali ke tujuan asal', async () => {
+    searchParamsMock.value = new URLSearchParams({ redirect: '/payroll' })
+    render(<SignInPage />)
+    fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: 'owner@usaha.com' } })
+    fireEvent.change(screen.getByLabelText(/^Kata sandi/), { target: { value: 'password123' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Masuk' }))
+
+    await waitFor(() => expect(pushMock).toHaveBeenCalledWith('/payroll'), { timeout: 3000 })
+  })
+
+  it('redirect tujuan tidak membuka URL eksternal', async () => {
+    searchParamsMock.value = new URLSearchParams({ redirect: 'https://evil.example' })
+    render(<SignInPage />)
+    fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: 'owner@usaha.com' } })
+    fireEvent.change(screen.getByLabelText(/^Kata sandi/), { target: { value: 'password123' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Masuk' }))
+
+    await waitFor(() => expect(pushMock).toHaveBeenCalledWith('/dashboard'), { timeout: 3000 })
+  })
+
+  it('pengguna yang sudah masuk diarahkan ke dashboard owner', async () => {
+    render(<SignInPage />)
+    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith('/dashboard'))
+  })
+
+  it('pengguna employee yang sudah masuk diarahkan ke /beranda', async () => {
+    localStorage.setItem(
+      'kk-user',
+      JSON.stringify({ id: 'u', business_id: 'b', nama: 'Budi', email: 'b@x', role: 'employee' }),
+    )
+    render(<SignInPage />)
+    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith('/beranda'))
+  })
+
+  it('notice sesi berakhir ditampilkan saat flag kk-session-expired ada', () => {
+    sessionStorage.setItem('kk-session-expired', '1')
+    render(<SignInPage />)
+    expect(screen.getByText('Sesi telah berakhir. Silakan masuk kembali.')).toBeInTheDocument()
+    expect(sessionStorage.getItem('kk-session-expired')).toBeNull()
   })
 
   it('toggle show/hide mengubah tipe input tanpa mengubah value', () => {

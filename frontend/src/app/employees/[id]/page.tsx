@@ -20,6 +20,7 @@ import {
 } from '@/components/ui'
 import type { StatusVariant } from '@/components/ui/status-chip'
 import { apiRequest } from '@/lib/api-client'
+import { AuthGuard, OWNER_ONLY } from '@/lib/route-guard'
 import { formatTanggal } from '@/lib/format'
 import { cn } from '@/lib/cn'
 
@@ -422,27 +423,32 @@ export default function EmployeeDetailPage() {
 
   if (loading) {
     return (
-      <AppShell userRole="owner" activeNav="employees" title="Detail Karyawan">
-        <LoadingSurface label="Memuat data karyawan…" />
-      </AppShell>
+      <AuthGuard requiredRoles={OWNER_ONLY}>
+        <AppShell userRole="owner" activeNav="employees" title="Detail Karyawan">
+          <LoadingSurface label="Memuat data karyawan…" />
+        </AppShell>
+      </AuthGuard>
     )
   }
 
   if (error || !employee) {
     return (
-      <AppShell userRole="owner" activeNav="employees" title="Detail Karyawan">
-        {error && <ErrorSurface error={error} onRetry={reload} />}
-      </AppShell>
+      <AuthGuard requiredRoles={OWNER_ONLY}>
+        <AppShell userRole="owner" activeNav="employees" title="Detail Karyawan">
+          {error && <ErrorSurface error={error} onRetry={reload} />}
+        </AppShell>
+      </AuthGuard>
     )
   }
 
   return (
-    <AppShell
-      userRole="owner"
-      activeNav="employees"
-      title="Detail Karyawan"
-      subtitle={employee.no_ktp}
-    >
+    <AuthGuard requiredRoles={OWNER_ONLY}>
+      <AppShell
+        userRole="owner"
+        activeNav="employees"
+        title="Detail Karyawan"
+        subtitle={employee.no_ktp}
+      >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           <Button
@@ -641,6 +647,7 @@ export default function EmployeeDetailPage() {
           {dialogError && <p className="text-body-sm text-danger">{dialogError}</p>}
         </div>
       </Dialog>
-    </AppShell>
+      </AppShell>
+    </AuthGuard>
   )
 }

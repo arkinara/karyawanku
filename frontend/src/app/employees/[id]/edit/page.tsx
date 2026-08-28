@@ -6,6 +6,7 @@ import { AppShell } from '@/components/ui'
 import { EmployeeForm } from '@/components/employees/employee-form'
 import type { EmployeeFormValues } from '@/components/employees/employee-form'
 import { getEmployeeById } from '@/lib/employees-mock'
+import { AuthGuard, OWNER_ONLY } from '@/lib/route-guard'
 
 /**
  * /employees/[id]/edit — edit karyawan (ticket #6).
@@ -38,12 +39,13 @@ export default function EditEmployeePage() {
   }
 
   return (
-    <AppShell
-      userRole="owner"
-      activeNav="employees"
-      title="Edit Karyawan"
-      subtitle={employee.nik}
-    >
+    <AuthGuard requiredRoles={OWNER_ONLY}>
+      <AppShell
+        userRole="owner"
+        activeNav="employees"
+        title="Edit Karyawan"
+        subtitle={employee.nik}
+      >
       <div>
         <h1 className="t-h1">Edit Karyawan</h1>
         <p className="t-caption mt-1">
@@ -68,5 +70,6 @@ export default function EditEmployeePage() {
         </div>
       )}
     </AppShell>
+    </AuthGuard>
   )
 }
