@@ -152,13 +152,14 @@ describe('Attendance Page — Owner view', () => {
   it('chip status memakai warna sesuai status (hadir/telat)', async () => {
     render(<AttendancePage />)
     await waitFor(() => expect(screen.getByText('Budi Santoso')).toBeInTheDocument())
+    // 994beea re-skinned StatusChip onto the M3 tokens (success/warning containers).
     const hadirChips = screen.getAllByText('Hadir').filter((el) => el.closest('tbody'))
     expect(hadirChips).toHaveLength(10)
-    hadirChips.forEach((chip) => expect(chip.className).toContain('bg-emerald-100'))
+    hadirChips.forEach((chip) => expect(chip.className).toContain('bg-success-container'))
 
     const telatChips = screen.getAllByText('Telat').filter((el) => el.closest('tbody'))
     expect(telatChips).toHaveLength(2)
-    telatChips.forEach((chip) => expect(chip.className).toContain('bg-amber-100'))
+    telatChips.forEach((chip) => expect(chip.className).toContain('bg-warning-container'))
   })
 
   it('membuka dialog manual entry dan memvalidasi field wajib', async () => {

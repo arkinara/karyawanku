@@ -9,14 +9,16 @@ describe('NAV model (kk.js NAV map port)', () => {
     expect(NAV.owner.primary.some((i) => i.key === 'settings')).toBe(false)
   })
 
-  it('employee: primary [home, attendance, leave, payslip] + secondary [settings]', () => {
+  // Commit 994beea (M3 bridge) removed the employee settings entry — employee
+  // rail has no secondary group now.
+  it('employee: primary [home, attendance, leave, payslip], no secondary', () => {
     expect(NAV.employee.primary.map((i) => i.key)).toEqual([
       'home',
       'attendance',
       'leave',
       'payslip',
     ])
-    expect(NAV.employee.secondary.map((i) => i.key)).toEqual(['settings'])
+    expect(NAV.employee.secondary.map((i) => i.key)).toEqual([])
     expect(NAV.employee.primary.some((i) => i.key === 'settings')).toBe(false)
   })
 
