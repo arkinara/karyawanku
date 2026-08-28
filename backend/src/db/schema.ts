@@ -64,7 +64,7 @@ export const users = sqliteTable(
       .default(sql`(unixepoch())`),
   },
   (table) => [
-    uniqueIndex('users_business_email_unique').on(table.business_id, table.email),
+    uniqueIndex('users_email_unique').on(table.email),
     index('users_business_id_idx').on(table.business_id),
   ],
 )

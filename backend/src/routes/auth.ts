@@ -2,9 +2,10 @@ import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { eq } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
-import { businesses, users } from '../db/schema.js'
-import { getCurrentUser, hashPassword, publicUser, signToken, verifyPassword } from '../lib/auth.js'
-import { ConflictError, UnauthorizedError, ValidationError } from '../lib/errors.js'
+import { users } from '../db/schema.js'
+import { getCurrentUser, publicUser, signToken, verifyPassword } from '../lib/auth.js'
+import { registerBusinessAndOwner } from '../lib/registration.js'
+import { UnauthorizedError, ValidationError } from '../lib/errors.js'
 
 const signUpSchema = z.object({
   nama: z.string().min(1, 'Nama wajib diisi'),
@@ -38,33 +39,11 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
 
     const { db } = getDb()
 
-    const business = db
-      .insert(businesses)
-      .values({ nama_bisnis: namaBisnis ?? 'Bisnis ' + nama })
-      .returning()
-      .get()
-
-    const existing = db
-      .select()
-      .from(users)
-      .where(eq(users.business_id, business.id))
-      .all()
-      .find((u) => u.email === email)
-    if (existing) {
-      throw new ConflictError('Email sudah terdaftar')
-    }
-
-    const user = db
-      .insert(users)
-      .values({
-        business_id: business.id,
-        nama,
-        email,
-        password_hash: await hashPassword(password),
-        role: 'owner',
-      })
-      .returning()
-      .get()
+    const { user } = await registerBusinessAndOwner(
+      db,
+      { namaBisnis: namaBisnis ?? 'Bisnis ' + nama },
+      { nama, email, password },
+    )
 
     return issue(user)
   })
@@ -81,8 +60,7 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
       .select()
       .from(users)
       .where(eq(users.email, email))
-      .all()
-      .find((u) => u.email === email)
+      .get()
 
     if (!user || !(await verifyPassword(password, user.password_hash))) {
       throw new UnauthorizedError('Email atau kata sandi salah')

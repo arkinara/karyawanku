@@ -25,16 +25,39 @@ describe('POST /api/auth/sign-up', () => {
     expect(body.user.password_hash).toBeUndefined()
   })
 
-  it('email yang sama di bisnis berbeda diperbolehkan (unik per bisnis)', async () => {
+  it('email yang dipakai bisnis lain → 409 dan tidak membuat bisnis', async () => {
     ctx = await setupTest()
-    // sign-up selalu membuat bisnis baru → email boleh sama di bisnis lain (scoped uniqueness)
+    const count = () =>
+      (ctx.db.sqlite.prepare('SELECT COUNT(*) AS n FROM businesses').get() as { n: number }).n
+    const before = count()
     const res = await ctx.app.inject({
       method: 'POST',
       url: '/api/auth/sign-up',
       payload: { nama: 'Dup', email: 'owner@demo.com', password: 'rahasia123', namaBisnis: 'Bisnis Lain' },
     })
+    expect(res.statusCode).toBe(409)
+    expect(res.json().error.message).toContain('Email sudah terdaftar')
+    expect(count()).toBe(before)
+  })
+
+  it('email belum terpakai → tepat satu bisnis + satu user owner', async () => {
+    ctx = await setupTest()
+    const count = (sql: string) =>
+      (ctx.db.sqlite.prepare(sql).get() as { n: number }).n
+    const beforeBusiness = count('SELECT COUNT(*) AS n FROM businesses')
+    const beforeUser = count('SELECT COUNT(*) AS n FROM users')
+    const res = await ctx.app.inject({
+      method: 'POST',
+      url: '/api/auth/sign-up',
+      payload: { nama: 'Friska', email: 'friska@demo.com', password: 'rahasia123', namaBisnis: 'Bisnis Baru' },
+    })
     expect(res.statusCode).toBe(200)
-    expect(res.json().user.business_id).not.toBe(ctx.businessId)
+    expect(res.json().user.business_id).toBeTruthy()
+    expect(count('SELECT COUNT(*) AS n FROM businesses')).toBe(beforeBusiness + 1)
+    expect(count('SELECT COUNT(*) AS n FROM users')).toBe(beforeUser + 1)
+    expect(
+      count("SELECT COUNT(*) AS n FROM users WHERE email = 'friska@demo.com' AND role = 'owner'"),
+    ).toBe(1)
   })
 
   it('menolak payload tidak valid → 400', async () => {
@@ -71,6 +94,38 @@ describe('POST /api/auth/sign-in', () => {
     })
     expect(res.statusCode).toBe(401)
     expect(res.json().token).toBeUndefined()
+  })
+
+  it('pesan 401 generik — tidak membocorkan apakah email terdaftar', async () => {
+    ctx = await setupTest()
+    const wrongPw = await ctx.app.inject({
+      method: 'POST',
+      url: '/api/auth/sign-in',
+      payload: { email: 'owner@demo.com', password: 'salah' },
+    })
+    const noEmail = await ctx.app.inject({
+      method: 'POST',
+      url: '/api/auth/sign-in',
+      payload: { email: 'tidak-ada@demo.com', password: 'salah' },
+    })
+    expect(wrongPw.statusCode).toBe(401)
+    expect(noEmail.statusCode).toBe(401)
+    expect(wrongPw.json().error.message).toBe(noEmail.json().error.message)
+    expect(wrongPw.json().error.message).toContain('Email atau kata sandi salah')
+  })
+
+  it('token di-scope ke business_id user yang bersangkutan', async () => {
+    ctx = await setupTest()
+    const res = await ctx.app.inject({
+      method: 'POST',
+      url: '/api/auth/sign-in',
+      payload: { email: 'owner@demo.com', password: 'owner123' },
+    })
+    expect(res.statusCode).toBe(200)
+    const { verifyToken } = await import('../src/lib/auth.js')
+    const payload = verifyToken(res.json().token)
+    expect(payload.businessId).toBe(ctx.businessId)
+    expect(payload.sub).toBeTruthy()
   })
 
   it('user dinonaktifkan tidak bisa masuk → 401', async () => {

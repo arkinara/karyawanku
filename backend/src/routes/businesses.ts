@@ -2,9 +2,10 @@ import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { eq } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
-import { businesses, users } from '../db/schema.js'
-import { currentUser, hashPassword, publicUser, requireOwner, signToken } from '../lib/auth.js'
-import { ConflictError, ForbiddenError, ValidationError } from '../lib/errors.js'
+import { businesses } from '../db/schema.js'
+import { currentUser, publicUser, requireOwner, signToken } from '../lib/auth.js'
+import { registerBusinessAndOwner } from '../lib/registration.js'
+import { ForbiddenError, ValidationError } from '../lib/errors.js'
 
 const createBusinessSchema = z.object({
   nama_bisnis: z.string().min(1, 'Nama bisnis wajib diisi').max(100, 'Nama bisnis maksimal 100 karakter'),
@@ -44,39 +45,12 @@ export default async function businessesRoutes(app: FastifyInstance): Promise<vo
     const { nama_bisnis, jenis_usaha, alamat, owner } = parsed.data
 
     const { db } = getDb()
-    const passwordHash = await hashPassword(owner.password)
 
-    const { business, user } = db.transaction((tx) => {
-      const existing = tx
-        .select()
-        .from(users)
-        .where(eq(users.email, owner.email))
-        .all()
-        .find((u) => u.email === owner.email)
-      if (existing) {
-        throw new ConflictError('Email sudah terdaftar')
-      }
-
-      const b = tx
-        .insert(businesses)
-        .values({ nama_bisnis, jenis_usaha, alamat })
-        .returning()
-        .get()
-
-      const u = tx
-        .insert(users)
-        .values({
-          business_id: b.id,
-          nama: owner.nama,
-          email: owner.email,
-          password_hash: passwordHash,
-          role: 'owner',
-        })
-        .returning()
-        .get()
-
-      return { business: b, user: u }
-    })
+    const { business, user } = await registerBusinessAndOwner(
+      db,
+      { namaBisnis: nama_bisnis, jenisUsaha: jenis_usaha, alamat },
+      owner,
+    )
 
     const token = signToken({
       sub: user.id,

@@ -84,7 +84,7 @@ Prefix: `/api`
 
 | Method | Path | Auth | Deskripsi |
 |---|---|---|---|
-| POST | `/auth/sign-up` | — | Buat bisnis + owner, balas `{ user, token }` (masih ada; untuk Owner baru disarankan pakai `POST /api/businesses`) |
+| POST | `/auth/sign-up` | — | Buat bisnis + owner dalam satu transaksi, balas `{ user, token }`. Email unik secara global (duplikat di bisnis mana pun → 409, tanpa baris yatim) |
 | POST | `/auth/sign-in` | — | Masuk, balas `{ user, token }` |
 | POST | `/auth/sign-out` | — | Keluar (JWT stateless), balas `{ ok: true }` |
 | GET | `/auth/me` | Bearer | User saat ini |
@@ -172,7 +172,7 @@ Catatan: saat `POST/PATCH /users` mengirim `employee_id`, sistem memvalidasi kar
 - `401` kredensial/sesi tidak valid
 - `403` bukan owner
 - `404` sumber daya tidak ditemukan
-- `409` email duplikat dalam bisnis
+- `409` email duplikat secara global
 - `422` nilai role/status tidak valid
 - `500` kesalahan server
 
@@ -180,8 +180,9 @@ Semua pesan error dalam Bahasa Indonesia, format `{ error: { message } }`.
 
 ## Catatan auth
 
-- **Flow signup Owner**: `POST /api/businesses` adalah endpoint yang disarankan untuk Owner baru (membuat workspace bisnis + owner dalam satu transaksi, email unik secara global, password minimal 8 karakter). `POST /api/auth/sign-up` tetap ada untuk kompatibilitas & pembuatan user tambahan, namun tidak menegakkan keunikan email antar-bisnis.
+- **Flow signup Owner**: `POST /api/businesses` adalah endpoint yang disarankan untuk Owner baru (membuat workspace bisnis + owner dalam satu transaksi, email unik secara global, password minimal 8 karakter). `POST /api/auth/sign-up` tetap ada untuk kompatibilitas & pembuatan user tambahan, dan kini menegakkan aturan yang sama.
 - Password di-hash dengan bcryptjs (tidak pernah dikirim balik; semua respons user membuang `password_hash`).
 - JWT HS256, kedaluwarsa 7 hari, dikirim via header `Authorization: Bearer <token>`.
-- Unik constraint `(business_id, email)` — email hanya unik per bisnis, jadi antar-bisnis boleh sama.
+- **Invariant keunikan email (global)**: `users.email` unik di seluruh tenant, dijamin oleh indeks unik DB (`users_email_unique`), bukan hanya cek aplikasi. Kedua jalur pendaftaran (`/auth/sign-up` dan `/businesses`) berbagi satu helper transaksional (`src/lib/registration.ts` → `registerBusinessAndOwner`) yang menolak 409 bila email sudah dipakai tenant lain dan tidak meninggalkan bisnis yatim. Migrasi `drizzle/0007_user-email-global-unique.sql` mengganti indeks `(business_id, email)` dengan indeks global `email`, lengkap dengan pre-flight yang membatalkan migrasi bila data lama mengandung email duplikat.
+- Sign-in menyelesaikan user dari `users.email` (maks 1 baris oleh constraint), sehingga JWT `businessId` selalu milik bisnis user tersebut. Password salah → 401 pesan generik (tidak membocorkan keberadaan email); user `status='nonaktif'` tidak bisa masuk.
 - Guard: tidak bisa menurunkan role diri sendiri, tidak bisa membuat bisnis tanpa owner (min. satu owner).
