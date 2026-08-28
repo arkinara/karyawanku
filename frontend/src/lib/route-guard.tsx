@@ -35,6 +35,8 @@ export const ANY_ROLE: UserRole[] = ['owner', 'manager', 'employee']
 export interface AuthGuardProps {
   /** Roles allowed to see `children`. */
   requiredRoles: UserRole[]
+  /** Override where denied users are redirected (default: their role home). */
+  redirectTo?: string
   children: ReactNode
 }
 
@@ -65,7 +67,7 @@ function DeniedToast() {
   )
 }
 
-export function AuthGuard({ requiredRoles, children }: AuthGuardProps) {
+export function AuthGuard({ requiredRoles, redirectTo, children }: AuthGuardProps) {
   const router = useRouter()
   const pathname = usePathname()
   const { user, loading } = useAuth()
@@ -101,7 +103,7 @@ export function AuthGuard({ requiredRoles, children }: AuthGuardProps) {
       } catch {
         // best-effort — the inline toast below still fires
       }
-      router.replace(roleHome(user.role))
+      router.replace(redirectTo ?? roleHome(user.role))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, user, rolesKey, pathname])

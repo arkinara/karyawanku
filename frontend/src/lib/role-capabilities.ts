@@ -23,6 +23,18 @@ export interface RoleCapabilities {
   canPublishRoster: boolean
   canEditBusinessProfile: boolean
   canManageUsers: boolean
+  /** Salary components (Komponen Gaji) editing — owner only, never manager. */
+  canEditSalaryComponents: boolean
+}
+
+/** BE role enum (matches `roles` in the backend user schema). */
+export const USER_ROLES: readonly Role[] = ['owner', 'manager', 'employee']
+
+/** Bahasa/UI label per role — used by selects and role chips. */
+export const USER_ROLE_LABEL: Record<Role, string> = {
+  owner: 'Owner',
+  manager: 'Manager',
+  employee: 'Employee',
 }
 
 /** Owner: every action. */
@@ -35,6 +47,7 @@ export const OWNER_CAPABILITIES: RoleCapabilities = {
   canPublishRoster: true,
   canEditBusinessProfile: true,
   canManageUsers: true,
+  canEditSalaryComponents: true,
 }
 
 /**
@@ -51,6 +64,7 @@ export const MANAGER_CAPABILITIES: RoleCapabilities = {
   canPublishRoster: true,
   canEditBusinessProfile: false,
   canManageUsers: true,
+  canEditSalaryComponents: false,
 }
 
 /** Employee: self-service only. */
@@ -63,6 +77,7 @@ export const EMPLOYEE_CAPABILITIES: RoleCapabilities = {
   canPublishRoster: false,
   canEditBusinessProfile: false,
   canManageUsers: false,
+  canEditSalaryComponents: false,
 }
 
 const CAPABILITIES: Record<Role, RoleCapabilities> = {

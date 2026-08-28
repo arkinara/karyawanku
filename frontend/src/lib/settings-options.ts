@@ -1,9 +1,10 @@
 /**
- * KaryawanKu — settings types + constant options (ticket #44).
+ * KaryawanKu — settings shared UI types + static option lists.
  *
- * The Profil Bisnis and Komponen Gaji tabs are wired to the BE (`/api/businesses`
- * and `/api/businesses/:id/default-salary-components`); this module only keeps
- * the shared UI types and the static option list used by the settings page.
+ * The Profil Bisnis, Komponen Gaji, Jenis Cuti, and Pengguna panels are all
+ * wired to the BE (`/api/businesses`, `/api/salary-components`,
+ * `/api/leave-types`, `/api/users`); this module only holds the shared types
+ * and the static option list used by the settings page.
  */
 
 export type JenisUsaha = 'fnb' | 'jasa'
@@ -34,7 +35,7 @@ export interface WorkspaceUser {
   email: string
   role: UserRole
   status: 'aktif' | 'nonaktif'
-  /** The connected employee id (from employees-mock), if any. */
+  /** The connected employee id, if any. */
   employeeId: string | null
 }
 

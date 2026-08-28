@@ -128,6 +128,7 @@ describe('Capability matrix (ticket #50)', () => {
       canPublishRoster: true,
       canEditBusinessProfile: true,
       canManageUsers: true,
+      canEditSalaryComponents: true,
     })
 
     const manager = capabilitiesForRole('manager')
@@ -139,6 +140,7 @@ describe('Capability matrix (ticket #50)', () => {
     expect(manager.canViewPayroll).toBe(false)
     expect(manager.canRunPayroll).toBe(false)
     expect(manager.canEditBusinessProfile).toBe(false)
+    expect(manager.canEditSalaryComponents).toBe(false)
 
     const employee = capabilitiesForRole('employee')
     expect(employee.canViewPayroll).toBe(false)
@@ -149,6 +151,7 @@ describe('Capability matrix (ticket #50)', () => {
     expect(employee.canPublishRoster).toBe(false)
     expect(employee.canEditBusinessProfile).toBe(false)
     expect(employee.canManageUsers).toBe(false)
+    expect(employee.canEditSalaryComponents).toBe(false)
   })
 
   it('role tidak dikenal jatuh ke capability employee (paling aman)', () => {

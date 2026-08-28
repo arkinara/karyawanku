@@ -15,13 +15,15 @@ import {
 } from '@/components/ui'
 import type { DataTableColumn } from '@/components/ui'
 import { cn } from '@/lib/cn'
-import { JENIS_USAHA_OPTIONS } from '@/lib/settings-mock'
-import type { BusinessProfile, CarryOverPolicy, LeaveTypeSetting, UserRole, WorkspaceUser } from '@/lib/settings-mock'
+import { JENIS_USAHA_OPTIONS } from '@/lib/settings-options'
+import type { BusinessProfile, CarryOverPolicy, LeaveTypeSetting, UserRole, WorkspaceUser } from '@/lib/settings-options'
 import { api } from '@/lib/api-client'
 import { useAuth } from '@/lib/auth-context'
-import { AuthGuard, OWNER_ONLY } from '@/lib/route-guard'
+import { AuthGuard, MANAGER_ROLES } from '@/lib/route-guard'
 import { formatIDR } from '@/lib/format'
 import { apiRequest } from '@/lib/api-client'
+import { useCapabilities, USER_ROLES, USER_ROLE_LABEL } from '@/lib/role-capabilities'
+import type { RoleCapabilities } from '@/lib/role-capabilities'
 import type { BeLeaveTypeListResponse } from '@/lib/leave-adapter'
 
 interface BeUser {
@@ -43,18 +45,30 @@ interface BeUserListResponse {
 
 type TabKey = 'profile' | 'leave' | 'salary' | 'users'
 
-const TABS: { key: TabKey; label: string; hash: string }[] = [
-  { key: 'profile', label: 'Profil Bisnis', hash: '#profile' },
-  { key: 'leave', label: 'Jenis Cuti', hash: '#leave' },
-  { key: 'salary', label: 'Komponen Gaji', hash: '#salary' },
-  { key: 'users', label: 'Pengguna', hash: '#users' },
+interface SettingsTab {
+  key: TabKey
+  label: string
+  hash: string
+  /** Capability that must be true for the tab to be visible. */
+  capability: keyof RoleCapabilities
+}
+
+const ALL_TABS: SettingsTab[] = [
+  { key: 'profile', label: 'Profil Bisnis', hash: '#profile', capability: 'canEditBusinessProfile' },
+  { key: 'leave', label: 'Jenis Cuti', hash: '#leave', capability: 'canManageUsers' },
+  { key: 'salary', label: 'Komponen Gaji', hash: '#salary', capability: 'canEditSalaryComponents' },
+  { key: 'users', label: 'Pengguna', hash: '#users', capability: 'canManageUsers' },
 ]
 
-function initialTab(): TabKey {
-  if (typeof window === 'undefined') return 'profile'
+function visibleTabs(caps: RoleCapabilities): SettingsTab[] {
+  return ALL_TABS.filter((t) => caps[t.capability])
+}
+
+function initialTab(tabs: SettingsTab[]): TabKey {
+  if (typeof window === 'undefined') return tabs[0]?.key ?? 'profile'
   const hash = window.location.hash
-  const found = TABS.find((t) => t.hash === hash)
-  return found?.key ?? 'profile'
+  const found = tabs.find((t) => t.hash === hash)
+  return found?.key ?? tabs[0]?.key ?? 'profile'
 }
 
 const fieldSelectClass = cn(
@@ -292,8 +306,12 @@ function LeaveTypesTab() {
       errs.kuota = 'Kuota harus angka minimal 0'
     }
     const maxNum = Number(maxHari)
-    if (policy === 'carry-over' && (!Number.isInteger(maxNum) || maxNum < 0)) {
-      errs.maxHari = 'Carry-over harus angka minimal 0'
+    if (policy === 'carry-over') {
+      if (maxHari.trim() === '') {
+        errs.maxHari = 'Maksimal carry-over wajib diisi'
+      } else if (!Number.isInteger(maxNum) || maxNum < 0) {
+        errs.maxHari = 'Carry-over harus angka minimal 0'
+      }
     }
     setErrors(errs)
     if (Object.keys(errs).length > 0) return
@@ -1016,9 +1034,11 @@ function UsersTab() {
             onChange={(e) => changeRole(u.id, e.target.value as UserRole)}
             className={cn(fieldSelectClass, 'w-auto px-2 py-1 text-xs')}
           >
-            <option value="owner">Owner</option>
-            <option value="manager">Manager</option>
-            <option value="employee">Employee</option>
+            {USER_ROLES.map((r) => (
+              <option key={r} value={r}>
+                {USER_ROLE_LABEL[r]}
+              </option>
+            ))}
           </select>
           <Button variant="text" size="sm" onClick={() => toggleStatus(u.id)}>
             {u.status === 'aktif' ? 'Nonaktifkan' : 'Aktifkan'}
@@ -1106,9 +1126,11 @@ function UsersTab() {
               onChange={(e) => setRole(e.target.value as UserRole)}
               className={fieldSelectClass}
             >
-              <option value="employee">Employee</option>
-              <option value="manager">Manager</option>
-              <option value="owner">Owner</option>
+              {USER_ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {USER_ROLE_LABEL[r]}
+                </option>
+              ))}
             </select>
           </div>
         </div>
@@ -1118,16 +1140,18 @@ function UsersTab() {
 }
 
 export default function SettingsPage() {
-  const [tab, setTab] = useState<TabKey>(initialTab)
   const { user } = useAuth()
+  const caps = useCapabilities()
+  const tabs = visibleTabs(caps)
+  const [tab, setTab] = useState<TabKey>(() => initialTab(tabs))
 
   useEffect(() => {
-    const found = TABS.find((t) => t.key === tab)
+    const found = tabs.find((t) => t.key === tab)
     if (found) window.history.replaceState(null, '', found.hash)
-  }, [tab])
+  }, [tab, tabs])
 
   return (
-    <AuthGuard requiredRoles={OWNER_ONLY}>
+    <AuthGuard requiredRoles={MANAGER_ROLES} redirectTo="/dashboard">
       <AppShell
         userRole={user?.role ?? 'owner'}
         activeNav="settings"
@@ -1139,7 +1163,7 @@ export default function SettingsPage() {
           aria-label="Pengaturan"
           className="flex shrink-0 flex-row gap-1 overflow-x-auto rounded-2xl border border-outline-variant bg-surface p-1 shadow-e1 lg:w-56 lg:flex-col"
         >
-          {TABS.map((t) => {
+          {tabs.map((t) => {
             const active = t.key === tab
             return (
               <button
