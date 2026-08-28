@@ -3,7 +3,7 @@ import { and, asc, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDb } from '../db/index.js'
 import { leaveTypes, type LeavePolicy } from '../db/schema.js'
-import { currentUser, requireOwner } from '../lib/auth.js'
+import { currentUser, requireAuth, requireOwner } from '../lib/auth.js'
 import { ApiError } from '../lib/errors.js'
 import { ensureLeaveTypesSeeded } from '../lib/leave-reset.js'
 
@@ -37,9 +37,7 @@ const updateSchema = z
   .refine((d) => Object.keys(d).length > 0, { message: 'Tidak ada field yang diubah' })
 
 export default async function leaveTypesRoutes(app: FastifyInstance): Promise<void> {
-  app.addHook('preHandler', requireOwner)
-
-  app.get('/leave-types', async (req) => {
+  app.get('/leave-types', { preHandler: requireAuth }, async (req) => {
     const user = currentUser(req)
     const { db } = getDb()
     ensureLeaveTypesSeeded(user.business_id)
@@ -54,7 +52,7 @@ export default async function leaveTypesRoutes(app: FastifyInstance): Promise<vo
     return { leave_types: rows }
   })
 
-  app.post('/leave-types', async (req) => {
+  app.post('/leave-types', { preHandler: requireOwner }, async (req) => {
     const parsed = createSchema.safeParse(req.body)
     if (!parsed.success) {
       throw new ApiError(422, 'Data jenis cuti tidak valid', parsed.error.flatten())
@@ -79,7 +77,7 @@ export default async function leaveTypesRoutes(app: FastifyInstance): Promise<vo
     return { leave_type: type }
   })
 
-  app.patch('/leave-types/:id', async (req) => {
+  app.patch('/leave-types/:id', { preHandler: requireOwner }, async (req) => {
     const { id } = req.params as { id: string }
     const parsed = updateSchema.safeParse(req.body)
     if (!parsed.success) {
@@ -108,7 +106,7 @@ export default async function leaveTypesRoutes(app: FastifyInstance): Promise<vo
     return { leave_type: updated }
   })
 
-  app.delete('/leave-types/:id', async (req) => {
+  app.delete('/leave-types/:id', { preHandler: requireOwner }, async (req) => {
     const { id } = req.params as { id: string }
     const user = currentUser(req)
     const { db } = getDb()

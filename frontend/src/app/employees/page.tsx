@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { ChevronLeft, ChevronRight, Pencil, Plus, Power, Search, Trash2 } from 'lucide-react'
 import {
   AppShell,
@@ -257,13 +258,13 @@ export default function EmployeesPage() {
           <h1 className="t-h1">Daftar Karyawan</h1>
           <p className="t-caption mt-1">{all.length} karyawan terdaftar</p>
         </div>
-        <a
+        <Link
           href="/employees/new"
           className="inline-flex h-11 items-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-on shadow-e1 transition-all duration-fast ease-standard hover:opacity-90 hover:shadow-e2 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
           Tambah Karyawan
-        </a>
+        </Link>
       </div>
 
       {error && (

@@ -1,8 +1,11 @@
 import { useId } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import type { NavKey, RoleNav } from '@/lib/nav-config'
 import { Icon } from '@/components/ui/icon'
 import { Avatar } from '@/components/ui/avatar'
 import { cn } from '@/lib/cn'
+import { useAuth } from '@/lib/auth-context'
 
 export interface NavRailProps {
   nav: RoleNav
@@ -17,15 +20,22 @@ export interface NavRailProps {
 export function NavRail({ nav, activeNav }: NavRailProps) {
   const primaryGroup = useId()
   const secondaryGroup = useId()
+  const router = useRouter()
+  const { signOut } = useAuth()
+
+  const handleLogout = async () => {
+    await signOut()
+    router.push('/signin')
+  }
 
   return (
     <aside className="rail" aria-label="Navigasi rail">
-      <a className="brand" href={nav.primary[0]?.href ?? '/'}>
+      <Link className="brand" href={nav.primary[0]?.href ?? '/'}>
         <span className="brand-mark" aria-hidden="true">
           K
         </span>
         <span className="brand-name">KaryawanKu</span>
-      </a>
+      </Link>
 
       <nav className="rail-nav" aria-label="Navigasi utama">
         <p className="rail-group" id={primaryGroup}>
@@ -60,6 +70,15 @@ export function NavRail({ nav, activeNav }: NavRailProps) {
           </span>
           <Icon name="chevronDown" size={16} />
         </button>
+        <button
+          type="button"
+          className="nav-item"
+          style={{ color: 'hsl(var(--danger))' }}
+          onClick={() => void handleLogout()}
+        >
+          <Icon name="logout" size={20} />
+          <span className="label">Keluar</span>
+        </button>
       </div>
     </aside>
   )
@@ -72,7 +91,7 @@ interface NavLinkProps {
 
 function NavLink({ item, active }: NavLinkProps) {
   return (
-    <a
+    <Link
       href={item.href}
       aria-current={active ? 'page' : undefined}
       className={cn('nav-item', active && 'font-semibold')}
@@ -84,6 +103,6 @@ function NavLink({ item, active }: NavLinkProps) {
           {item.badge}
         </span>
       )}
-    </a>
+    </Link>
   )
 }

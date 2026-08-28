@@ -1,6 +1,7 @@
 import { forwardRef } from 'react'
 import type { HTMLAttributes, MouseEventHandler } from 'react'
 import type { LucideIcon } from 'lucide-react'
+import Link from 'next/link'
 import { cn } from '@/lib/cn'
 import { Button } from '@/components/ui/button'
 
@@ -64,7 +65,7 @@ export const PriorityBanner = forwardRef<HTMLDivElement, PriorityBannerProps>(
 
       {action &&
         (action.href ? (
-          <a
+          <Link
             href={action.href}
             onClick={action.onClick as MouseEventHandler<HTMLAnchorElement>}
             className="shrink-0 self-center"
@@ -72,7 +73,7 @@ export const PriorityBanner = forwardRef<HTMLDivElement, PriorityBannerProps>(
             <Button variant="tonal" size="sm">
               {action.label}
             </Button>
-          </a>
+          </Link>
         ) : (
           <Button
             variant="tonal"

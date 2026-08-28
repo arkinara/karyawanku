@@ -1,9 +1,18 @@
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
+import { Inter } from 'next/font/google'
 import { ThemeProvider } from 'next-themes'
+import './globals.css'
 import { ThemeSync } from '@/components/ui/theme-sync'
 import { ToastProvider } from '@/components/ui/toast'
 import { AuthProvider } from '@/lib/auth-context'
+
+const inter = Inter({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-inter',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   title: 'KaryawanKu',
@@ -19,11 +28,11 @@ const themeScript = `(function(){try{var q=new URLSearchParams(location.search).
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="id" suppressHydrationWarning>
+    <html lang="id" className={inter.variable} suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script suppressHydrationWarning dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className="font-sans antialiased bg-surface-1 text-on-surface">
+      <body className="font-sans antialiased bg-surface-1 text-onsurface">
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

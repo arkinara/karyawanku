@@ -3,4 +3,4 @@ dist/
 data/*.db
 data/*.db-*
 data/payslips/
-drizzle/meta/
+# drizzle/meta/_journal.json wajib di-commit: migrator butuh journal saat fresh clone

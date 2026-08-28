@@ -69,12 +69,12 @@ export const NAV: Record<UserRole, RoleNav> = {
     org: { name: 'Warung Kopi Nusantara', meta: 'Cabang Kemang', mono: 'WK' },
     user: { name: 'Siti Nurhaliza', role: 'Kasir', mono: 'SN' },
     primary: [
-      { key: 'home', label: 'Beranda', icon: 'home', href: '/beranda' },
+      { key: 'home', label: 'Beranda', icon: 'home', href: '/dashboard' },
       { key: 'attendance', label: 'Absensi', icon: 'clock', href: '/attendance' },
       { key: 'leave', label: 'Cuti', icon: 'calendar', href: '/leave', badge: 1 },
       { key: 'payslip', label: 'Slip Gaji', icon: 'payslip', href: '/payslips' },
     ],
-    secondary: [{ key: 'settings', label: 'Pengaturan', icon: 'settings', href: '/settings' }],
+    secondary: [],
   },
 }
 

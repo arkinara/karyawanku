@@ -1,0 +1,55 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1787554475000,
+      "tag": "0000_robust_marvel_apes",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1787555413000,
+      "tag": "0001_rich_imperial_guard",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1787556491000,
+      "tag": "0002_flat_eternity",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1787557297000,
+      "tag": "0003_add-leave-types-aktif",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1787558435000,
+      "tag": "0004_shifts-publish",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1787559376000,
+      "tag": "0005_payroll-ptkp-detail",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1787830429000,
+      "tag": "0006_add-is-default-salary-components",
+      "breakpoints": true
+    }
+  ]
+}

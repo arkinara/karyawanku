@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   AlertTriangle,
@@ -195,7 +196,7 @@ function EmployeeDashboard() {
                     <div>
                       <p className="text-sm font-medium text-onsurface">{s.shift}</p>
                       <p className="text-xs tabular-nums text-onsurface-variant">
-                        {formatTanggal(s.tanggal)} · {formatJam(s.jam_mulai)} – {formatJam(s.jam_selesai)}
+                        {formatTanggal(s.tanggal)} · {s.jam_mulai} – {s.jam_selesai}
                       </p>
                     </div>
                     <StatusChip variant="info" label={s.shift} />
@@ -319,7 +320,7 @@ export default function DashboardPage() {
     return (
       <AppShell
         userRole="employee"
-        activeNav="dashboard"
+        activeNav="home"
         title={greeting}
         subtitle={user?.nama ?? 'Karyawan'}
       >
@@ -499,7 +500,7 @@ export default function DashboardPage() {
               ].map((a) => {
                 const IconCmp = a.icon
                 return (
-                  <a
+                  <Link
                     key={a.label}
                     href={a.href}
                     className="flex items-center gap-3 rounded-2xl border border-outline-variant bg-card p-4 transition hover:shadow-e2"
@@ -509,7 +510,7 @@ export default function DashboardPage() {
                     </span>
                     <span className="min-w-0 flex-1 truncate font-medium">{a.label}</span>
                     <ChevronRight className="h-4 w-4 shrink-0 text-onsurface-variant" />
-                  </a>
+                  </Link>
                 )
               })}
             </div>

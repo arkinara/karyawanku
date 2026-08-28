@@ -1,7 +1,10 @@
 import 'dotenv/config'
 import { migrate as applyMigrations } from 'drizzle-orm/better-sqlite3/migrator'
-import { resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { createDb, resolveDbPath } from './index.js'
+
+const here = dirname(fileURLToPath(import.meta.url))
 
 /**
  * Menerapkan migrasi (SQL di `drizzle/`) ke database.
@@ -15,7 +18,7 @@ export function migrate(dbPath?: string): void {
   if (dbPath) process.env.DATABASE_URL = dbPath
   try {
     const { sqlite, db } = createDb(resolveDbPath())
-    applyMigrations(db, { migrationsFolder: resolve(__dirname, '../../drizzle') })
+    applyMigrations(db, { migrationsFolder: resolve(here, '../../drizzle') })
     sqlite.close()
   } finally {
     if (dbPath) {

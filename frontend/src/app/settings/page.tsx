@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
 import {
   AppShell,
@@ -820,12 +821,12 @@ function SalaryComponentsTab() {
             <Plus className="h-4 w-4" aria-hidden="true" />
             Tambah Komponen
           </Button>
-          <a
+          <Link
             href="/salary-components"
             className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-outline bg-surface px-5 text-sm font-medium text-primary shadow-e1 transition-all duration-fast ease-standard hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface active:scale-[0.98]"
           >
             Kelola Komponen Gaji
-          </a>
+          </Link>
         </div>
       </div>
 

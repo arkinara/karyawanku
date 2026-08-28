@@ -2,12 +2,15 @@
 
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
+import { useRouter } from 'next/navigation'
 import type { NavKey, RoleNav, UserRole } from '@/lib/nav-config'
 import { NAV } from '@/lib/nav-config'
 import { NavRail } from '@/components/ui/nav-rail'
 import { AppBar } from '@/components/ui/app-bar'
 import { BottomNav } from '@/components/ui/bottom-nav'
 import { Drawer } from '@/components/ui/drawer'
+import { SkeletonBlock } from '@/components/ui/feedback'
+import { useAuth } from '@/lib/auth-context'
 
 export interface AppShellProps {
   userRole: UserRole
@@ -26,14 +29,37 @@ export interface AppShellProps {
  * Mobile (<1024px): bottom nav + drawer-driven app bar. A skip-link is always
  * the first focusable element.
  */
-export function AppShell({ userRole, activeNav, title, subtitle, children, nav = NAV[userRole] }: AppShellProps) {
+export function AppShell({ userRole, activeNav, title, subtitle, children, nav: navOverride }: AppShellProps) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const isDesktop = useMediaQuery('(min-width: 1024px)')
+  const router = useRouter()
+  const { user, loading } = useAuth()
 
   // Crossing to desktop makes the drawer redundant — close it (kk.js wireDrawer).
   useEffect(() => {
     if (isDesktop) setDrawerOpen(false)
   }, [isDesktop])
+
+  useEffect(() => {
+    if (!loading && !user) router.replace('/signin')
+  }, [loading, user, router])
+
+  if (loading || !user) {
+    return (
+      <div className="grid min-h-dvh place-items-center bg-surface-1 p-8">
+        <SkeletonBlock className="h-4 w-48" count={3} />
+      </div>
+    )
+  }
+
+  const nav: RoleNav = navOverride ?? {
+    ...NAV[userRole],
+    user: {
+      name: user.nama,
+      role: user.role === 'owner' ? 'Pemilik' : 'Karyawan',
+      mono: initials(user.nama),
+    },
+  }
 
   return (
     <div className="shell">
@@ -62,6 +88,14 @@ export function AppShell({ userRole, activeNav, title, subtitle, children, nav =
       <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} nav={nav} activeNav={activeNav} />
     </div>
   )
+}
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  return parts
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? '')
+    .join('')
 }
 
 function useMediaQuery(query: string): boolean {

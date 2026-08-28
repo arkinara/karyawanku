@@ -1,9 +1,12 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import type { NavKey, RoleNav } from '@/lib/nav-config'
 import { Icon } from '@/components/ui/icon'
 import { Avatar } from '@/components/ui/avatar'
+import { useAuth } from '@/lib/auth-context'
 
 export interface DrawerProps {
   open: boolean
@@ -20,6 +23,14 @@ export interface DrawerProps {
  */
 export function Drawer({ open, onClose, nav, activeNav }: DrawerProps) {
   const closeRef = useRef<HTMLButtonElement>(null)
+  const router = useRouter()
+  const { signOut } = useAuth()
+
+  const handleLogout = async () => {
+    onClose()
+    await signOut()
+    router.push('/signin')
+  }
 
   useEffect(() => {
     if (!open) return
@@ -72,11 +83,12 @@ export function Drawer({ open, onClose, nav, activeNav }: DrawerProps) {
 
         <nav className="rail-nav" aria-label="Navigasi utama (mobile)">
           {nav.primary.concat(nav.secondary).map((item) => (
-            <a
+            <Link
               key={item.key}
               href={item.href}
               aria-current={item.key === activeNav ? 'page' : undefined}
               className="nav-item"
+              onClick={onClose}
             >
               <Icon name={item.icon} size={20} />
               <span className="label">{item.label}</span>
@@ -85,7 +97,7 @@ export function Drawer({ open, onClose, nav, activeNav }: DrawerProps) {
                   {item.badge}
                 </span>
               )}
-            </a>
+            </Link>
           ))}
         </nav>
 
@@ -99,10 +111,15 @@ export function Drawer({ open, onClose, nav, activeNav }: DrawerProps) {
               </span>
             </span>
           </div>
-          <a className="nav-item" href="/masuk" style={{ color: 'hsl(var(--danger))' }}>
+          <button
+            type="button"
+            className="nav-item"
+            style={{ color: 'hsl(var(--danger))' }}
+            onClick={() => void handleLogout()}
+          >
             <Icon name="logout" size={20} />
             <span className="label">Keluar</span>
-          </a>
+          </button>
         </div>
       </aside>
     </>

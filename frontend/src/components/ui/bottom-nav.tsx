@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import type { NavKey, RoleNav } from '@/lib/nav-config'
 import { Icon } from '@/components/ui/icon'
 
@@ -17,7 +18,7 @@ export function BottomNav({ nav, activeNav }: BottomNavProps) {
       {nav.primary.slice(0, 5).map((item) => {
         const active = item.key === activeNav
         return (
-          <a
+          <Link
             key={item.key}
             href={item.href}
             aria-current={active ? 'page' : undefined}
@@ -32,7 +33,7 @@ export function BottomNav({ nav, activeNav }: BottomNavProps) {
                 <span className="sr-only">{item.badge} menunggu</span>
               </>
             )}
-          </a>
+          </Link>
         )
       })}
     </nav>

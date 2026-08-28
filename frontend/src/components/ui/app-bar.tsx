@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { useTheme } from 'next-themes'
 import type { UserMeta } from '@/lib/nav-config'
 import { Icon } from '@/components/ui/icon'
@@ -24,7 +25,9 @@ export interface AppBarProps {
  */
 export function AppBar({ title, subtitle, user, onMenu, menuExpanded = false }: AppBarProps) {
   const { resolvedTheme, setTheme } = useTheme()
-  const dark = resolvedTheme === 'dark'
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+  const dark = mounted && resolvedTheme === 'dark'
   const next = dark ? 'terang' : 'gelap'
 
   return (

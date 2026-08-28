@@ -17,7 +17,7 @@ const createSchema = z.object({
 })
 
 const catatanSchema = z.object({
-  catatan_approver: z.string().max(1000, 'Catatan maksimal 1000 karakter').optional(),
+  catatan_approver: z.string().max(1000, 'Catatan maksimal 1000 karakter').nullable().optional(),
 })
 
 function localDateStr(d: Date): string {

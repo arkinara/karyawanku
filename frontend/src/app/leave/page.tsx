@@ -159,9 +159,9 @@ function OwnerView() {
     if (!decision) return
     const { request, action } = decision
     const nextStatus: LeaveStatus = action === 'approve' ? 'approved' : 'rejected'
-    // Optimistic update + close dialog. The BE write is fire-and-forget; any
-    // reconciliation failure leaves the local change intact (next manual
-    // reload reconciles).
+    const previousStatus = request.status
+    const previousCatatan = request.catatan
+    // Optimistic update + close dialog; rolled back below if the BE write fails.
     setRequests((prev) =>
       prev.map((r) =>
         r.id === request.id ? { ...r, status: nextStatus, catatan: catatan.trim() } : r,
@@ -171,10 +171,14 @@ function OwnerView() {
     try {
       await api.patch(
         `/api/leave-requests/${request.id}/${action === 'approve' ? 'approve' : 'reject'}`,
-        { catatan_approver: catatan.trim() || null },
+        { catatan_approver: catatan.trim() || undefined },
       )
     } catch {
-      // Silent — local update stands.
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.id === request.id ? { ...r, status: previousStatus, catatan: previousCatatan } : r,
+        ),
+      )
     }
   }
 

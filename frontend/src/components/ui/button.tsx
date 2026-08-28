@@ -26,7 +26,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
  */
 const base = cn(
   'inline-flex items-center justify-center gap-2 rounded-full',
-  'font-medium text-sm whitespace-nowrap select-none',
+  'font-semibold whitespace-nowrap select-none',
   'transition-all duration-fast ease-standard',
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
   'focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
@@ -35,20 +35,20 @@ const base = cn(
 )
 
 const variants: Record<ButtonVariant, string> = {
-  primary: 'bg-primary text-primary-on shadow-e1 hover:opacity-90 hover:shadow-e2',
+  primary: 'bg-primary text-primary-on shadow-e1 hover:bg-primary-hover hover:shadow-e2 active:bg-primary-press',
   secondary: 'bg-surface-2 text-onsurface hover:opacity-90',
-  tonal: 'bg-primary-container text-primary-oncontainer hover:bg-surface-3',
+  tonal: 'bg-primary-container text-primary-oncontainer hover:bg-primary-container/70',
   text: 'bg-transparent text-primary hover:bg-primary/10',
-  danger: 'bg-danger-container text-danger-on hover:opacity-90',
+  danger: 'bg-surface text-danger border border-danger/50 hover:bg-danger-container',
   icon: 'bg-surface-2 text-onsurface hover:bg-surface-3',
-  outline: 'bg-surface text-primary border border-outline hover:bg-surface-2',
+  outline: 'bg-surface text-onsurface border border-outline hover:bg-surface-2',
 }
 
-/** Label buttons get horizontal padding; the icon variant stays square. */
+/** Label buttons get horizontal padding; the icon variant stays square. Sizes mirror `.btn-sm`/`.btn`/`.btn-lg` in kk.css. */
 const sizes: Record<ButtonSize, string> = {
-  sm: 'h-9 px-3',
-  md: 'h-11 px-5',
-  lg: 'h-14 px-6',
+  sm: 'h-9 px-3.5 text-[13.5px]',
+  md: 'h-11 px-5 text-[14.5px]',
+  lg: 'h-[52px] px-7 text-base',
 }
 
 const iconSizes: Record<ButtonSize, string> = {

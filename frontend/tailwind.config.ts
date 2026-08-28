@@ -18,57 +18,78 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+        sans: ['var(--font-inter)', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
       },
       colors: {
         primary: {
-          DEFAULT: 'hsl(var(--primary))',
-          hover: 'hsl(var(--primary-hover))',
-          press: 'hsl(var(--primary-press))',
-          on: 'hsl(var(--on-primary))',
-          container: 'hsl(var(--primary-container))',
-          oncontainer: 'hsl(var(--on-primary-container))',
+          DEFAULT: 'hsl(var(--primary) / <alpha-value>)',
+          hover: 'hsl(var(--primary-hover) / <alpha-value>)',
+          press: 'hsl(var(--primary-press) / <alpha-value>)',
+          on: 'hsl(var(--on-primary) / <alpha-value>)',
+          container: 'hsl(var(--primary-container) / <alpha-value>)',
+          oncontainer: 'hsl(var(--on-primary-container) / <alpha-value>)',
         },
         accent: {
-          DEFAULT: 'hsl(var(--accent))',
-          container: 'hsl(var(--accent-container))',
-          oncontainer: 'hsl(var(--on-accent-container))',
+          DEFAULT: 'hsl(var(--accent) / <alpha-value>)',
+          container: 'hsl(var(--accent-container) / <alpha-value>)',
+          oncontainer: 'hsl(var(--on-accent-container) / <alpha-value>)',
         },
         surface: {
-          DEFAULT: 'hsl(var(--surface))',
-          1: 'hsl(var(--surface-1))',
-          2: 'hsl(var(--surface-2))',
-          3: 'hsl(var(--surface-3))',
-          4: 'hsl(var(--surface-4))',
+          DEFAULT: 'hsl(var(--surface) / <alpha-value>)',
+          1: 'hsl(var(--surface-1) / <alpha-value>)',
+          2: 'hsl(var(--surface-2) / <alpha-value>)',
+          3: 'hsl(var(--surface-3) / <alpha-value>)',
+          4: 'hsl(var(--surface-4) / <alpha-value>)',
+          // M3-naming aliases some components were scaffolded with — same tokens, different name.
+          container: 'hsl(var(--surface-2) / <alpha-value>)',
+          'container-high': 'hsl(var(--surface-3) / <alpha-value>)',
+          'container-highest': 'hsl(var(--surface-4) / <alpha-value>)',
         },
         onsurface: {
-          DEFAULT: 'hsl(var(--on-surface))',
-          variant: 'hsl(var(--on-surface-variant))',
+          DEFAULT: 'hsl(var(--on-surface) / <alpha-value>)',
+          variant: 'hsl(var(--on-surface-variant) / <alpha-value>)',
         },
         outline: {
-          DEFAULT: 'hsl(var(--outline))',
-          variant: 'hsl(var(--outline-variant))',
+          DEFAULT: 'hsl(var(--outline) / <alpha-value>)',
+          variant: 'hsl(var(--outline-variant) / <alpha-value>)',
         },
         success: {
-          DEFAULT: 'hsl(var(--success))',
-          container: 'hsl(var(--success-container))',
-          on: 'hsl(var(--on-success-container))',
+          DEFAULT: 'hsl(var(--success) / <alpha-value>)',
+          container: 'hsl(var(--success-container) / <alpha-value>)',
+          on: 'hsl(var(--on-success-container) / <alpha-value>)',
         },
         warning: {
-          DEFAULT: 'hsl(var(--warning))',
-          container: 'hsl(var(--warning-container))',
-          on: 'hsl(var(--on-warning-container))',
+          DEFAULT: 'hsl(var(--warning) / <alpha-value>)',
+          container: 'hsl(var(--warning-container) / <alpha-value>)',
+          on: 'hsl(var(--on-warning-container) / <alpha-value>)',
         },
         danger: {
-          DEFAULT: 'hsl(var(--danger))',
-          container: 'hsl(var(--danger-container))',
-          on: 'hsl(var(--on-danger-container))',
+          DEFAULT: 'hsl(var(--danger) / <alpha-value>)',
+          container: 'hsl(var(--danger-container) / <alpha-value>)',
+          on: 'hsl(var(--on-danger-container) / <alpha-value>)',
         },
         info: {
-          DEFAULT: 'hsl(var(--info))',
-          container: 'hsl(var(--info-container))',
-          on: 'hsl(var(--on-info-container))',
+          DEFAULT: 'hsl(var(--info) / <alpha-value>)',
+          container: 'hsl(var(--info-container) / <alpha-value>)',
+          on: 'hsl(var(--on-info-container) / <alpha-value>)',
         },
+        // shadcn-scaffold aliases — several components were built against these
+        // names before the ProMax token bridge landed. Point them at the real tokens.
+        card: 'hsl(var(--surface) / <alpha-value>)',
+        'card-foreground': 'hsl(var(--on-surface) / <alpha-value>)',
+        foreground: 'hsl(var(--on-surface) / <alpha-value>)',
+        border: 'hsl(var(--outline-variant) / <alpha-value>)',
+        'muted-foreground': 'hsl(var(--on-surface-variant) / <alpha-value>)',
+        destructive: 'hsl(var(--danger) / <alpha-value>)',
+      },
+      fontSize: {
+        'body-sm': ['13.5px', { lineHeight: '1.55' }],
+        'body-md': ['15px', { lineHeight: '1.55' }],
+        'title-md': ['17px', { lineHeight: '1.25' }],
+        'title-lg': ['20px', { lineHeight: '1.25' }],
+      },
+      minHeight: {
+        touch: '44px',
       },
       borderRadius: {
         xs: 'var(--r-xs)',
@@ -87,11 +108,13 @@ const config: Config = {
       transitionTimingFunction: {
         standard: 'var(--ease-standard)',
         emphasized: 'var(--ease-emphasized)',
+        'm3-standard': 'var(--ease-standard)',
       },
       transitionDuration: {
         fast: 'var(--d-fast)',
         base: 'var(--d-base)',
         slow: 'var(--d-slow)',
+        'm3-short': 'var(--d-fast)',
       },
       zIndex: {
         raised: 'var(--z-raised)',
