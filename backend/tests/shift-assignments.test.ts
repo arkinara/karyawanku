@@ -157,8 +157,8 @@ describe('GET /api/shift-assignments', () => {
       headers: auth(ctx.ownerToken),
     })
     expect(res.statusCode).toBe(200)
-    expect(res.json().assignments.length).toBe(1)
-    expect(res.json().assignments[0].tanggal).toBe('2026-08-25')
+    expect(res.json().items.length).toBe(1)
+    expect(res.json().items[0].tanggal).toBe('2026-08-25')
   })
 
   it('employee hanya melihat assignment miliknya sendiri', async () => {
@@ -185,8 +185,8 @@ describe('GET /api/shift-assignments', () => {
       url: '/api/shift-assignments?start=2026-08-01&end=2026-08-31',
       headers: auth(ctx.employeeToken),
     })
-    expect(res.json().assignments.length).toBe(1)
-    expect(res.json().assignments[0].employee_id).toBe(emp.id)
+    expect(res.json().items.length).toBe(1)
+    expect(res.json().items[0].employee_id).toBe(emp.id)
   })
 
   it('employee tidak pernah melihat draft (published=false)', async () => {
@@ -212,8 +212,8 @@ describe('GET /api/shift-assignments', () => {
       url: '/api/shift-assignments?start=2026-08-01&end=2026-08-31',
       headers: auth(ctx.employeeToken),
     })
-    expect(res.json().assignments.length).toBe(1)
-    expect(res.json().assignments[0].tanggal).toBe('2026-08-25')
+    expect(res.json().items.length).toBe(1)
+    expect(res.json().items[0].tanggal).toBe('2026-08-25')
   })
 
   it('employee tidak bisa menipu employee_id query param', async () => {
@@ -234,7 +234,7 @@ describe('GET /api/shift-assignments', () => {
       url: `/api/shift-assignments?employee_id=${other.id}`,
       headers: auth(ctx.employeeToken),
     })
-    expect(res.json().assignments.length).toBe(0)
+    expect(res.json().items.length).toBe(0)
   })
 })
 

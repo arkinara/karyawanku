@@ -127,7 +127,7 @@ describe('GET /api/employees (list)', () => {
     const res = await ctx.app.inject({ method: 'GET', url: '/api/employees', headers: auth(ctx.ownerToken) })
     expect(res.statusCode).toBe(200)
     const body = res.json()
-    expect(body.employees.length).toBe(12)
+    expect(body.items.length).toBe(12)
     expect(body.total).toBe(12)
   })
 
@@ -143,23 +143,25 @@ describe('GET /api/employees (list)', () => {
     expect(res.statusCode).toBe(200)
     const body = res.json()
     expect(body.total).toBe(1)
-    expect(body.employees[0].jenis_kontrak).toBe('harian')
-    expect(body.employees[0].status).toBe('nonaktif')
+    expect(body.items[0].jenis_kontrak).toBe('harian')
+    expect(body.items[0].status).toBe('nonaktif')
   })
 
-  it('pagination limit/offset', async () => {
+  it('pagination page/limit', async () => {
     ctx = await setupTest()
     await seedEmployees(5)
     const res = await ctx.app.inject({
       method: 'GET',
-      url: '/api/employees?limit=2&offset=2',
+      url: '/api/employees?page=2&limit=2',
       headers: auth(ctx.ownerToken),
     })
     expect(res.statusCode).toBe(200)
     const body = res.json()
-    expect(body.employees.length).toBe(2)
+    expect(body.items.length).toBe(2)
     expect(body.limit).toBe(2)
-    expect(body.offset).toBe(2)
+    expect(body.page).toBe(2)
+    expect(body.total).toBe(5)
+    expect(body.has_more).toBe(true)
   })
 })
 

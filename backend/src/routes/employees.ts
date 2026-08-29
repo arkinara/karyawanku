@@ -10,12 +10,13 @@ import {
   serializeEmployee,
   updateEmployeeSchema,
 } from '../lib/employee-validation.js'
+import { offsetOf, paginateResult, parsePagination } from '../lib/pagination.js'
 
 export default async function employeesRoutes(app: FastifyInstance): Promise<void> {
   app.get('/employees', { preHandler: requireOwner }, async (req) => {
     const q = req.query as Record<string, unknown>
-    const limit = Math.min(Number(q.limit ?? 50) || 50, 200)
-    const offset = Number(q.offset ?? 0) || 0
+    const { page, limit } = parsePagination(q)
+    const offset = offsetOf({ page, limit })
     const user = currentUser(req)
     const { db } = getDb()
 
@@ -28,13 +29,13 @@ export default async function employeesRoutes(app: FastifyInstance): Promise<voi
       .select()
       .from(employees)
       .where(where)
-      .orderBy(asc(employees.nama_lengkap))
+      .orderBy(asc(employees.nama_lengkap), asc(employees.id))
       .limit(limit)
       .offset(offset)
       .all()
     const total = db.select({ c: count() }).from(employees).where(where).get()?.c ?? 0
 
-    return { employees: rows.map(serializeEmployee), total, limit, offset }
+    return paginateResult(rows.map(serializeEmployee), total, { page, limit })
   })
 
   app.post('/employees', { preHandler: requireOwner }, async (req) => {

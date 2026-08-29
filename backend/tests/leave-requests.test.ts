@@ -187,8 +187,8 @@ describe('GET /api/leave-requests', () => {
 
     const res = await ctx.app.inject({ method: 'GET', url: '/api/leave-requests', headers: auth(ctx.employeeToken) })
     expect(res.statusCode).toBe(200)
-    expect(res.json().requests.length).toBe(1)
-    expect(res.json().requests[0].employee_id).toBe(emp.id)
+    expect(res.json().items.length).toBe(1)
+    expect(res.json().items[0].employee_id).toBe(emp.id)
   })
 
   it('owner melihat semua pengajuan di bisnis + filter status', async () => {
@@ -205,19 +205,19 @@ describe('GET /api/leave-requests', () => {
     })
 
     const all = await ctx.app.inject({ method: 'GET', url: '/api/leave-requests', headers: auth(ctx.ownerToken) })
-    expect(all.json().requests.length).toBe(1)
+    expect(all.json().items.length).toBe(1)
     const pending = await ctx.app.inject({
       method: 'GET',
       url: '/api/leave-requests?status=pending',
       headers: auth(ctx.ownerToken),
     })
-    expect(pending.json().requests.length).toBe(1)
+    expect(pending.json().items.length).toBe(1)
     const disetujui = await ctx.app.inject({
       method: 'GET',
       url: '/api/leave-requests?status=disetujui',
       headers: auth(ctx.ownerToken),
     })
-    expect(disetujui.json().requests.length).toBe(0)
+    expect(disetujui.json().items.length).toBe(0)
   })
 
   it('owner tidak melihat pengajuan bisnis lain', async () => {
@@ -248,7 +248,7 @@ describe('GET /api/leave-requests', () => {
       })
       .run()
     const res = await ctx.app.inject({ method: 'GET', url: '/api/leave-requests', headers: auth(ctx.ownerToken) })
-    expect(res.json().requests.length).toBe(0)
+    expect(res.json().items.length).toBe(0)
   })
 })
 

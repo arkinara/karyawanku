@@ -1,11 +1,12 @@
 import type { FastifyInstance } from 'fastify'
-import { eq, and, desc } from 'drizzle-orm'
+import { and, count, desc, eq } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
 import { employees, payrollItems, payrollRuns, payslips, salaryComponents } from '../db/schema.js'
 import { currentUser, requireAuth } from '../lib/auth.js'
 import { ApiError, ForbiddenError } from '../lib/errors.js'
 import { readPayslipFile } from '../lib/payslip-store.js'
 import { composePayslipBreakdown } from '../lib/payslip-breakdown.js'
+import { offsetOf, paginateResult, parsePagination } from '../lib/pagination.js'
 
 function slugifyPeriod(periode: string): string {
   const [year, month] = periode.split('-')
@@ -21,6 +22,9 @@ function sanitizeName(name: string): string {
 export default async function payslipsRoutes(app: FastifyInstance): Promise<void> {
   app.get('/payslips', { preHandler: requireAuth }, async (req) => {
     const user = currentUser(req)
+    const q = req.query as Record<string, unknown>
+    const { page, limit } = parsePagination(q)
+    const offset = offsetOf({ page, limit })
     const { db } = getDb()
 
     const filters = [eq(payrollRuns.business_id, user.business_id)]
@@ -30,6 +34,7 @@ export default async function payslipsRoutes(app: FastifyInstance): Promise<void
       }
       filters.push(eq(payrollItems.employee_id, user.employee_id))
     }
+    const where = and(...filters)
 
     const rows = db
       .select({
@@ -42,8 +47,10 @@ export default async function payslipsRoutes(app: FastifyInstance): Promise<void
       .innerJoin(payrollItems, eq(payslips.payroll_item_id, payrollItems.id))
       .innerJoin(payrollRuns, eq(payrollItems.payroll_run_id, payrollRuns.id))
       .innerJoin(employees, eq(payrollItems.employee_id, employees.id))
-      .where(and(...filters))
-      .orderBy(desc(payrollRuns.periode))
+      .where(where)
+      .orderBy(desc(payslips.created_at), desc(payslips.id))
+      .limit(limit)
+      .offset(offset)
       .all()
 
     const data = rows.map((r) => ({
@@ -60,18 +67,35 @@ export default async function payslipsRoutes(app: FastifyInstance): Promise<void
       take_home: r.item.take_home,
     }))
 
-    return { payslips: data }
+    const total =
+      db
+        .select({ c: count() })
+        .from(payslips)
+        .innerJoin(payrollItems, eq(payslips.payroll_item_id, payrollItems.id))
+        .innerJoin(payrollRuns, eq(payrollItems.payroll_run_id, payrollRuns.id))
+        .where(where)
+        .get()?.c ?? 0
+
+    return paginateResult(data, total, { page, limit })
   })
 
   app.get('/payslips/employee/:employeeId', { preHandler: requireAuth }, async (req) => {
     const user = currentUser(req)
     const { employeeId } = req.params as { employeeId: string }
+    const q = req.query as Record<string, unknown>
+    const { page, limit } = parsePagination(q)
+    const offset = offsetOf({ page, limit })
     const { db } = getDb()
 
     if (user.role !== 'owner' && user.employee_id !== employeeId) {
       throw new ForbiddenError('Anda hanya dapat melihat slip gaji milik Anda sendiri.')
     }
 
+    const where = and(
+      eq(payrollItems.employee_id, employeeId),
+      eq(payrollRuns.business_id, user.business_id),
+    )
+
     const rows = db
       .select({
         payslip: payslips,
@@ -83,13 +107,10 @@ export default async function payslipsRoutes(app: FastifyInstance): Promise<void
       .innerJoin(payrollItems, eq(payslips.payroll_item_id, payrollItems.id))
       .innerJoin(payrollRuns, eq(payrollItems.payroll_run_id, payrollRuns.id))
       .innerJoin(employees, eq(payrollItems.employee_id, employees.id))
-      .where(
-        and(
-          eq(payrollItems.employee_id, employeeId),
-          eq(payrollRuns.business_id, user.business_id),
-        ),
-      )
-      .orderBy(desc(payrollRuns.periode))
+      .where(where)
+      .orderBy(desc(payslips.created_at), desc(payslips.id))
+      .limit(limit)
+      .offset(offset)
       .all()
 
     const data = rows.map((r) => ({
@@ -106,7 +127,16 @@ export default async function payslipsRoutes(app: FastifyInstance): Promise<void
       },
     }))
 
-    return { payslips: data }
+    const total =
+      db
+        .select({ c: count() })
+        .from(payslips)
+        .innerJoin(payrollItems, eq(payslips.payroll_item_id, payrollItems.id))
+        .innerJoin(payrollRuns, eq(payrollItems.payroll_run_id, payrollRuns.id))
+        .where(where)
+        .get()?.c ?? 0
+
+    return paginateResult(data, total, { page, limit })
   })
 
   app.get('/payslips/:id', { preHandler: requireAuth }, async (req) => {

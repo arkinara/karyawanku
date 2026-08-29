@@ -141,7 +141,7 @@ describe('GET /api/payslips', () => {
       headers: auth(ctx.ownerToken),
     })
     expect(ownerRes.statusCode).toBe(200)
-    expect(ownerRes.json().payslips).toHaveLength(2)
+    expect(ownerRes.json().items).toHaveLength(2)
 
     const empRes = await ctx.app.inject({
       method: 'GET',
@@ -149,8 +149,8 @@ describe('GET /api/payslips', () => {
       headers: auth(ctx.employeeToken),
     })
     expect(empRes.statusCode).toBe(200)
-    expect(empRes.json().payslips).toHaveLength(1)
-    expect(empRes.json().payslips[0].employee.id).toBe(siti.id)
+    expect(empRes.json().items).toHaveLength(1)
+    expect(empRes.json().items[0].employee.id).toBe(siti.id)
   })
 })
 
@@ -173,8 +173,8 @@ describe('GET /api/payslips/employee/:employeeId', () => {
       headers: auth(ctx.ownerToken),
     })
     expect(ownerRes.statusCode).toBe(200)
-    expect(ownerRes.json().payslips).toHaveLength(1)
-    expect(ownerRes.json().payslips[0].employee.id).toBe(budi.id)
+    expect(ownerRes.json().items).toHaveLength(1)
+    expect(ownerRes.json().items[0].employee.id).toBe(budi.id)
 
     const empOther = await ctx.app.inject({
       method: 'GET',

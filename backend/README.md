@@ -185,7 +185,7 @@ Prefix: `/api`
 | POST | `/shifts` | roster.publish | Buat shift (`nama_shift` Pagi/Siang/Malam/Libur, `jam_mulai`, `jam_selesai`, `aktif?`); `jam_selesai` tidak boleh lebih awal dari `jam_mulai` |
 | PATCH | `/shifts/:id` | roster.publish | Update subset field shift |
 | DELETE | `/shifts/:id` | roster.publish | Soft-delete shift (set `aktif=false`); assignment lama tetap mereferensikan shift ini |
-| GET | `/shift-assignments?start=&end=&employee_id=` | Owner / Karyawan | Daftar penugasan shift dalam rentang (owner semua di bisnis + optional filter; karyawan hanya milik sendiri DAN hanya `published=true`) |
+| GET | `/shift-assignments?start=&end=&employee_id=&page=&limit=` | Owner / Karyawan | Daftar penugasan shift dalam rentang (owner semua di bisnis + optional filter; karyawan hanya milik sendiri DAN hanya `published=true`) |
 | POST | `/shift-assignments` | roster.publish | Tugaskan shift ke karyawan pada tanggal (`published` default `false`); validasi shift + karyawan di bisnis yang sama |
 | PATCH | `/shift-assignments/:id` | roster.publish | Update subset field penugasan (validasi silang bisnis bila ganti shift/karyawan) |
 | DELETE | `/shift-assignments/:id` | roster.publish | Hapus penugasan shift (hard delete) → `{ ok: true }` |
@@ -198,8 +198,8 @@ Prefix: `/api`
 | PATCH | `/payroll-items/:id` | Owner | Koreksi item payroll saat `status=draft`: body `{ koreksi, catatan_koreksi? }`; `koreksi` ditambahkan ke `take_home`. Setelah approve/lock → 409 |
 | POST | `/payroll-runs/:id/approve` | Owner | Setujui run: `draft → disetujui`, set `approved_at` + `approved_by_user_id`, generate slip PDF per item. Re-approve → 409 (tanpa duplikasi payslip) |
 | POST | `/payroll-runs/:id/lock` | Owner | Kunci run setelah disetujui (`disetujui → locked`), menolak semua edit lanjutan |
-| GET | `/payslips` | Owner / Karyawan | Daftar slip gaji (owner semua di bisnis; karyawan hanya miliknya) |
-| GET | `/payslips/employee/:employeeId` | Owner / Karyawan terkait | Daftar slip gaji karyawan tertentu (owner bebas; karyawan hanya diri sendiri) |
+| GET | `/payslips?page=&limit=` | Owner / Karyawan | Daftar slip gaji (owner semua di bisnis; karyawan hanya miliknya) |
+| GET | `/payslips/employee/:employeeId?page=&limit=` | Owner / Karyawan terkait | Daftar slip gaji karyawan tertentu (owner bebas; karyawan hanya diri sendiri) |
 | GET | `/payslips/:id` | Owner / Karyawan terkait | Detail slip gaji + breakdown inline: `{ id, payroll_item_id, employee, periode, breakdown: { earnings[], deductions[] }, totals, pdf_url }`. Breakdown disusun dari `payroll_items.detail_breakdown` (earning/deduction lines) + komponen BPJS/PPh21; total_earnings − total_deductions = take_home (toleransi ±1 IDR). Owner semua di bisnis; karyawan hanya miliknya; lintas-bisnis / tidak ada → 404 |
 | GET | `/payslips/:id/download` | Owner / Karyawan terkait | Unduh PDF slip gaji (`Content-Type: application/pdf`, nama `slip-gaji-{nama}-{periode}.pdf`) |
 | GET | `/payroll-runs/:id/export.csv` | Owner | Ekspor rekap payroll CSV (BOM UTF-8) atau XLSX (`?format=xlsx`), termasuk baris total |

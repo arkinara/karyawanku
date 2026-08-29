@@ -1,10 +1,11 @@
 import type { FastifyInstance } from 'fastify'
-import { and, asc, eq, gte, lte } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gte, lte } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDb } from '../db/index.js'
 import { employees, shiftAssignments, shifts } from '../db/schema.js'
 import { currentUser, requireAuth, requireCapability } from '../lib/auth.js'
 import { ApiError } from '../lib/errors.js'
+import { offsetOf, paginateResult, parsePagination } from '../lib/pagination.js'
 
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Tanggal wajib berformat YYYY-MM-DD')
 
@@ -105,6 +106,8 @@ export default async function shiftAssignmentsRoutes(app: FastifyInstance): Prom
   app.get('/shift-assignments', { preHandler: requireAuth }, async (req) => {
     const user = currentUser(req)
     const q = req.query as Record<string, unknown>
+    const { page, limit } = parsePagination(q)
+    const offset = offsetOf({ page, limit })
     const { db } = getDb()
 
     const filters = [eq(employees.business_id, user.business_id)]
@@ -131,6 +134,7 @@ export default async function shiftAssignmentsRoutes(app: FastifyInstance): Prom
     if (q.start !== undefined && q.end !== undefined && String(q.end) < String(q.start)) {
       throw new ApiError(422, 'Tanggal end harus lebih besar atau sama dengan start')
     }
+    const where = and(...filters)
 
     const rows = db
       .select({
@@ -141,11 +145,21 @@ export default async function shiftAssignmentsRoutes(app: FastifyInstance): Prom
       .from(shiftAssignments)
       .innerJoin(employees, eq(shiftAssignments.employee_id, employees.id))
       .leftJoin(shifts, eq(shiftAssignments.shift_id, shifts.id))
-      .where(and(...filters))
-      .orderBy(asc(shiftAssignments.tanggal))
+      .where(where)
+      .orderBy(desc(shiftAssignments.tanggal), desc(shiftAssignments.id))
+      .limit(limit)
+      .offset(offset)
       .all()
 
-    return { assignments: rows.map((r) => serialize(r)) }
+    const total =
+      db
+        .select({ c: count() })
+        .from(shiftAssignments)
+        .innerJoin(employees, eq(shiftAssignments.employee_id, employees.id))
+        .where(where)
+        .get()?.c ?? 0
+
+    return paginateResult(rows.map((r) => serialize(r)), total, { page, limit })
   })
 
   app.post('/shift-assignments', { preHandler: requireCapability('roster.publish') }, async (req) => {

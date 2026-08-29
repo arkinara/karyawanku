@@ -1,11 +1,12 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
-import { and, eq } from 'drizzle-orm'
+import { and, asc, eq } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
 import { employees, roles, users, type Role, type UserStatus } from '../db/schema.js'
 import { currentUser, hashPassword, publicUser, requireCapability, revokeAllSessionsForUser } from '../lib/auth.js'
 import { recordAudit } from '../lib/audit.js'
 import { ApiError, ConflictError, ForbiddenError, ValidationError } from '../lib/errors.js'
+import { offsetOf, paginateResult, parsePagination } from '../lib/pagination.js'
 
 const createUserSchema = z.object({
   email: z.string().email('Format email tidak valid').toLowerCase(),
@@ -28,8 +29,8 @@ export default async function usersRoutes(app: FastifyInstance): Promise<void> {
 
   app.get('/users', async (req) => {
     const q = req.query as Record<string, unknown>
-    const limit = Math.min(Number(q.limit ?? 50) || 50, 200)
-    const offset = Number(q.offset ?? 0) || 0
+    const { page, limit } = parsePagination(q)
+    const offset = offsetOf({ page, limit })
 
     const { db } = getDb()
     const user = currentUser(req)
@@ -37,6 +38,7 @@ export default async function usersRoutes(app: FastifyInstance): Promise<void> {
       .select()
       .from(users)
       .where(eq(users.business_id, user!.business_id))
+      .orderBy(asc(users.nama), asc(users.id))
       .limit(limit)
       .offset(offset)
       .all()
@@ -47,7 +49,7 @@ export default async function usersRoutes(app: FastifyInstance): Promise<void> {
       .where(eq(users.business_id, user!.business_id))
       .all().length
 
-    return { users: rows.map(publicUser), total, limit, offset }
+    return paginateResult(rows.map(publicUser), total, { page, limit })
   })
 
   app.post('/users', async (req) => {

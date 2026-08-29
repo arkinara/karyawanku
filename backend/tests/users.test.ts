@@ -18,7 +18,7 @@ describe('GET /api/users', () => {
     const res = await ctx.app.inject({ method: 'GET', url: '/api/users', headers: auth(ctx.ownerToken) })
     expect(res.statusCode).toBe(200)
     const body = res.json()
-    expect(body.users.length).toBe(3)
+    expect(body.items.length).toBe(3)
     expect(body.total).toBe(3)
   })
 
@@ -34,25 +34,27 @@ describe('GET /api/users', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('mendukung pagination limit/offset', async () => {
+  it('mendukung pagination page/limit', async () => {
     ctx = await setupTest()
     const res = await ctx.app.inject({
       method: 'GET',
-      url: '/api/users?limit=1&offset=1',
+      url: '/api/users?page=2&limit=1',
       headers: auth(ctx.ownerToken),
     })
     expect(res.statusCode).toBe(200)
     const body = res.json()
     expect(body.limit).toBe(1)
-    expect(body.offset).toBe(1)
-    expect(body.users.length).toBe(1)
+    expect(body.page).toBe(2)
+    expect(body.items.length).toBe(1)
+    expect(body.total).toBe(3)
+    expect(body.has_more).toBe(true)
   })
 
   it('tidak pernah mengembalikan password_hash', async () => {
     ctx = await setupTest()
     const res = await ctx.app.inject({ method: 'GET', url: '/api/users', headers: auth(ctx.ownerToken) })
     const body = res.json()
-    for (const u of body.users) {
+    for (const u of body.items) {
       expect(u.password_hash).toBeUndefined()
     }
   })
@@ -112,7 +114,7 @@ describe('PATCH /api/users/:id', () => {
   it('owner memperbarui role user', async () => {
     ctx = await setupTest()
     const list = await ctx.app.inject({ method: 'GET', url: '/api/users', headers: auth(ctx.ownerToken) })
-    const target = list.json().users.find((u: { email: string }) => u.email === 'siti@demo.com')
+    const target = list.json().items.find((u: { email: string }) => u.email === 'siti@demo.com')
     const res = await ctx.app.inject({
       method: 'PATCH',
       url: `/api/users/${target.id}`,
@@ -126,7 +128,7 @@ describe('PATCH /api/users/:id', () => {
   it('owner tidak dapat menurunkan role dirinya sendiri → 400', async () => {
     ctx = await setupTest()
     const list = await ctx.app.inject({ method: 'GET', url: '/api/users', headers: auth(ctx.ownerToken) })
-    const me = list.json().users.find((u: { email: string }) => u.email === 'owner@demo.com')
+    const me = list.json().items.find((u: { email: string }) => u.email === 'owner@demo.com')
     const res = await ctx.app.inject({
       method: 'PATCH',
       url: `/api/users/${me.id}`,
@@ -140,7 +142,7 @@ describe('PATCH /api/users/:id', () => {
     ctx = await setupTest()
     // pastikan hanya satu owner: demote owner2 tidak ada, jadi owner saat ini adalah satu-satunya
     const list = await ctx.app.inject({ method: 'GET', url: '/api/users', headers: auth(ctx.ownerToken) })
-    const me = list.json().users.find((u: { email: string }) => u.email === 'owner@demo.com')
+    const me = list.json().items.find((u: { email: string }) => u.email === 'owner@demo.com')
     const res = await ctx.app.inject({
       method: 'PATCH',
       url: `/api/users/${me.id}`,
@@ -153,7 +155,7 @@ describe('PATCH /api/users/:id', () => {
   it('role tidak valid → 422', async () => {
     ctx = await setupTest()
     const list = await ctx.app.inject({ method: 'GET', url: '/api/users', headers: auth(ctx.ownerToken) })
-    const target = list.json().users.find((u: { email: string }) => u.email === 'siti@demo.com')
+    const target = list.json().items.find((u: { email: string }) => u.email === 'siti@demo.com')
     const res = await ctx.app.inject({
       method: 'PATCH',
       url: `/api/users/${target.id}`,
@@ -166,7 +168,7 @@ describe('PATCH /api/users/:id', () => {
   it('owner menaikkan employee menjadi manager', async () => {
     ctx = await setupTest()
     const list = await ctx.app.inject({ method: 'GET', url: '/api/users', headers: auth(ctx.ownerToken) })
-    const target = list.json().users.find((u: { email: string }) => u.email === 'siti@demo.com')
+    const target = list.json().items.find((u: { email: string }) => u.email === 'siti@demo.com')
     const res = await ctx.app.inject({
       method: 'PATCH',
       url: `/api/users/${target.id}`,
@@ -182,7 +184,7 @@ describe('DELETE /api/users/:id (soft-delete)', () => {
   it('owner menonaktifkan user → { ok: true } dan status nonaktif', async () => {
     ctx = await setupTest()
     const list = await ctx.app.inject({ method: 'GET', url: '/api/users', headers: auth(ctx.ownerToken) })
-    const target = list.json().users.find((u: { email: string }) => u.email === 'siti@demo.com')
+    const target = list.json().items.find((u: { email: string }) => u.email === 'siti@demo.com')
     const res = await ctx.app.inject({
       method: 'DELETE',
       url: `/api/users/${target.id}`,
@@ -192,14 +194,14 @@ describe('DELETE /api/users/:id (soft-delete)', () => {
     expect(res.json()).toEqual({ ok: true })
 
     const after = await ctx.app.inject({ method: 'GET', url: '/api/users', headers: auth(ctx.ownerToken) })
-    const updated = after.json().users.find((u: { id: string }) => u.id === target.id)
+    const updated = after.json().items.find((u: { id: string }) => u.id === target.id)
     expect(updated.status).toBe('nonaktif')
   })
 
   it('user nonaktif tidak bisa sign-in', async () => {
     ctx = await setupTest()
     const list = await ctx.app.inject({ method: 'GET', url: '/api/users', headers: auth(ctx.ownerToken) })
-    const target = list.json().users.find((u: { email: string }) => u.email === 'siti@demo.com')
+    const target = list.json().items.find((u: { email: string }) => u.email === 'siti@demo.com')
     await ctx.app.inject({ method: 'DELETE', url: `/api/users/${target.id}`, headers: auth(ctx.ownerToken) })
 
     const res = await ctx.app.inject({
@@ -213,7 +215,7 @@ describe('DELETE /api/users/:id (soft-delete)', () => {
   it('tidak bisa menonaktifkan diri sendiri → 400', async () => {
     ctx = await setupTest()
     const list = await ctx.app.inject({ method: 'GET', url: '/api/users', headers: auth(ctx.ownerToken) })
-    const me = list.json().users.find((u: { email: string }) => u.email === 'owner@demo.com')
+    const me = list.json().items.find((u: { email: string }) => u.email === 'owner@demo.com')
     const res = await ctx.app.inject({
       method: 'DELETE',
       url: `/api/users/${me.id}`,
@@ -235,7 +237,7 @@ describe('deaktivasi user mencabut sesi', () => {
     const employeeToken = signedIn.json().token
 
     const list = await ctx.app.inject({ method: 'GET', url: '/api/users', headers: auth(ctx.ownerToken) })
-    const target = list.json().users.find((u: { email: string }) => u.email === 'siti@demo.com')
+    const target = list.json().items.find((u: { email: string }) => u.email === 'siti@demo.com')
     const res = await ctx.app.inject({
       method: 'PATCH',
       url: `/api/users/${target.id}`,
@@ -259,7 +261,7 @@ describe('deaktivasi user mencabut sesi', () => {
     const employeeToken = signedIn.json().token
 
     const list = await ctx.app.inject({ method: 'GET', url: '/api/users', headers: auth(ctx.ownerToken) })
-    const target = list.json().users.find((u: { email: string }) => u.email === 'siti@demo.com')
+    const target = list.json().items.find((u: { email: string }) => u.email === 'siti@demo.com')
     await ctx.app.inject({ method: 'DELETE', url: `/api/users/${target.id}`, headers: auth(ctx.ownerToken) })
 
     const me = await ctx.app.inject({ method: 'GET', url: '/api/auth/me', headers: auth(employeeToken) })
@@ -269,7 +271,7 @@ describe('deaktivasi user mencabut sesi', () => {
   it('user nonaktif tidak bisa sign-in ulang', async () => {
     ctx = await setupTest()
     const list = await ctx.app.inject({ method: 'GET', url: '/api/users', headers: auth(ctx.ownerToken) })
-    const target = list.json().users.find((u: { email: string }) => u.email === 'siti@demo.com')
+    const target = list.json().items.find((u: { email: string }) => u.email === 'siti@demo.com')
     await ctx.app.inject({
       method: 'PATCH',
       url: `/api/users/${target.id}`,
@@ -290,7 +292,7 @@ describe('isolasi antar-bisnis', () => {
   it('owner tidak melihat user dari bisnis lain', async () => {
     ctx = await setupTest()
     const res = await ctx.app.inject({ method: 'GET', url: '/api/users', headers: auth(ctx.ownerToken) })
-    const emails = res.json().users.map((u: { email: string }) => u.email)
+    const emails = res.json().items.map((u: { email: string }) => u.email)
     expect(emails).not.toContain('oranglain@demo.com')
   })
 

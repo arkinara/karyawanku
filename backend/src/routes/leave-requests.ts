@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import { and, desc, eq, sql } from 'drizzle-orm'
+import { and, count, desc, eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDb } from '../db/index.js'
 import { employees, leaveBalances, leaveRequests, leaveTypes } from '../db/schema.js'
@@ -8,6 +8,7 @@ import { hasCapability } from '../lib/capabilities.js'
 import { recordAudit } from '../lib/audit.js'
 import { ApiError, ConflictError, ForbiddenError } from '../lib/errors.js'
 import { ensureLeaveBalance, referenceDateForYear } from '../lib/leave-reset.js'
+import { offsetOf, paginateResult, parsePagination } from '../lib/pagination.js'
 
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Tanggal wajib berformat YYYY-MM-DD')
 
@@ -132,6 +133,8 @@ export default async function leaveRequestsRoutes(app: FastifyInstance): Promise
   app.get('/leave-requests', { preHandler: requireAuth }, async (req) => {
     const user = currentUser(req)
     const q = req.query as Record<string, unknown>
+    const { page, limit } = parsePagination(q)
+    const offset = offsetOf({ page, limit })
     const { db } = getDb()
 
     const filters = [eq(employees.business_id, user.business_id)]
@@ -148,6 +151,7 @@ export default async function leaveRequestsRoutes(app: FastifyInstance): Promise
       }
       filters.push(eq(leaveRequests.status, status as typeof leaveRequests.$inferSelect.status))
     }
+    const where = and(...filters)
 
     const rows = db
       .select({
@@ -158,11 +162,25 @@ export default async function leaveRequestsRoutes(app: FastifyInstance): Promise
       .from(leaveRequests)
       .innerJoin(employees, eq(leaveRequests.employee_id, employees.id))
       .innerJoin(leaveTypes, eq(leaveRequests.leave_type_id, leaveTypes.id))
-      .where(and(...filters))
-      .orderBy(desc(leaveRequests.created_at))
+      .where(where)
+      .orderBy(desc(leaveRequests.created_at), desc(leaveRequests.id))
+      .limit(limit)
+      .offset(offset)
       .all()
 
-    return { requests: rows.map((r) => serialize({ request: r.request, employee_name: r.employee_name, leave_type_name: r.leave_type_name })) }
+    const total =
+      db
+        .select({ c: count() })
+        .from(leaveRequests)
+        .innerJoin(employees, eq(leaveRequests.employee_id, employees.id))
+        .where(where)
+        .get()?.c ?? 0
+
+    return paginateResult(
+      rows.map((r) => serialize({ request: r.request, employee_name: r.employee_name, leave_type_name: r.leave_type_name })),
+      total,
+      { page, limit },
+    )
   })
 
   app.get('/leave-requests/:id', { preHandler: requireAuth }, async (req) => {
