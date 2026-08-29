@@ -63,7 +63,7 @@ function setupApiMocks() {
       return { user: stored ? JSON.parse(stored) : defaultUser }
     }
     if (path.includes('/api/employees')) {
-      return { employees, total: employees.length }
+      return { items: employees, total: employees.length, page: 1, limit: 100, has_more: false }
     }
     if (path.includes('/api/attendance/today')) {
       return { record: state.today }
@@ -88,7 +88,7 @@ function setupApiMocks() {
               late_minutes: isLate ? 20 : 0,
             },
           ]
-      return { records }
+      return { items: records, total: records.length, page: 1, limit: 100, has_more: false }
     }
     return {}
   })

@@ -211,7 +211,7 @@ describe('unpublish → employee tidak lagi melihat', () => {
       url: '/api/shift-assignments?start=2026-08-01&end=2026-08-31',
       headers: auth(ctx.employeeToken),
     })
-    expect(before.json().assignments.length).toBe(0)
+    expect(before.json().items.length).toBe(0)
 
     await ctx.app.inject({
       method: 'POST',
@@ -224,7 +224,7 @@ describe('unpublish → employee tidak lagi melihat', () => {
       url: '/api/shift-assignments?start=2026-08-01&end=2026-08-31',
       headers: auth(ctx.employeeToken),
     })
-    expect(after.json().assignments.length).toBe(1)
+    expect(after.json().items.length).toBe(1)
 
     await ctx.app.inject({
       method: 'POST',
@@ -237,7 +237,7 @@ describe('unpublish → employee tidak lagi melihat', () => {
       url: '/api/shift-assignments?start=2026-08-01&end=2026-08-31',
       headers: auth(ctx.employeeToken),
     })
-    expect(afterUnpublish.json().assignments.length).toBe(0)
+    expect(afterUnpublish.json().items.length).toBe(0)
   })
 })
 

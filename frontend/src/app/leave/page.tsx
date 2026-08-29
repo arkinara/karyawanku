@@ -123,8 +123,8 @@ function OwnerView() {
     setLoading(true)
     setError(null)
     try {
-      const res = await api.get<{ requests: BeLeaveRequest[] }>('/api/leave-requests')
-      setRequests(mapLeaveRequests(res.requests))
+      const res = await api.get<{ items: BeLeaveRequest[] }>('/api/leave-requests')
+      setRequests(mapLeaveRequests(res.items))
     } catch (e) {
       setError(e instanceof Error ? e : new Error(String(e)))
     } finally {
@@ -528,14 +528,14 @@ function EmployeeView() {
     try {
       const tahun = new Date().getFullYear()
       const [reqRes, balRes, typesRes] = await Promise.all([
-        api.get<{ requests: BeLeaveRequest[] }>('/api/leave-requests'),
+        api.get<{ items: BeLeaveRequest[] }>('/api/leave-requests'),
         api.get<BeLeaveBalanceResponse>('/api/leave-balances', {
           employee_id: user?.employee_id,
           tahun,
         }),
         api.get<BeLeaveTypeListResponse>('/api/leave-types'),
       ])
-      setRequests(mapLeaveRequests(reqRes.requests))
+      setRequests(mapLeaveRequests(reqRes.items))
       setBalance(mapLeaveBalances(balRes))
       setLeaveTypes(typesRes.leave_types)
     } catch (e) {

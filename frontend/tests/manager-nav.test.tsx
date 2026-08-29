@@ -59,7 +59,7 @@ const employeesPayload = [
 ]
 
 const leaveRequestsPayload = {
-  requests: [
+  items: [
     {
       id: 'lrv-01',
       employee_id: '1',
@@ -90,7 +90,7 @@ function stubFetch(payloads: { dashboard?: unknown; employees?: unknown; leaves?
         })
       }
       if (url.includes('/api/employees')) {
-        return new Response(JSON.stringify({ employees: payloads.employees ?? employeesPayload }), {
+        return new Response(JSON.stringify({ items: payloads.employees ?? employeesPayload }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         })

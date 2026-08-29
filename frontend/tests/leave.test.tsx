@@ -4,7 +4,7 @@ import LeavePage from '@/app/leave/page'
 
 // BE-shaped payloads — the page maps these into its camelCase FE shapes.
 const requestsPayload = {
-  requests: [
+  items: [
     // 2 pending: Budi (id 1) + Siti (id 2)
     {
       id: 'lrv-01',
@@ -198,7 +198,7 @@ function stubOwnerFetch() {
   )
 }
 
-let postedRequests: typeof requestsPayload.requests = []
+let postedRequests: typeof requestsPayload.items = []
 function stubEmployeeFetch() {
   vi.stubGlobal(
     'fetch',
@@ -229,7 +229,7 @@ function stubEmployeeFetch() {
         })
       }
       if (url.includes('/api/leave-requests')) {
-        const merged = { requests: [...requestsPayload.requests, ...postedRequests] }
+        const merged = { items: [...requestsPayload.items, ...postedRequests] }
         return new Response(JSON.stringify(merged), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },

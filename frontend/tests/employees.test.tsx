@@ -37,11 +37,11 @@ const allEmployees = [
 // Simulate the BE `/api/employees` endpoint: filter by status/kontrak query
 // params (search is forwarded but post-filtered client-side as a safety net).
 getMock.mockImplementation(async (path: string, query?: Record<string, unknown>) => {
-  if (!path.includes('/api/employees')) return { employees: [] }
+  if (!path.includes('/api/employees')) return { items: [] }
   let rows = allEmployees
   if (query?.status) rows = rows.filter((e) => e.status === query.status)
   if (query?.jenis_kontrak) rows = rows.filter((e) => e.jenis_kontrak === query.jenis_kontrak)
-  return { employees: rows, total: rows.length }
+  return { items: rows, total: rows.length, page: 1, limit: 100, has_more: false }
 })
 
 beforeEach(() => {
@@ -67,7 +67,7 @@ describe('Employee Directory', () => {
     expect(rowCount(container)).toBe(12)
     expect(screen.getByText('Ani Rahmawati')).toBeInTheDocument()
     expect(screen.getByText('12 karyawan terdaftar')).toBeInTheDocument()
-    expect(getMock).toHaveBeenCalledWith('/api/employees', expect.objectContaining({ limit: 200 }))
+    expect(getMock).toHaveBeenCalledWith('/api/employees', expect.objectContaining({ limit: 100 }))
   })
 
   it('pencarian debounce 300ms lalu query ulang dengan ?search=', async () => {

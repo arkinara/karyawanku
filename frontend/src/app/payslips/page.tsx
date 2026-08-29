@@ -317,10 +317,10 @@ export default function PayslipsPage() {
     setLoading(true)
     setError(null)
     try {
-      const res = await api.get<{ payslips: BePayslipRow[] }>('/api/payslips')
+      const res = await api.get<{ items: BePayslipRow[] }>('/api/payslips')
       // Each list row carries the take-home total; the full per-component
       // breakdown is fetched on demand from GET /api/payslips/:id.
-      const composed = res.payslips.map((row) => composePayslip(row, null))
+      const composed = res.items.map((row) => composePayslip(row, null))
       setPayslips(composed)
     } catch (e) {
       setError(e instanceof Error ? e : new Error(String(e)))

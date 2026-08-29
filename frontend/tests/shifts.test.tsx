@@ -17,7 +17,7 @@ const shiftsPayload = {
 // The roster source — real employees fetched from GET /api/employees. Ids must
 // line up with the assignment fixture below so the grid renders 12 rows.
 const employeesPayload = {
-  employees: [
+  items: [
     { id: '1', nama_lengkap: 'Budi Santoso', no_ktp: '3201', jabatan: 'Kepala Barista' },
     { id: '2', nama_lengkap: 'Siti Nurhaliza', no_ktp: '3273', jabatan: 'Kasir' },
     { id: '3', nama_lengkap: 'Ahmad Fauzi', no_ktp: '3578', jabatan: 'Barista' },
@@ -123,10 +123,13 @@ function stubOwnerFetch(extraAssignments: BeShiftAssignment[] = []) {
         })
       }
       if (url.includes('/api/shift-assignments')) {
-        return new Response(JSON.stringify({ assignments: all }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        })
+        return new Response(
+          JSON.stringify({ items: all, total: all.length, page: 1, limit: 100, has_more: false }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        )
       }
       if (url.includes('/api/roster/publish')) {
         return new Response(JSON.stringify({ updated: all.length }), {
@@ -157,10 +160,19 @@ function stubEmployeeFetch(opts: { published?: boolean } = {}) {
         })
       }
       if (url.includes('/api/shift-assignments')) {
-        return new Response(JSON.stringify({ assignments: sidiAssignments }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        })
+        return new Response(
+          JSON.stringify({
+            items: sidiAssignments,
+            total: sidiAssignments.length,
+            page: 1,
+            limit: 100,
+            has_more: false,
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        )
       }
       return new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } })
     }),

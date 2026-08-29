@@ -123,7 +123,7 @@ function stubFetch() {
         })
       }
       if (url.endsWith('/api/payslips')) {
-        return json({ payslips: payslipRows })
+        return json({ items: payslipRows, total: payslipRows.length, page: 1, limit: 100, has_more: false })
       }
       if (url.includes('/api/payslips/')) {
         const id = url.split('/').pop()
@@ -289,7 +289,7 @@ describe('Payslip Page', () => {
   it('menampilkan empty state saat tidak ada slip gaji', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => json({ payslips: [] })),
+      vi.fn(async () => json({ items: [], total: 0, page: 1, limit: 100, has_more: false })),
     )
     render(<PayslipPage />)
     await waitFor(() => {
@@ -317,7 +317,7 @@ describe('Payslip Page', () => {
       vi.fn(async (input: RequestInfo | URL) => {
         const url = typeof input === 'string' ? input : input.toString()
         if (url.includes('/api/payslips') && !url.includes('/download')) {
-          return json({ payslips: extendedRows })
+          return json({ items: extendedRows, total: extendedRows.length, page: 1, limit: 100, has_more: false })
         }
         return json({})
       }),

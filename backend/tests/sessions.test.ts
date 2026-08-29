@@ -85,7 +85,7 @@ describe('sessions — lifecycle', () => {
     const body = await signIn('siti@demo.com', 'demo123')
 
     const list = await ctx.app.inject({ method: 'GET', url: '/api/users', headers: auth(ctx.ownerToken) })
-    const target = list.json().users.find((u: { email: string }) => u.email === 'siti@demo.com')
+    const target = list.json().items.find((u: { email: string }) => u.email === 'siti@demo.com')
     const deactivate = await ctx.app.inject({
       method: 'PATCH',
       url: `/api/users/${target.id}`,

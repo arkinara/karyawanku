@@ -140,16 +140,16 @@ function OwnerView() {
       setError(null)
       try {
         const [empRes, shiftsRes, assignmentsRes] = await Promise.all([
-          api.get<{ employees: Employee[] }>('/api/employees', { limit: 200 }),
+          api.get<{ items: Employee[] }>('/api/employees', { limit: 100 }),
           apiRequest<{ shifts: BeShift[] }>('/api/shifts'),
-          apiRequest<{ assignments: BeShiftAssignment[] }>('/api/shift-assignments', {
+          apiRequest<{ items: BeShiftAssignment[] }>('/api/shift-assignments', {
             query: { start: ws, end: weekEndIso(ws) },
           }),
         ])
-        setEmployees(empRes.employees)
+        setEmployees(empRes.items)
         setShifts(shiftsRes.shifts)
-        setMatrix(buildMatrixFromAssignments(assignmentsRes.assignments, ws, empRes.employees))
-        setPublished(isWeekPublishedFromAssignments(assignmentsRes.assignments))
+        setMatrix(buildMatrixFromAssignments(assignmentsRes.items, ws, empRes.items))
+        setPublished(isWeekPublishedFromAssignments(assignmentsRes.items))
       } catch (e) {
         setError(e instanceof Error ? e : new Error(String(e)))
       } finally {
@@ -393,23 +393,23 @@ function EmployeeView() {
       setLoading(true)
       setError(null)
       try {
-        const empRes = await api.get<{ employees: Employee[] }>('/api/employees', { limit: 200 })
+        const empRes = await api.get<{ items: Employee[] }>('/api/employees', { limit: 100 })
         // Prefer the session's employee link; demo fallback matches the nav user.
         const employeeId =
           user?.employee_id ??
-          empRes.employees.find((e) => e.nama_lengkap === NAV.employee.user.name)?.id ??
-          empRes.employees[0]?.id
+          empRes.items.find((e) => e.nama_lengkap === NAV.employee.user.name)?.id ??
+          empRes.items[0]?.id
         if (!employeeId) {
           setShifts(Array.from({ length: 7 }, () => 'libur' as ShiftKey))
           setPublished(false)
           return
         }
-        const res = await apiRequest<{ assignments: BeShiftAssignment[] }>(
+        const res = await apiRequest<{ items: BeShiftAssignment[] }>(
           '/api/shift-assignments',
           { query: { start: ws, end: weekEndIso(ws), employee_id: employeeId } },
         )
-        setShifts(getEmployeeShiftsFromAssignments(res.assignments, employeeId, ws))
-        setPublished(isWeekPublishedFromAssignments(res.assignments))
+        setShifts(getEmployeeShiftsFromAssignments(res.items, employeeId, ws))
+        setPublished(isWeekPublishedFromAssignments(res.items))
       } catch (e) {
         setError(e instanceof Error ? e : new Error(String(e)))
       } finally {

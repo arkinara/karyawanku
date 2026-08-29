@@ -162,8 +162,8 @@ describe('GET /api/attendance/employee/:employeeId (date range)', () => {
       headers: auth(ctx.ownerToken),
     })
     expect(res.statusCode).toBe(200)
-    expect(res.json().records.length).toBe(2)
-    expect(res.json().records.map((r: { tanggal: string }) => r.tanggal).sort()).toEqual([
+    expect(res.json().items.length).toBe(2)
+    expect(res.json().items.map((r: { tanggal: string }) => r.tanggal).sort()).toEqual([
       '2026-06-01',
       '2026-06-10',
     ])

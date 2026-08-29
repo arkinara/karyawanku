@@ -37,10 +37,11 @@ interface BeUser {
 }
 
 interface BeUserListResponse {
-  users: BeUser[]
+  items: BeUser[]
   total: number
+  page: number
   limit: number
-  offset: number
+  has_more: boolean
 }
 
 type TabKey = 'profile' | 'leave' | 'salary' | 'users'
@@ -920,7 +921,7 @@ function UsersTab() {
     try {
       const res = await apiRequest<BeUserListResponse>('/api/users')
       setUsers(
-        res.users.map((u) => ({
+        res.items.map((u) => ({
           id: u.id,
           nama: u.nama,
           email: u.email,

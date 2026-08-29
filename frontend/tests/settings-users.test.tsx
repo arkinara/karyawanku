@@ -84,7 +84,7 @@ function stubFetch() {
         return json({ user: usersState.find((u) => u.id === id) })
       }
       if (url.includes('/api/users')) {
-        return json({ users: usersState, total: usersState.length, limit: 50, offset: 0 })
+        return json({ items: usersState, total: usersState.length, page: 1, limit: 50, has_more: false })
       }
 
       return json({})

@@ -97,9 +97,9 @@ export default function EmployeesPage() {
   useEffect(() => {
     let cancelled = false
     api
-      .get<{ employees: Employee[] }>('/api/employees', { limit: 200 })
+      .get<{ items: Employee[] }>('/api/employees', { limit: 100 })
       .then((res) => {
-        if (!cancelled) setAll(res.employees)
+        if (!cancelled) setAll(res.items)
       })
       .catch(() => {
         // count snapshot is best-effort; the table fetch reports errors
@@ -114,13 +114,13 @@ export default function EmployeesPage() {
     setLoading(true)
     setError(null)
     try {
-      const res = await api.get<{ employees: Employee[] }>('/api/employees', {
-        limit: 200,
+      const res = await api.get<{ items: Employee[] }>('/api/employees', {
+        limit: 100,
         search: debouncedQuery.trim() || undefined,
         jenis_kontrak: kontrakValue || undefined,
         status: status === 'all' ? undefined : status,
       })
-      setEmployees(res.employees)
+      setEmployees(res.items)
     } catch (e) {
       setError(e instanceof Error ? e : new Error(String(e)))
     } finally {
