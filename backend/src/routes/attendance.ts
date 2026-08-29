@@ -1,26 +1,41 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify'
-import { and, asc, eq, gte, lte, sql } from 'drizzle-orm'
+import { and, count, desc, eq, gte, lte, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDb } from '../db/index.js'
-import { attendanceRecords, employees, shiftAssignments, shifts } from '../db/schema.js'
+import {
+  attendanceRecords,
+  attendanceSubmissionMethods,
+  employees,
+  shiftAssignments,
+  shifts,
+  type AttendanceSubmissionMethod,
+} from '../db/schema.js'
 import { currentUser, requireAuth, requireCapability } from '../lib/auth.js'
 import { hasCapability } from '../lib/capabilities.js'
 import { recordAudit } from '../lib/audit.js'
 import { ApiError, ConflictError, ForbiddenError } from '../lib/errors.js'
 import { computeAttendanceStatus, DEFAULT_SCHEDULE_START } from '../lib/attendance-status.js'
+import { offsetOf, paginateResult, parsePagination } from '../lib/pagination.js'
 
-/** Toleransi jam untuk timestamp klien agar tidak merusak request (5 menit). */
-const TIMESTAMP_TOLERANCE_MS = 5 * 60 * 1000
+/**
+ * Toleransi selisih antara klaim waktu klien dan jam server (5 menit).
+ * Submission live yang klaimnya meleset melebihi batas ini TIDAK ditolak,
+ * melainkan diterima dan ditandai `time_drift_detected = true` untuk review.
+ * Klaim di masa depan melebihi batas ini tetap ditolak (422).
+ */
+export const TIMESTAMP_TOLERANCE_MS = 5 * 60 * 1000
 
 const clockInSchema = z.object({
   employee_id: z.string().optional(),
   catatan: z.string().optional(),
   client_timestamp: z.string().optional(),
+  submission_method: z.enum(attendanceSubmissionMethods).optional(),
 })
 
 const clockOutSchema = z.object({
   employee_id: z.string().optional(),
   client_timestamp: z.string().optional(),
+  submission_method: z.enum(attendanceSubmissionMethods).optional(),
 })
 
 const manualSchema = z.object({
@@ -53,20 +68,72 @@ function toIso(d: Date): string {
   return d.toISOString()
 }
 
-function parseClientTimestamp(raw: unknown): Date {
-  if (raw === undefined || raw === null || raw === '') return new Date()
-  const d = new Date(String(raw))
-  if (Number.isNaN(d.getTime())) throw new ApiError(422, 'client_timestamp tidak valid')
-  if (d.getTime() > Date.now() + TIMESTAMP_TOLERANCE_MS) {
-    throw new ApiError(422, 'client_timestamp berada di luar batas wajar (masa depan)')
+export interface ParsedClockTime {
+  /** Klaim waktu klien (client_timestamp), atau null bila tidak dikirim. */
+  clientClaim: Date | null
+  /** Jam server saat request diproses. */
+  serverTime: Date
+  /**
+   * Waktu efektif yang dicatat sebagai `clock_in`/`clock_out`:
+   * jam server untuk submission `live`, klaim klien untuk `offline_queue`.
+   */
+  effective: Date
+  /** Tanggal (YYYY-MM-DD) lokal berdasarkan waktu efektif. */
+  tanggal: string
+  /** true hanya untuk submission `live` yang klaimnya meleset > toleransi. */
+  timeDriftDetected: boolean
+}
+
+/**
+ * Mem-parse `client_timestamp` dari body. Waktu otoritatif selalu jam server:
+ * untuk submission `live` (`clock_in`/`clock_out` = `Date.now()` saat request),
+ * sedangkan flush antrian offline (`offline_queue`) mempertahankan waktu aksi
+ * asli klien sebagai `clock_in`/`clock_out` karena itu durasi offline yang sah.
+ *
+ * - `client_timestamp` tidak valid → 422
+ * - klaim di masa depan melebihi toleransi → 422 (tetap ditolak)
+ * - submission `live` dengan klaim meleset > toleransi → diterima, ditandai
+ *   `timeDriftDetected = true` (bukan ditolak)
+ */
+function parseClientTimestamp(
+  raw: unknown,
+  submissionMethod: AttendanceSubmissionMethod = 'live',
+): ParsedClockTime {
+  const serverTime = new Date()
+  let clientClaim: Date | null = null
+  if (raw !== undefined && raw !== null && raw !== '') {
+    const d = new Date(String(raw))
+    if (Number.isNaN(d.getTime())) throw new ApiError(422, 'client_timestamp tidak valid')
+    if (d.getTime() > serverTime.getTime() + TIMESTAMP_TOLERANCE_MS) {
+      throw new ApiError(422, 'client_timestamp berada di luar batas wajar (masa depan)')
+    }
+    clientClaim = d
   }
-  return d
+
+  const isOffline = submissionMethod === 'offline_queue'
+  const effective = isOffline && clientClaim ? clientClaim : serverTime
+  const timeDriftDetected =
+    !isOffline && clientClaim !== null
+      ? Math.abs(clientClaim.getTime() - serverTime.getTime()) > TIMESTAMP_TOLERANCE_MS
+      : false
+
+  return {
+    clientClaim,
+    serverTime,
+    effective,
+    tanggal: localDateStr(effective),
+    timeDriftDetected,
+  }
 }
 
 /**
  * Menentukan karyawan target dari request. Owner dan Manager (yang memegang
  * `attendance.manage`) boleh menunjuk employee_id (validasi dalam bisnis);
  * employee hanya boleh untuk dirinya sendiri.
+ *
+ * Guard identitas (ticket #59): employee yang mencoba clock-in/out atas nama
+ * karyawan lain ditolak 403 DAN percobaannya dicatat ke audit log
+ * (`attendance.impersonation.blocked`).
  */
 function resolveTargetEmployee(
   req: FastifyRequest,
@@ -90,6 +157,19 @@ function resolveTargetEmployee(
   const selfId = user.employee_id
   if (!selfId) throw new ApiError(422, 'Akun tidak terhubung ke data karyawan')
   if (employeeIdParam && employeeIdParam !== selfId) {
+    recordAudit({
+      db,
+      businessId: user.business_id,
+      actorUserId: user.id,
+      action: 'attendance.impersonation.blocked',
+      entityType: 'employee',
+      entityId: employeeIdParam,
+      after: {
+        target_employee_id: employeeIdParam,
+        actor_employee_id: selfId,
+        blocked: true,
+      },
+    })
     throw new ForbiddenError('Anda hanya dapat mengelola absensi Anda sendiri.')
   }
   const emp = db
@@ -151,11 +231,13 @@ export default async function attendanceRoutes(app: FastifyInstance): Promise<vo
       throw new ApiError(422, 'Data tidak valid', parsed.error.flatten())
     }
     const body = parsed.data
+    const user = currentUser(req)
     const { db } = getDb()
 
     const employeeId = resolveTargetEmployee(req, body.employee_id)
-    const clockIn = parseClientTimestamp(body.client_timestamp)
-    const tanggal = localDateStr(clockIn)
+    const submissionMethod = body.submission_method ?? 'live'
+    const clock = parseClientTimestamp(body.client_timestamp, submissionMethod)
+    const tanggal = clock.tanggal
 
     const existing = db
       .select()
@@ -167,20 +249,45 @@ export default async function attendanceRoutes(app: FastifyInstance): Promise<vo
     }
 
     const scheduleStart = getScheduleStart(employeeId, tanggal) ?? DEFAULT_SCHEDULE_START
-    const { status, lateMinutes } = computeAttendanceStatus(clockIn, scheduleStart)
+    const { status, lateMinutes } = computeAttendanceStatus(clock.effective, scheduleStart)
 
-    const record = db
-      .insert(attendanceRecords)
-      .values({
-        employee_id: employeeId,
-        tanggal,
-        clock_in: toIso(clockIn),
-        catatan: body.catatan ?? null,
-        status,
-        late_minutes: lateMinutes,
-      })
-      .returning()
-      .get()
+    const record = db.transaction((tx) => {
+      const inserted = tx
+        .insert(attendanceRecords)
+        .values({
+          employee_id: employeeId,
+          tanggal,
+          clock_in: toIso(clock.effective),
+          client_claim_at: clock.clientClaim ? toIso(clock.clientClaim) : null,
+          time_drift_detected: clock.timeDriftDetected,
+          submission_method: submissionMethod,
+          catatan: body.catatan ?? null,
+          status,
+          late_minutes: lateMinutes,
+        })
+        .returning()
+        .get()
+
+      if (clock.timeDriftDetected) {
+        recordAudit({
+          db: tx,
+          businessId: user.business_id,
+          actorUserId: user.id,
+          action: 'attendance.time_drift',
+          entityType: 'attendance_record',
+          entityId: inserted.id,
+          after: {
+            clock_in_server: toIso(clock.effective),
+            client_claim_at: clock.clientClaim ? toIso(clock.clientClaim) : null,
+            submission_method: submissionMethod,
+            drift_ms: clock.clientClaim ? clock.clientClaim.getTime() - clock.effective.getTime() : null,
+            flagged: true,
+          },
+        })
+      }
+
+      return inserted
+    })
 
     return { record, schedule_start: scheduleStart }
   })
@@ -191,11 +298,13 @@ export default async function attendanceRoutes(app: FastifyInstance): Promise<vo
       throw new ApiError(422, 'Data tidak valid', parsed.error.flatten())
     }
     const body = parsed.data
+    const user = currentUser(req)
     const { db } = getDb()
 
     const employeeId = resolveTargetEmployee(req, body.employee_id)
-    const clockOut = parseClientTimestamp(body.client_timestamp)
-    const tanggal = localDateStr(clockOut)
+    const submissionMethod = body.submission_method ?? 'live'
+    const clock = parseClientTimestamp(body.client_timestamp, submissionMethod)
+    const tanggal = clock.tanggal
 
     const existing = db
       .select()
@@ -209,12 +318,39 @@ export default async function attendanceRoutes(app: FastifyInstance): Promise<vo
       throw new ConflictError('Sudah melakukan clock-out pada tanggal ini')
     }
 
-    const record = db
-      .update(attendanceRecords)
-      .set({ clock_out: toIso(clockOut) })
-      .where(eq(attendanceRecords.id, existing.id))
-      .returning()
-      .get()
+    const record = db.transaction((tx) => {
+      const updated = tx
+        .update(attendanceRecords)
+        .set({
+          clock_out: toIso(clock.effective),
+          clock_out_client_claim_at: clock.clientClaim ? toIso(clock.clientClaim) : null,
+          time_drift_detected: Boolean(existing.time_drift_detected) || clock.timeDriftDetected,
+          submission_method: submissionMethod,
+        })
+        .where(eq(attendanceRecords.id, existing.id))
+        .returning()
+        .get()
+
+      if (clock.timeDriftDetected) {
+        recordAudit({
+          db: tx,
+          businessId: user.business_id,
+          actorUserId: user.id,
+          action: 'attendance.time_drift',
+          entityType: 'attendance_record',
+          entityId: updated.id,
+          after: {
+            clock_out_server: toIso(clock.effective),
+            client_claim_at: clock.clientClaim ? toIso(clock.clientClaim) : null,
+            submission_method: submissionMethod,
+            drift_ms: clock.clientClaim ? clock.clientClaim.getTime() - clock.effective.getTime() : null,
+            flagged: true,
+          },
+        })
+      }
+
+      return updated
+    })
 
     return { record }
   })
@@ -238,6 +374,8 @@ export default async function attendanceRoutes(app: FastifyInstance): Promise<vo
     const user = currentUser(req)
     const { employeeId } = req.params as { employeeId: string }
     const q = req.query as Record<string, unknown>
+    const { page, limit } = parsePagination(q)
+    const offset = offsetOf({ page, limit })
     const { db } = getDb()
 
     const emp = db
@@ -257,14 +395,19 @@ export default async function attendanceRoutes(app: FastifyInstance): Promise<vo
     if (q.start && q.end) {
       filters.push(gte(attendanceRecords.tanggal, String(q.start)), lte(attendanceRecords.tanggal, String(q.end)))
     }
+    const where = and(...filters)
     const rows = db
       .select()
       .from(attendanceRecords)
-      .where(and(...filters))
-      .orderBy(asc(attendanceRecords.tanggal))
+      .where(where)
+      .orderBy(desc(attendanceRecords.tanggal), desc(attendanceRecords.id))
+      .limit(limit)
+      .offset(offset)
       .all()
 
-    return { records: rows }
+    const total = db.select({ c: count() }).from(attendanceRecords).where(where).get()?.c ?? 0
+
+    return paginateResult(rows, total, { page, limit })
   })
 
   app.get('/attendance/aggregate/:employeeId', { preHandler: requireAuth }, async (req) => {

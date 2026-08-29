@@ -58,7 +58,7 @@ async function seedShift(employeeId: string, tanggal: string, jamMulai = '08:00'
 }
 
 describe('POST /api/attendance/clock-in', () => {
-  it('clock-in sebelum shift → status hadir, late_minutes 0', async () => {
+  it('clock-in sebelum shift → status hadir, late_minutes 0 (offline flush, waktu aksi asli)', async () => {
     ctx = await setupTest()
     const emp = await seedEmployee()
     await seedShift(emp.id, '2026-07-15', '08:00')
@@ -68,16 +68,17 @@ describe('POST /api/attendance/clock-in', () => {
       method: 'POST',
       url: '/api/attendance/clock-in',
       headers: auth(ctx.employeeToken),
-      payload: { client_timestamp: at('2026-07-15', '07:45') },
+      payload: { submission_method: 'offline_queue', client_timestamp: at('2026-07-15', '07:45') },
     })
     expect(res.statusCode).toBe(200)
     expect(res.json().record.status).toBe('hadir')
     expect(res.json().record.late_minutes).toBe(0)
     expect(res.json().record.tanggal).toBe('2026-07-15')
     expect(res.json().record.clock_in).toBe(at('2026-07-15', '07:45'))
+    expect(res.json().record.submission_method).toBe('offline_queue')
   })
 
-  it('clock-in setelah shift → status telat, late_minutes dihitung dari timestamp asli', async () => {
+  it('clock-in setelah shift → status telat, late_minutes dihitung dari waktu aksi asli', async () => {
     ctx = await setupTest()
     const emp = await seedEmployee()
     await seedShift(emp.id, '2026-07-15', '08:00')
@@ -87,7 +88,7 @@ describe('POST /api/attendance/clock-in', () => {
       method: 'POST',
       url: '/api/attendance/clock-in',
       headers: auth(ctx.employeeToken),
-      payload: { client_timestamp: at('2026-07-15', '08:10') },
+      payload: { submission_method: 'offline_queue', client_timestamp: at('2026-07-15', '08:10') },
     })
     expect(res.statusCode).toBe(200)
     expect(res.json().record.status).toBe('telat')
@@ -104,7 +105,7 @@ describe('POST /api/attendance/clock-in', () => {
       method: 'POST',
       url: '/api/attendance/clock-in',
       headers: auth(ctx.employeeToken),
-      payload: { client_timestamp: at('2026-07-15', '08:30') },
+      payload: { submission_method: 'offline_queue', client_timestamp: at('2026-07-15', '08:30') },
     })
     expect(res.statusCode).toBe(200)
     expect(res.json().record.status).toBe('telat')
@@ -117,17 +118,18 @@ describe('POST /api/attendance/clock-in', () => {
     const emp = await seedEmployee()
     await linkEmployeeUser(emp.id)
 
+    const payload = { submission_method: 'offline_queue', client_timestamp: at('2026-07-15', '07:45') }
     await ctx.app.inject({
       method: 'POST',
       url: '/api/attendance/clock-in',
       headers: auth(ctx.employeeToken),
-      payload: { client_timestamp: at('2026-07-15', '07:45') },
+      payload,
     })
     const res = await ctx.app.inject({
       method: 'POST',
       url: '/api/attendance/clock-in',
       headers: auth(ctx.employeeToken),
-      payload: { client_timestamp: at('2026-07-15', '07:46') },
+      payload: { ...payload, client_timestamp: at('2026-07-15', '07:46') },
     })
     expect(res.statusCode).toBe(409)
   })
@@ -164,7 +166,7 @@ describe('POST /api/attendance/clock-in', () => {
 })
 
 describe('POST /api/attendance/clock-out', () => {
-  it('clock-out setelah clock-in → clock_out tercatat', async () => {
+  it('clock-out setelah clock-in → clock_out tercatat (waktu aksi asli)', async () => {
     ctx = await setupTest()
     const emp = await seedEmployee()
     await linkEmployeeUser(emp.id)
@@ -173,17 +175,18 @@ describe('POST /api/attendance/clock-out', () => {
       method: 'POST',
       url: '/api/attendance/clock-in',
       headers: auth(ctx.employeeToken),
-      payload: { client_timestamp: at('2026-07-15', '07:45') },
+      payload: { submission_method: 'offline_queue', client_timestamp: at('2026-07-15', '07:45') },
     })
     const res = await ctx.app.inject({
       method: 'POST',
       url: '/api/attendance/clock-out',
       headers: auth(ctx.employeeToken),
-      payload: { client_timestamp: at('2026-07-15', '17:00') },
+      payload: { submission_method: 'offline_queue', client_timestamp: at('2026-07-15', '17:00') },
     })
     expect(res.statusCode).toBe(200)
     expect(res.json().record.clock_out).toBe(at('2026-07-15', '17:00'))
     expect(res.json().record.status).toBe('hadir')
+    expect(res.json().record.submission_method).toBe('offline_queue')
   })
 
   it('clock-out tanpa clock-in sebelumnya → 409', async () => {
@@ -195,7 +198,7 @@ describe('POST /api/attendance/clock-out', () => {
       method: 'POST',
       url: '/api/attendance/clock-out',
       headers: auth(ctx.employeeToken),
-      payload: { client_timestamp: at('2026-07-15', '17:00') },
+      payload: { submission_method: 'offline_queue', client_timestamp: at('2026-07-15', '17:00') },
     })
     expect(res.statusCode).toBe(409)
   })
@@ -209,19 +212,19 @@ describe('POST /api/attendance/clock-out', () => {
       method: 'POST',
       url: '/api/attendance/clock-in',
       headers: auth(ctx.employeeToken),
-      payload: { client_timestamp: at('2026-07-15', '07:45') },
+      payload: { submission_method: 'offline_queue', client_timestamp: at('2026-07-15', '07:45') },
     })
     await ctx.app.inject({
       method: 'POST',
       url: '/api/attendance/clock-out',
       headers: auth(ctx.employeeToken),
-      payload: { client_timestamp: at('2026-07-15', '17:00') },
+      payload: { submission_method: 'offline_queue', client_timestamp: at('2026-07-15', '17:00') },
     })
     const res = await ctx.app.inject({
       method: 'POST',
       url: '/api/attendance/clock-out',
       headers: auth(ctx.employeeToken),
-      payload: { client_timestamp: at('2026-07-15', '17:05') },
+      payload: { submission_method: 'offline_queue', client_timestamp: at('2026-07-15', '17:05') },
     })
     expect(res.statusCode).toBe(409)
   })

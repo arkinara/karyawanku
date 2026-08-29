@@ -141,20 +141,20 @@ function OwnerView() {
     setLoading(true)
     setError(null)
     try {
-      const empRes = await api.get<{ employees: EmployeeBrief[] }>('/api/employees', {
-        limit: 200,
+      const empRes = await api.get<{ items: EmployeeBrief[] }>('/api/employees', {
+        limit: 100,
       })
-      setEmployees(empRes.employees)
+      setEmployees(empRes.items)
       const start = rangeStart(range)
       const end = toIsoToday()
       const rows = await Promise.all(
-        empRes.employees.map(async (emp) => {
+        empRes.items.map(async (emp) => {
           try {
-            const att = await api.get<{ records: BeAttendanceRecord[] }>(
+            const att = await api.get<{ items: BeAttendanceRecord[] }>(
               `/api/attendance/employee/${emp.id}`,
               { start, end },
             )
-            const todayRecord = att.records.find((r) => r.tanggal === end) ?? null
+            const todayRecord = att.items.find((r) => r.tanggal === end) ?? null
             return mapAttendanceRow(emp, todayRecord, end)
           } catch {
             return mapAttendanceRow(emp, null, end)
@@ -591,10 +591,10 @@ function EmployeeView() {
     try {
       const [todayRes, histRes] = await Promise.all([
         api.get<{ record: BeAttendanceRecord | null }>('/api/attendance/today'),
-        api.get<{ records: BeAttendanceRecord[] }>(`/api/attendance/employee/${employeeId}`),
+        api.get<{ items: BeAttendanceRecord[] }>(`/api/attendance/employee/${employeeId}`),
       ])
       setTodayRecord(todayRes.record)
-      setHistory(histRes.records)
+      setHistory(histRes.items)
     } catch (e) {
       setLoadError(e instanceof Error ? e : new Error(String(e)))
     } finally {
@@ -633,6 +633,7 @@ function EmployeeView() {
         await api.post(`/api/attendance/${type}`, {
           employee_id: employeeId,
           client_timestamp: new Date().toISOString(),
+          submission_method: 'live',
           catatan: type === 'clock-in' ? catatan.trim() || undefined : undefined,
         })
         setCatatan('')

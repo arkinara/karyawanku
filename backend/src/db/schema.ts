@@ -29,6 +29,10 @@ export type LeaveRequestStatus = (typeof leaveRequestStatuses)[number]
 export const attendanceStatuses = ['hadir', 'telat', 'absen', 'izin'] as const
 export type AttendanceStatus = (typeof attendanceStatuses)[number]
 
+/** Cara record absensi dikirim (ticket #59): live vs flush dari antrian offline. */
+export const attendanceSubmissionMethods = ['live', 'offline_queue'] as const
+export type AttendanceSubmissionMethod = (typeof attendanceSubmissionMethods)[number]
+
 export const payrollRunStatuses = ['draft', 'disetujui', 'locked'] as const
 export type PayrollRunStatus = (typeof payrollRunStatuses)[number]
 
@@ -302,8 +306,26 @@ export const attendanceRecords = sqliteTable(
       .notNull()
       .references(() => employees.id, { onDelete: 'cascade' }),
     tanggal: text('tanggal').notNull(),
+    /**
+     * Waktu otoritatif (ticket #59): `clock_in` / `clock_out` selalu jam server
+     * (`Date.now()` saat request diproses). Waktu yang dikirim klien disimpan
+     * terpisah sebagai klaim (`client_claim_at`) dan TIDAK pernah menjadi waktu
+     * otoritatif — kecuali untuk submission dari antrian offline
+     * (`submission_method = 'offline_queue'`), di mana `clock_in` mempertahankan
+     * waktu aksi asli klien (klaim) karena itu durasi offline yang sah.
+     */
     clock_in: text('clock_in'),
     clock_out: text('clock_out'),
+    /** Klaim waktu clock-in dari klien (jam server ≠ jam klien di luar toleransi). */
+    client_claim_at: text('client_claim_at'),
+    /** Klaim waktu clock-out dari klien. */
+    clock_out_client_claim_at: text('clock_out_client_claim_at'),
+    /** true bila submission live dan selisih klaim vs jam server > toleransi. */
+    time_drift_detected: integer('time_drift_detected', { mode: 'boolean' }).notNull().default(false),
+    /** Asal submission: 'live' (langsung) atau 'offline_queue' (flush antrian offline). */
+    submission_method: text('submission_method', { enum: attendanceSubmissionMethods })
+      .notNull()
+      .default('live'),
     catatan: text('catatan'),
     status: text('status', { enum: attendanceStatuses }).notNull().default('hadir'),
     late_minutes: integer('late_minutes').notNull().default(0),

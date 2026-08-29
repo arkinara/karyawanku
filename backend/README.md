@@ -81,6 +81,48 @@ drizzle/          # file migrasi SQL (generated)
 data/             # file DB lokal (git-ignored) + data/payslips/ (PDF slip gaji, git-ignored)
 ```
 
+## Kontrak pagination (ticket #58)
+
+Semua list endpoint memakai kontrak pagination yang sama, **page-based** (bukan cursor/offset), agar frontend cukup mengimplementasikannya sekali.
+
+**Parameter query** (keduanya opsional):
+
+| Param | Default | Maks | Keterangan |
+|---|---|---|---|
+| `page` | `1` | — | Halaman, 1-indexed |
+| `limit` | `20` | `100` | Ukuran halaman; nilai > 100 di-clamp ke 100 |
+
+Nilai `page`/`limit` yang invalid (negatif, nol, non-numerik, bukan integer) di-fallback ke default secara diam-diam — tidak ada error. Helper bersama `src/lib/pagination.ts` (`parsePagination`, `paginateResult`, `offsetOf`) dipakai semua rute.
+
+**Envelope respons** untuk semua list endpoint:
+
+```json
+{
+  "items": [],
+  "total": 0,
+  "page": 1,
+  "limit": 20,
+  "has_more": false
+}
+```
+
+- `total` = jumlah baris yang cocok setelah filter (bukan ukuran halaman).
+- `has_more` = `page * limit < total` (masih ada halaman berikutnya).
+- Urutan selalu deterministik: kolom sort default + **tiebreaker id** (`ASC`/`DESC`) sehingga tidak ada baris yang melompat/duplikat antar halaman.
+
+**Sort default per endpoint:**
+
+| Endpoint | Sort default |
+|---|---|
+| `GET /api/employees` | `nama_lengkap` ASC |
+| `GET /api/users` | `nama` ASC |
+| `GET /api/payslips`, `/api/payslips/employee/:employeeId` | `created_at` DESC |
+| `GET /api/attendance/employee/:employeeId` | `tanggal` DESC |
+| `GET /api/leave-requests` | `created_at` DESC |
+| `GET /api/shift-assignments` | `tanggal` DESC |
+
+Filter tetap berjalan di SQL (bukan JS setelah fetch penuh). Endpoint yang TIDAK di-paginasi: `GET /api/leave-types` dan `GET /api/leave-balances` (dataset kecil tetap), `GET /api/shift-assignments/upcoming` (jendela 3 hari, tetap `assignments`), `GET /api/audit-logs` (pakai kontrak `limit`/`offset` sendiri, ticket #57), dan seluruh endpoint ekspor (CSV/XLSX, payroll-runs) yang membaca langsung dari DB tanpa batas.
+
 ## Endpoint
 
 Prefix: `/api`
@@ -98,11 +140,11 @@ Prefix: `/api`
 | POST | `/businesses` | — | **Signup onboarding (disarankan untuk Owner baru):** buat bisnis + user pertama (role=owner) dalam satu transaksi, balas `{ user, token, refreshToken, business }`. Body: `{ nama_bisnis, jenis_usaha: 'fnb'|'jasa', alamat, owner: { nama, email, password } }`. Email unik secara global (duplikat → 409), password minimal 8 karakter |
 | GET | `/businesses/:id` | Owner | Profil bisnis (hanya bisnis milik caller; bisnis lain → 403) |
 | PATCH | `/businesses/:id` | Owner | Update subset `{ nama_bisnis?, jenis_usaha?, alamat? }`, balas business terbaru |
-| GET | `/users?limit=&offset=` | users.manage | Daftar user (scoped bisnis) |
+| GET | `/users?page=&limit=` | users.manage | Daftar user (scoped bisnis) |
 | POST | `/users` | users.manage | Buat user. Penetapan role `manager`/`owner` hanya oleh owner (non-owner → 403) |
 | PATCH | `/users/:id` | users.manage | Update user (role/employee_id/status). Ubah role hanya oleh owner; status user manager/owner hanya oleh owner |
 | DELETE | `/users/:id` | users.manage | Soft-delete user. Menonaktifkan user manager/owner hanya oleh owner |
-| GET | `/employees?limit=&offset=&jenis_kontrak=&status=` | Owner | Daftar karyawan (scoped bisnis, filter & paginasi) |
+| GET | `/employees?page=&limit=&jenis_kontrak=&status=` | Owner | Daftar karyawan (scoped bisnis, filter & paginasi, sort `nama_lengkap` ASC) |
 | POST | `/employees` | Owner | Buat karyawan (validasi KTP/NPWP/umur, custom_fields JSON) |
 | GET | `/employees/:id` | Owner / karyawan terkait | Detail karyawan (custom_fields ter-parse) |
 | PATCH | `/employees/:id` | Owner | Update subset field + toggle status + merge custom_fields |
@@ -120,10 +162,10 @@ Prefix: `/api`
 | POST | `/employees/:employeeId/salary-assignments` | Owner | Tugaskan komponen gaji ke karyawan (opsional `override_nominal`, cek duplikat aktif → 409) |
 | PATCH | `/salary-assignments/:id` | Owner | Update `override_nominal` / toggle `aktif` |
 | DELETE | `/salary-assignments/:id` | Owner | Soft-delete penugasan (set `aktif=false`) → `{ ok: true }` |
-| POST | `/attendance/clock-in` | Karyawan / Owner | Clock-in: `{ employee_id?, catatan?, client_timestamp? }`, hitung status + late_minutes otomatis dari shift |
-| POST | `/attendance/clock-out` | Karyawan / Owner | Clock-out: `{ employee_id?, client_timestamp? }`, catat waktu keluar |
+| POST | `/attendance/clock-in` | Karyawan / Owner | Clock-in: `{ employee_id?, catatan?, client_timestamp?, submission_method? }`, hitung status + late_minutes otomatis dari shift. Waktu otoritatif = jam server (ticket #59) |
+| POST | `/attendance/clock-out` | Karyawan / Owner | Clock-out: `{ employee_id?, client_timestamp?, submission_method? }`, catat waktu keluar (jam server) |
 | GET | `/attendance/today` | Karyawan / Owner | Absensi hari ini milik user |
-| GET | `/attendance/employee/:employeeId?start=&end=` | Owner / karyawan terkait | Daftar absensi (filter rentang tanggal) |
+| GET | `/attendance/employee/:employeeId?start=&end=&page=&limit=` | Owner / karyawan terkait | Daftar absensi (filter rentang tanggal, sort `tanggal` DESC) |
 | GET | `/attendance/aggregate/:employeeId?period=YYYY-MM` | Owner / karyawan terkait | Rekap bulanan `{ hadir, telat, absen, izin, total_late_minutes }` |
 | POST | `/attendance/manual` | attendance.manage | Entri/koreksi manual (upsert by `employee_id`+`tanggal`); owner & manager |
 | PATCH | `/attendance/:id` | attendance.manage | Koreksi subset field catatan absensi; owner & manager |
@@ -135,7 +177,7 @@ Prefix: `/api`
 | PATCH | `/leave-balances/:id` | Owner | Penyesuaian saldo (`kuota_hari` / `terpakai_hari`) |
 | POST | `/admin/leave-reset` | Owner | Reset tahunan saldo cuti (`{ tahun? }`), idempoten, carry-over/hangus per kebijakan |
 | POST | `/leave-requests` | Karyawan / Owner | Ajukan cuti (`leave_type_id`, `tanggal_mulai`, `tanggal_selesai`, `alasan`), status default `pending`, divalidasi vs sisa kuota |
-| GET | `/leave-requests?status=&employee_id=` | Owner / Karyawan | Riwayat pengajuan cuti (owner semua di bisnis; karyawan milik sendiri) |
+| GET | `/leave-requests?status=&employee_id=&page=&limit=` | Owner / Karyawan | Riwayat pengajuan cuti (owner semua di bisnis; karyawan milik sendiri) |
 | GET | `/leave-requests/:id` | Owner / karyawan terkait | Detail pengajuan cuti |
 | PATCH | `/leave-requests/:id/approve` | leave.approve | Setujui cuti (status → `disetujui`, tambah `terpakai_hari`, catat approver). Manager tidak bisa menyetujui cutinya sendiri |
 | PATCH | `/leave-requests/:id/reject` | leave.approve | Tolak cuti (status → `ditolak`, tanpa ubah saldo) |
@@ -164,7 +206,9 @@ Prefix: `/api`
 | GET | `/dashboard` | Owner / Karyawan | Ringkasan quick dashboard, payload berbeda sesuai role. **Owner**: `today_attendance` (hadir/telat/absen/izin hari ini), `pending_leaves` (5 pengajuan pending terbaru + nama karyawan), `upcoming_shifts` (3 hari ke depan, published, seluruh tim), `payroll_summary` (total & take-home periode berjalan + `last_run_periode`), `metrics` (total_karyawan/total_aktif). **Employee**: `my_today` (status check-in hari ini, `null` bila belum ada), `upcoming_shifts` (3 hari ke depan, published, milik sendiri), `my_recent_payslips` (3 slip terakhir, terbaru dulu). Semua query di-scope server-side (`business_id`/`employee_id` dari token); employee tidak bisa memfilter via `?employee_id=` (403) |
 | GET | `/audit-logs?entity_type=&entity_id=&actor_user_id=&start=&end=&limit=&offset=` | Owner | Riwayat audit (append-only, ticket #57) bisnis caller, terbaru dulu. Filter: `entity_type`, `entity_id`, `actor_user_id`, rentang `start`/`end` (YYYY-MM-DD). Paginasi `limit` (default 50, clamp maks 100) + `offset`. Balas `{ logs: [{ id, actor: { id, nama, email }, action, entity_type, entity_id, before, after, created_at }], total, limit, offset }`. Manager/karyawan → 403. **Tidak ada rute update/delete** |
 
-Catatan absensi: status `hadir`/`telat` dihitung otomatis dari `jam_mulai` shift (shift_assignments) saat clock-in, fallback `08:00` bila tak ada shift. `client_timestamp` (untuk kasus offline) divalidasi tidak boleh di masa depan. Owner boleh clock-in/out atas nama karyawan lain via `employee_id`; employee hanya untuk dirinya sendiri.
+Catatan absensi: status `hadir`/`telat` dihitung otomatis dari `jam_mulai` shift (shift_assignments) saat clock-in, fallback `08:00` bila tak ada shift. Owner boleh clock-in/out atas nama karyawan lain via `employee_id`; employee hanya untuk dirinya sendiri.
+
+Catatan integritas absensi (ticket #59): `clock_in`/`clock_out` yang tersimpan adalah **jam server** (`Date.now()` saat request diproses) — bukan waktu yang dikirim klien. Waktu dari klien (`client_timestamp`) disimpan terpisah sebagai klaim di `client_claim_at` (clock-in) / `clock_out_client_claim_at` (clock-out) dan **tidak pernah** menjadi waktu otoritatif. Toleransi selisih klaim vs jam server adalah konstanta bernama `TIMESTAMP_TOLERANCE_MS = 5 * 60 * 1000` (5 menit) di `src/routes/attendance.ts`. Klaim di masa depan melebihi toleransi ditolak 422; klaim `live` yang meleset ke masa lalu melebihi toleransi **diterima tapi ditandai** `time_drift_detected = true` untuk review, dan dicatat ke audit log dengan aksi `attendance.time_drift`. Antrian offline tetap berfungsi: flush `submission_method = 'offline_queue'` mempertahankan waktu aksi asli klien sebagai `clock_in`/`clock_out` (karena itu durasi offline yang sah) dan tidak ditandai drift. Guard identitas: employee yang mengirim `employee_id` selain miliknya ditolak 403 dan percobaannya dicatat ke audit log (`attendance.impersonation.blocked`); owner/manager (dengan `attendance.manage`) boleh mencatat untuk karyawan mana pun di bisnisnya. Entri/koreksi manual (`POST /api/attendance/manual`, `PATCH /api/attendance/:id`) tetap hanya untuk `attendance.manage` dan memakai waktu yang ditentukan owner/manual — tidak ada jalur `client_timestamp`. Lokasi belum diimplementasikan (tiket terpisah).
 
 Catatan cuti: saldo cuti dibuat otomatis saat pertama kali di-query per tahun. Kuota cuti tahunan mengikuti UU Cipta Kerja — masa kerja ≥ 1 tahun mendapat `default_kuota_hari` penuh (12), masa kerja < 1 tahun diprorata (`default_kuota_hari × bulan kerja / 12`). Sisa tahun lalu dipindah ke tahun baru bila `kebijakan_sisa='carry-over'` (maks `carry_over_max_days`), hangus bila `hangus`. `POST /admin/leave-reset` memicu reset tahunan secara manual (cron menyusul) dan idempoten — tidak menggandakan baris saldo.
 

@@ -137,6 +137,9 @@ export class OfflineQueue<T> {
               employee_id: item.employeeId,
               catatan: item.catatan ?? null,
               client_timestamp: entry.originalTimestamp,
+              // Tandai sebagai flush antrian offline agar server mempertahankan
+              // waktu aksi asli (bukan jam server saat sync) tanpa flag drift.
+              submission_method: 'offline_queue',
             },
           )
         } catch (e) {
