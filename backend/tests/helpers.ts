@@ -22,7 +22,7 @@ export interface TestCtx {
 
 const migrationsFolder = resolve(__dirname, '../drizzle')
 
-process.env.JWT_SECRET ??= 'test-secret'
+process.env.JWT_SECRET ??= 'karyawanku-test-secret-0123456789abcdef'
 process.env.DATABASE_URL ??= 'backend/data/karyawanku.db'
 
 export async function setupTest(): Promise<TestCtx> {

@@ -1,6 +1,8 @@
 import Fastify, { type FastifyInstance } from 'fastify'
 import cors from '@fastify/cors'
+import helmet from '@fastify/helmet'
 import multipart from '@fastify/multipart'
+import rateLimit from '@fastify/rate-limit'
 import { ZodError } from 'zod'
 import { getDb } from './db/index.js'
 import authRoutes from './routes/auth.js'
@@ -24,17 +26,73 @@ import payslipsRoutes from './routes/payslips.js'
 import payrollExportRoutes from './routes/payroll-export.js'
 import dashboardRoutes from './routes/dashboard.js'
 import auditLogsRoutes from './routes/audit-logs.js'
-import { ApiError } from './lib/errors.js'
+import { ApiError, RateLimitError } from './lib/errors.js'
+import { assertJwtSecretValid } from './lib/auth.js'
+
+const DEFAULT_JSON_LIMIT = 1024 * 1024 // 1 MB
+const DEFAULT_MULTIPART_LIMIT = 10 * 1024 * 1024 // 10 MB
+const DEFAULT_ALLOWED_ORIGINS = 'http://localhost:3000'
+
+function envNumber(name: string, fallback: number): number {
+  const raw = process.env[name]
+  if (raw === undefined || raw === '') return fallback
+  const n = Number(raw)
+  return Number.isFinite(n) && n > 0 ? n : fallback
+}
+
+function parseOrigins(raw?: string): string[] {
+  return (raw === undefined || raw.trim() === '' ? DEFAULT_ALLOWED_ORIGINS : raw)
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
 
 export function buildApp(): FastifyInstance {
-  const app = Fastify({ logger: false })
+  const jsonBodyLimit = envNumber('BODY_JSON_LIMIT', DEFAULT_JSON_LIMIT)
+  const multipartBodyLimit = envNumber('BODY_MULTIPART_LIMIT', DEFAULT_MULTIPART_LIMIT)
+  const allowedOrigins = parseOrigins(process.env.ALLOWED_ORIGINS)
 
-  app.register(cors, { origin: true })
-  app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024 + 1024 } })
+  const signInRateLimit = {
+    max: envNumber('RATE_LIMIT_SIGNIN_MAX', 5),
+    timeWindow: envNumber('RATE_LIMIT_SIGNIN_WINDOW_MS', 60_000),
+  }
+  const signUpRateLimit = {
+    max: envNumber('RATE_LIMIT_SIGNUP_MAX', 3),
+    timeWindow: envNumber('RATE_LIMIT_SIGNUP_WINDOW_MS', 60_000),
+  }
+
+  const app = Fastify({ logger: false, bodyLimit: jsonBodyLimit })
+
+  app.register(helmet, {
+    contentSecurityPolicy: false,
+    frameguard: { action: 'deny' },
+  })
+
+  app.register(cors, {
+    origin: (origin, cb) => {
+      if (!origin) {
+        // Request non-browser (curl, server-to-server) — tidak perlu header CORS.
+        cb(null, true)
+        return
+      }
+      if (allowedOrigins.includes(origin)) {
+        cb(null, true)
+        return
+      }
+      cb(new ApiError(403, 'Asal (origin) tidak diizinkan.'), false)
+    },
+  })
+
+  app.register(multipart, { limits: { fileSize: multipartBodyLimit } })
+
+  app.register(rateLimit, {
+    global: false,
+    errorResponseBuilder: (_req, _context) => new RateLimitError('Terlalu banyak permintaan. Silakan coba lagi nanti.'),
+  })
 
   app.register(
     async (api) => {
-      await api.register(authRoutes)
+      await api.register(authRoutes, { rateLimit: { signIn: signInRateLimit, signUp: signUpRateLimit } })
       await api.register(passwordResetRoutes)
       await api.register(businessesRoutes)
       await api.register(businessDefaultComponentsRoutes)
@@ -60,12 +118,20 @@ export function buildApp(): FastifyInstance {
   )
 
   app.setErrorHandler((err, req, reply) => {
+    if (err instanceof RateLimitError) {
+      reply.code(429).send({ error: 'rate_limited', message: err.message })
+      return
+    }
     if (err instanceof ApiError) {
       reply.code(err.statusCode).send({ error: { message: err.message, details: err.details } })
       return
     }
     if (err instanceof ZodError) {
       reply.code(400).send({ error: { message: 'Data tidak valid', details: err.flatten() } })
+      return
+    }
+    if ((err as { code?: string }).code === 'FST_ERR_CTP_BODY_TOO_LARGE') {
+      reply.code(413).send({ error: { message: 'Ukuran badan permintaan melebihi batas' } })
       return
     }
     const e = err as { statusCode?: unknown; message?: string }
@@ -80,8 +146,27 @@ export function buildApp(): FastifyInstance {
   return app
 }
 
+/**
+ * Memastikan skema database sudah diterapkan sebelum melayani request.
+ * Produksi: gagal cepat (fail-fast). Non-produksi: peringatan.
+ */
+function assertSchemaCurrent(): void {
+  const { sqlite } = getDb()
+  const row = sqlite
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'audit_logs'")
+    .get()
+  if (row) return
+  const msg = '[karyawanku] skema database belum dimigrasi. Jalankan `npm run db:migrate` lalu mulai ulang server.'
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(msg)
+  }
+  console.warn(msg)
+}
+
 export async function start(port = Number(process.env.PORT ?? 3001)): Promise<FastifyInstance> {
+  assertJwtSecretValid()
   getDb()
+  assertSchemaCurrent()
   const app = buildApp()
 
   app.addHook('onResponse', (req, reply, done) => {

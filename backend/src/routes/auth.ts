@@ -41,8 +41,23 @@ async function issue(user: User, req: Parameters<typeof signToken>[1]) {
   return { user: publicUser(user), token: accessToken, refreshToken }
 }
 
-export default async function authRoutes(app: FastifyInstance): Promise<void> {
-  app.post('/auth/sign-up', async (req) => {
+interface RateLimitConfig {
+  max: number
+  timeWindow: number
+}
+
+interface AuthRoutesOptions {
+  rateLimit?: { signIn?: RateLimitConfig; signUp?: RateLimitConfig }
+}
+
+const DEFAULT_SIGNIN_RATE_LIMIT: RateLimitConfig = { max: 5, timeWindow: 60_000 }
+const DEFAULT_SIGNUP_RATE_LIMIT: RateLimitConfig = { max: 3, timeWindow: 60_000 }
+
+export default async function authRoutes(app: FastifyInstance, opts?: AuthRoutesOptions): Promise<void> {
+  const signInRateLimit = opts?.rateLimit?.signIn ?? DEFAULT_SIGNIN_RATE_LIMIT
+  const signUpRateLimit = opts?.rateLimit?.signUp ?? DEFAULT_SIGNUP_RATE_LIMIT
+
+  app.post('/auth/sign-up', { config: { rateLimit: signUpRateLimit } }, async (req) => {
     const parsed = signUpSchema.safeParse(req.body)
     if (!parsed.success) {
       throw new ValidationError('Data pendaftaran tidak valid', parsed.error.flatten())
@@ -60,7 +75,7 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
     return issue(user, req)
   })
 
-  app.post('/auth/sign-in', async (req) => {
+  app.post('/auth/sign-in', { config: { rateLimit: signInRateLimit } }, async (req) => {
     const parsed = signInSchema.safeParse(req.body)
     if (!parsed.success) {
       throw new ValidationError('Data masuk tidak valid', parsed.error.flatten())

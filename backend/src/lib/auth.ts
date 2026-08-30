@@ -34,12 +34,20 @@ export interface IssuedTokens {
   session: Session
 }
 
-export function getJwtSecret(): string {
+/**
+ * Validasi boot-time: JWT_SECRET wajib ada dan minimal 32 karakter.
+ * Dipanggil saat server start dan saat membaca secret untuk menandatangani/verifikasi token.
+ */
+export function assertJwtSecretValid(): void {
   const secret = process.env.JWT_SECRET
-  if (!secret) {
-    throw new Error('JWT_SECRET belum diset di environment')
+  if (!secret || secret.length < 32) {
+    throw new Error('JWT_SECRET must be set and at least 32 chars; see backend/.env.example')
   }
-  return secret
+}
+
+export function getJwtSecret(): string {
+  assertJwtSecretValid()
+  return process.env.JWT_SECRET as string
 }
 
 export async function hashPassword(plain: string): Promise<string> {

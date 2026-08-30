@@ -37,3 +37,10 @@ export class ConflictError extends ApiError {
     this.name = 'ConflictError'
   }
 }
+
+export class RateLimitError extends ApiError {
+  constructor(message: string) {
+    super(429, message)
+    this.name = 'RateLimitError'
+  }
+}

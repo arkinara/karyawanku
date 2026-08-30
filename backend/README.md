@@ -22,16 +22,22 @@ Sesuaikan nilai di `.env` (wajib isi `JWT_SECRET`).
 | `npm run dev` | Jalankan server dev dengan hot-reload (tsx watch) |
 | `npm run build` | Kompilasi TypeScript ke `dist/` |
 | `npm start` | Jalankan hasil build |
-| `npm run db:migrate` | Terapkan skema ke DB (`drizzle-kit push`) |
+| `npm run db:migrate` | Terapkan skema ke DB (`drizzle-kit push`) — **wajib dijalankan eksplisit, tidak otomatis saat boot** |
 | `npm run db:seed` | Isi data demo (1 bisnis + 4 user: owner, manager, 2 karyawan) |
 | `npm test` | Jalankan test (vitest) |
+
+> **Migrasi & boot (ticket #46):** server **tidak** menjalankan migrasi otomatis saat start.
+> Skema diterapkan hanya lewat `npm run db:migrate` (deploy step). Untuk convenience dev/test,
+> set `MIGRATE_ON_BOOT=1` agar `boot()` menjalankan `migrate()` dulu. Saat start, server
+> memeriksa skema: bila tabel belum ada, di produksi (`NODE_ENV=production`) gagal cepat dengan
+> pesan jelas, di non-produksi hanya menulis peringatan.
 
 ## Struktur
 
 ```
 src/
-  index.ts        # entry: migrate + start server
-  app.ts          # build Fastify app + global error handler + log
+  index.ts        # entry: boot() — migrasi hanya bila MIGRATE_ON_BOOT=1, lalu start server
+  app.ts          # build Fastify app (helmet, CORS allowlist, rate limit, body limits, error handler)
   db/
     schema.ts     # tabel businesses, users, sessions, password_resets, employees + scaffold (cuti, shift, absensi, payroll)
     index.ts      # koneksi DB
@@ -219,6 +225,61 @@ Catatan persetujuan & slip gaji: `PATCH /api/payroll-items/:id` memungkinkan Own
 Catatan: saat `POST/PATCH /users` mengirim `employee_id`, sistem memvalidasi karyawan tsb ada di bisnis yang sama.
 
 Catatan audit (ticket #57): setiap perubahan consequential pada payroll (buat run, koreksi item, approve, lock), komponen & penugasan gaji, absensi manual/koreksi, keputusan cuti (approve/reject), mutasi role/status user, dan pengaturan bisnis dicatat ke tabel append-only `audit_logs` lewat satu helper `src/lib/audit.ts` (`recordAudit(...)`). Actor diambil dari sesi terautentikasi (JWT), **bukan** dari body request; `before`/`after` menyimpan snapshot JSON dengan field sensitif (password hash, token/jti/refresh, secret) otomatis diredaksi menjadi `[redacted]`. Perubahan dan baris audit-nya ditulis dalam transaksi yang sama sehingga atomik — gagal satu, batal keduanya. Tidak ada rute API yang mengubah/menghapus baris audit, dan helper-nya memperingatkan agar tidak pernah backdate/edit. Pembaca: `GET /api/audit-logs` (owner-only).
+
+## Keamanan (ticket #46)
+
+### Rotasi JWT_SECRET
+
+`JWT_SECRET` menandatangani seluruh access + refresh token (HS256). Server **menolak start** bila
+`JWT_SECRET` kosong atau lebih pendek dari 32 karakter (lihat `backend/.env.example`).
+
+**Rotasi nilai `JWT_SECRET` membatalkan SEMUA token yang masih beredar** — setiap user harus login
+ulang (refresh token lama pun 401 karena tanda tangannya berubah). Langkah rotasi aman:
+
+1. Generate secret baru: `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`
+2. Update `JWT_SECRET` di environment (Vault / env penyedia hosting), bukan di repo.
+3. Restart server. Token lama otomatis tidak valid.
+
+> Jangan pernah commit `.env` (sudah di-`.gitignore`, bersama `.env.*` kecuali `.env.example`).
+
+### CORS allowlist
+
+`origin: true` diganti dengan allowlist dari env `ALLOWED_ORIGINS` (comma-separated, tanpa spasi).
+Default bila env kosong: `http://localhost:3000`. Origin di luar allowlist ditolak dengan `403
+{ error: { message: 'Asal (origin) tidak diizinkan.' } }`. Request non-browser (tanpa header
+`Origin`) tetap dilayani tanpa header CORS.
+
+```
+ALLOWED_ORIGINS=https://app.karyawanku.id,http://localhost:3000
+```
+
+### Rate limit
+
+`@fastify/rate-limit` (in-memory, per IP). Hanya endpoint auth yang dibatasi:
+
+| Endpoint | Default | Override env |
+|---|---|---|
+| `POST /api/auth/sign-in` | 5 percobaan / 60 dtk / IP | `RATE_LIMIT_SIGNIN_MAX`, `RATE_LIMIT_SIGNIN_WINDOW_MS` |
+| `POST /api/auth/sign-up` | 3 percobaan / 60 dtk / IP | `RATE_LIMIT_SIGNUP_MAX`, `RATE_LIMIT_SIGNUP_WINDOW_MS` |
+
+Saat batas tercapai: `429 { "error": "rate_limited", "message": "Terlalu banyak permintaan. Silakan coba lagi nanti." }`.
+Rate limit dijalankan sebelum validasi kredensial, sehingga tidak membocorkan keberadaan email.
+Endpoint lain tidak dibatasi (skip). Sisi admin/forgot-password memakai counter in-memory sendiri.
+
+### Helmet
+
+`@fastify/helmet` dengan konfigurasi sesuai JSON API: **CSP dimatikan** (`contentSecurityPolicy:
+false`), `X-Frame-Options: DENY` (`frameguard: { action: 'deny' }`), plus default lain (HSTS,
+`X-Content-Type-Options: nosniff`, dst). Semua respons API mendapat header ini.
+
+### Body size limits
+
+| Tipe | Default | Override env |
+|---|---|---|
+| JSON (`application/json`) | 1 MB | `BODY_JSON_LIMIT` (byte) |
+| Multipart / upload | 10 MB | `BODY_MULTIPART_LIMIT` (byte) |
+
+Body JSON yang melebihi batas → `413 { error: { message: 'Ukuran badan permintaan melebihi batas' } }`.
 
 ## Kode status
 
