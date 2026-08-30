@@ -41,7 +41,17 @@ export interface AttendanceAggregate {
   absen: number
   izin: number
   total_late_minutes: number
+  /** Total menit lembur periode; override manual (bila ada) menang atas nilai turunan. */
+  total_overtime_minutes: number
 }
+
+/**
+ * Tarif lembur per jam = upah sejam × multiplier. Upah sejam dihitung dari
+ * gaji pokok dibagi 173 (UU Cipta Kerja / Kepmenakertrans 102/2004); multiplier
+ * default 1.5×.
+ */
+export const OVERTIME_MULTIPLIER = 1.5
+export const MONTHLY_HOURS_DIVISOR = 173
 
 export interface ComputePayrollInput {
   assignments: PayrollAssignment[]
@@ -63,8 +73,36 @@ function roundRupiah(value: number): number {
   return Math.round(value)
 }
 
+function round2(value: number): number {
+  return Math.round(value * 100) / 100
+}
+
 function isGajiPokok(name: string): boolean {
   return name.trim().toLowerCase() === GAJI_POKOK_NAME
+}
+
+/**
+ * Set variabel yang diekspos ke formula komponen gaji (ticket #54).
+ * `jam_lembur` = total jam lembur periode, `tarif_lembur` = upah lembur per jam
+ * dari gaji pokok karyawan. `gaji_pokok` ikut tersedia agar variabel yang
+ * diizinkan `validateFormula` benar-benar ter-resolve di payroll run. Nama
+ * variabel harus sinkron dengan `SAMPLE_SALARY_VARIABLES` di `formula.ts`
+ * (uji kontrak menjaganya; `jam_kerja` belum tersedia di runtime dan bukan
+ * bagian kontrak ini).
+ */
+export function buildAttendanceVars(
+  attendance: AttendanceAggregate,
+  gajiPokok: number,
+): Record<string, number> {
+  return {
+    hadir: attendance.hadir,
+    telat: attendance.telat,
+    absen: attendance.absen,
+    izin: attendance.izin,
+    gaji_pokok: gajiPokok,
+    jam_lembur: round2(attendance.total_overtime_minutes / 60),
+    tarif_lembur: roundRupiah((gajiPokok / MONTHLY_HOURS_DIVISOR) * OVERTIME_MULTIPLIER),
+  }
 }
 
 /**
@@ -102,7 +140,10 @@ export function computePayrollItem(input: ComputePayrollInput): ComputePayrollRe
   )
   const deductionAssignments = activeAssignments.filter((a) => a.component.tipe === 'deduction')
 
-  const attendanceVars: Record<string, number> = {
+  // Gaji pokok diselesaikan lebih dulu dengan variabel dasar — tarif lembur
+  // bergantung padanya — lalu earning/deduction dievaluasi dengan variabel penuh
+  // (termasuk jam_lembur & tarif_lembur).
+  const baseVars: Record<string, number> = {
     hadir: input.attendance.hadir,
     telat: input.attendance.telat,
     absen: input.attendance.absen,
@@ -112,7 +153,7 @@ export function computePayrollItem(input: ComputePayrollInput): ComputePayrollRe
   let gajiPokok = 0
   const gajiPokokLines: unknown[] = []
   for (const a of gajiPokokAssignments) {
-    const nilai = resolveAssignmentValue(a, attendanceVars)
+    const nilai = resolveAssignmentValue(a, baseVars)
     gajiPokok += nilai
     gajiPokokLines.push({
       komponen: a.component.nama_komponen,
@@ -122,6 +163,8 @@ export function computePayrollItem(input: ComputePayrollInput): ComputePayrollRe
       nilai,
     })
   }
+
+  const attendanceVars = buildAttendanceVars(input.attendance, gajiPokok)
 
   let totalTunjangan = 0
   const tunjanganLines: unknown[] = []

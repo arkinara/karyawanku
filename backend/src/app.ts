@@ -24,6 +24,7 @@ import rosterPublishRoutes from './routes/roster-publish.js'
 import payrollRunsRoutes from './routes/payroll-runs.js'
 import payslipsRoutes from './routes/payslips.js'
 import payrollExportRoutes from './routes/payroll-export.js'
+import thrRoutes from './routes/thr.js'
 import dashboardRoutes from './routes/dashboard.js'
 import auditLogsRoutes from './routes/audit-logs.js'
 import { ApiError, RateLimitError } from './lib/errors.js'
@@ -111,6 +112,7 @@ export function buildApp(): FastifyInstance {
       await api.register(payrollRunsRoutes)
       await api.register(payslipsRoutes)
       await api.register(payrollExportRoutes)
+      await api.register(thrRoutes)
       await api.register(dashboardRoutes)
       await api.register(auditLogsRoutes)
     },

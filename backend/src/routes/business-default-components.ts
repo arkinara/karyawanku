@@ -24,6 +24,7 @@ const componentsBodySchema = z.object({
           nominal: z.union([z.number().positive('Nominal harus bilangan positif'), z.null()]).optional(),
           formula: z.union([z.string().trim().max(200, 'Formula maksimal 200 karakter'), z.null()]).optional(),
           aktif: z.boolean().optional(),
+          is_fixed: z.boolean().optional(),
         })
         .refine((d) => d.nominal != null || d.formula != null, {
           message: 'Wajib mengisi nominal atau formula',
@@ -113,6 +114,7 @@ export default async function businessDefaultComponentsRoutes(app: FastifyInstan
               nominal: c.nominal ?? null,
               formula: c.formula ?? null,
               aktif: c.aktif ?? true,
+              is_fixed: c.is_fixed ?? false,
             })
             .returning()
             .get()

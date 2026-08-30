@@ -168,6 +168,12 @@ export const salaryComponents = sqliteTable(
     formula: text('formula'),
     aktif: integer('aktif', { mode: 'boolean' }).notNull().default(true),
     is_default: integer('is_default', { mode: 'boolean' }).notNull().default(false),
+    /**
+     * Tunjangan tetap (ticket #55) — basis THR Permenaker 6/2016.
+     * `is_fixed=true` berarti komponen masuk ke basis upah THR (gaji pokok +
+     * tunjangan tetap); `false` (variabel / tidak tetap) tidak dihitung.
+     */
+    is_fixed: integer('is_fixed', { mode: 'boolean' }).notNull().default(false),
   },
   (table) => [index('salary_components_business_id_idx').on(table.business_id)],
 )
@@ -329,6 +335,13 @@ export const attendanceRecords = sqliteTable(
     catatan: text('catatan'),
     status: text('status', { enum: attendanceStatuses }).notNull().default('hadir'),
     late_minutes: integer('late_minutes').notNull().default(0),
+    /**
+     * Jam lembur (ticket #54): menit di luar jam selesai shift (+grace), diturunkan
+     * saat clock-out. Untuk hari dengan status `absen` selalu 0.
+     */
+    overtime_minutes: integer('overtime_minutes').notNull().default(0),
+    /** Koreksi manual jam lembur (menit) yang menang atas nilai turunan; null = pakai turunan. */
+    overtime_override_minutes: integer('overtime_override_minutes'),
   },
   (table) => [
     index('attendance_records_employee_idx').on(table.employee_id),
@@ -403,6 +416,45 @@ export const payslips = sqliteTable(
 )
 
 /**
+ * Pencairan THR (Tunjangan Hari Raya Keagamaan, Permenaker 6/2016) per karyawan
+ * per tahun (ticket #55). Satu baris per (employee_id, periode=tahun), dijamin
+ * unik sehingga tidak ada pembayaran ganda dalam satu tahun.
+ */
+export const thrPayments = sqliteTable(
+  'thr_payments',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    employee_id: text('employee_id')
+      .notNull()
+      .references(() => employees.id, { onDelete: 'cascade' }),
+    business_id: text('business_id')
+      .notNull()
+      .references(() => businesses.id, { onDelete: 'cascade' }),
+    /** Tahun THR dibayarkan, format 'YYYY'. */
+    periode: text('periode').notNull(),
+    /** Tanggal pembayaran aktual, format 'YYYY-MM-DD'. */
+    tanggal_bayar: text('tanggal_bayar').notNull(),
+    amount: real('amount').notNull(),
+    basis: real('basis').notNull(),
+    months_of_service: integer('months_of_service').notNull(),
+    proportion: real('proportion').notNull(),
+    created_by: text('created_by')
+      .notNull()
+      .references(() => users.id),
+    created_at: integer('created_at', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    notes: text('notes'),
+  },
+  (table) => [
+    uniqueIndex('thr_payments_employee_periode_unique').on(table.employee_id, table.periode),
+    index('thr_payments_business_id_idx').on(table.business_id),
+  ],
+)
+
+/**
  * Catatan audit append-only (ticket #57). Satu-satunya jalur tulis adalah
  * `recordAudit` dari `src/lib/audit.ts`, dipanggil DI DALAM transaksi yang sama
  * dengan perubahan yang dideskripsikannya. TIDAK ADA rute update/delete untuk
@@ -454,5 +506,7 @@ export type AttendanceRecord = typeof attendanceRecords.$inferSelect
 export type PayrollRun = typeof payrollRuns.$inferSelect
 export type PayrollItem = typeof payrollItems.$inferSelect
 export type Payslip = typeof payslips.$inferSelect
+export type ThrPayment = typeof thrPayments.$inferSelect
+export type NewThrPayment = typeof thrPayments.$inferInsert
 export type AuditLog = typeof auditLogs.$inferSelect
 export type NewAuditLog = typeof auditLogs.$inferInsert

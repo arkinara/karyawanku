@@ -61,7 +61,14 @@ describe('GET /api/attendance/aggregate/:employeeId', () => {
       headers: auth(ctx.ownerToken),
     })
     expect(res.statusCode).toBe(200)
-    expect(res.json()).toEqual({ hadir: 20, telat: 2, absen: 1, izin: 0, total_late_minutes: 15 })
+    expect(res.json()).toEqual({
+      hadir: 20,
+      telat: 2,
+      absen: 1,
+      izin: 0,
+      total_late_minutes: 15,
+      total_overtime_minutes: 0,
+    })
   })
 
   it('periode tanpa record → zeroed, bukan error', async () => {
@@ -74,7 +81,14 @@ describe('GET /api/attendance/aggregate/:employeeId', () => {
       headers: auth(ctx.ownerToken),
     })
     expect(res.statusCode).toBe(200)
-    expect(res.json()).toEqual({ hadir: 0, telat: 0, absen: 0, izin: 0, total_late_minutes: 0 })
+    expect(res.json()).toEqual({
+      hadir: 0,
+      telat: 0,
+      absen: 0,
+      izin: 0,
+      total_late_minutes: 0,
+      total_overtime_minutes: 0,
+    })
   })
 
   it('manual correction (status) tercermin di aggregate berikutnya', async () => {

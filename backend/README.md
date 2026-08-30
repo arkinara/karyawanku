@@ -66,6 +66,7 @@ src/
     shift-assignments.ts # penugasan shift per karyawan/tanggal + upcoming 3 hari
     roster-publish.ts  # publish/unpublish roster shift secara batch (roster.publish)
     payroll-runs.ts    # buat run payroll draft + hitung gaji/BPJS/PPh21 per karyawan + koreksi/approve/lock
+    thr.ts             # hitung THR + catat pencairan (Permenaker 6/2016) — calculate/disburse/payments
     payslips.ts        # daftar & unduh slip gaji PDF (owner semua, karyawan miliknya)
     payroll-export.ts  # ekspor rekap payroll ke CSV / XLSX (owner)
     dashboard.ts       # GET /dashboard — agregasi quick dashboard sesuai role (owner tim, employee diri sendiri)
@@ -77,12 +78,13 @@ src/
     attendance-status.ts # hitung status hadir/telat + late_minutes dari jam shift
     bpjs.ts            # kalkulasi BPJS Kesehatan + Ketenagakerjaan dari gaji pokok
     pph21.ts           # kalkulasi PPh21 progresif (PTKP + lapisan tarif)
+    thr.ts             # kalkulasi THR murni (Permenaker 6/2016) — masa kerja + basis upah tetap
     payroll.ts         # engine komputasi payroll per karyawan (gaji/BPJS/PPh21/take-home)
     payslip-breakdown.ts # komposisi breakdown slip gaji (earnings/deductions/totals) dari detail_breakdown
     payslip-pdf.ts     # generator PDF slip gaji (pdfkit) → Buffer
     payslip-store.ts   # simpan/baca file PDF slip gaji di filesystem
     payslip-generator.ts # buat record payslips + generate PDF untuk seluruh item satu run
-tests/            # vitest: auth, sessions, refresh, forgot-password, businesses, business-default-components, users, employees, employees-import, schema, salary-components, salary-assignments, attendance-*, leave-*, shifts, shift-assignments, roster-publish, payroll-runs, payroll-approval, payslips, payroll-export, audit-log, bpjs, pph21
+tests/            # vitest: auth, sessions, refresh, forgot-password, businesses, business-default-components, users, employees, employees-import, schema, salary-components, salary-assignments, attendance-*, leave-*, shifts, shift-assignments, roster-publish, payroll-runs, payroll-approval, payslips, payroll-export, audit-log, thr, bpjs, pph21
 drizzle/          # file migrasi SQL (generated)
 data/             # file DB lokal (git-ignored) + data/payslips/ (PDF slip gaji, git-ignored)
 ```
@@ -158,12 +160,12 @@ Prefix: `/api`
 | POST | `/employees/import/preview` | Owner | Upload CSV (max 5 MB), kembalikan rows + detected headers + suggested mapping |
 | POST | `/employees/import/commit` | Owner | Buat banyak karyawan valid sekaligus (transaksi), `{ created, skipped, errors }` |
 | GET | `/salary-components?active=true&defaults=true` | Owner | Daftar komponen gaji (scoped bisnis; default termasuk nonaktif, filter `active=true`; `defaults=true` hanya komponen `is_default=true`) |
-| POST | `/salary-components` | Owner | Buat komponen gaji (`nama_komponen`, `tipe`, `nominal`/`formula`, `aktif`) |
+| POST | `/salary-components` | Owner | Buat komponen gaji (`nama_komponen`, `tipe`, `nominal`/`formula`, `aktif`, `is_fixed?` — `is_fixed=true` menandai tunjangan tetap yang masuk basis THR) |
 | POST | `/salary-components/preview-formula` | Owner | Evaluasi formula terhadap `{ formula, variables }` → `{ result }` |
-| PATCH | `/salary-components/:id` | Owner | Update subset field + toggle `aktif` (soft, tanpa hapus histori) |
+| PATCH | `/salary-components/:id` | Owner | Update subset field + toggle `aktif` / `is_fixed` (soft, tanpa hapus histori) |
 | DELETE | `/salary-components/:id` | Owner | Soft-delete (set `aktif=false`) → `{ ok: true }` |
 | GET | `/businesses/:id/default-salary-components` | Owner | Daftar komponen gaji default bisnis (hanya `is_default=true`, urut nama) |
-| PUT | `/businesses/:id/default-salary-components` | Owner | Set komponen default: body `{ component_ids: string[] }` ATAU `{ components: [{ nama_komponen, tipe, nominal?, formula?, aktif? }] }`. Tandai `is_default=true` pada yang dipilih, reset `is_default=false` pada semua komponen lain di bisnis (transaksional). `component_ids` lintas-bisnis → 400 tanpa mengubah set yang ada |
+| PUT | `/businesses/:id/default-salary-components` | Owner | Set komponen default: body `{ component_ids: string[] }` ATAU `{ components: [{ nama_komponen, tipe, nominal?, formula?, aktif?, is_fixed? }] }`. Tandai `is_default=true` pada yang dipilih, reset `is_default=false` pada semua komponen lain di bisnis (transaksional). `component_ids` lintas-bisnis → 400 tanpa mengubah set yang ada |
 | GET | `/employees/:employeeId/salary-assignments?includeInactive=true` | Owner / karyawan terkait | Daftar penugasan komponen gaji + detail komponen (`nilai_efektif`) |
 | POST | `/employees/:employeeId/salary-assignments` | Owner | Tugaskan komponen gaji ke karyawan (opsional `override_nominal`, cek duplikat aktif → 409) |
 | PATCH | `/salary-assignments/:id` | Owner | Update `override_nominal` / toggle `aktif` |
@@ -211,6 +213,10 @@ Prefix: `/api`
 | GET | `/payroll-runs/:id/export.csv` | Owner | Ekspor rekap payroll CSV (BOM UTF-8) atau XLSX (`?format=xlsx`), termasuk baris total |
 | GET | `/dashboard` | Owner / Karyawan | Ringkasan quick dashboard, payload berbeda sesuai role. **Owner**: `today_attendance` (hadir/telat/absen/izin hari ini), `pending_leaves` (5 pengajuan pending terbaru + nama karyawan), `upcoming_shifts` (3 hari ke depan, published, seluruh tim), `payroll_summary` (total & take-home periode berjalan + `last_run_periode`), `metrics` (total_karyawan/total_aktif). **Employee**: `my_today` (status check-in hari ini, `null` bila belum ada), `upcoming_shifts` (3 hari ke depan, published, milik sendiri), `my_recent_payslips` (3 slip terakhir, terbaru dulu). Semua query di-scope server-side (`business_id`/`employee_id` dari token); employee tidak bisa memfilter via `?employee_id=` (403) |
 | GET | `/audit-logs?entity_type=&entity_id=&actor_user_id=&start=&end=&limit=&offset=` | Owner | Riwayat audit (append-only, ticket #57) bisnis caller, terbaru dulu. Filter: `entity_type`, `entity_id`, `actor_user_id`, rentang `start`/`end` (YYYY-MM-DD). Paginasi `limit` (default 50, clamp maks 100) + `offset`. Balas `{ logs: [{ id, actor: { id, nama, email }, action, entity_type, entity_id, before, after, created_at }], total, limit, offset }`. Manager/karyawan → 403. **Tidak ada rute update/delete** |
+| POST | `/thr/calculate` | Bearer | Hitung THR (pratinjau, tanpa menulis): body `{ employee_id, periode: 'YYYY', tanggal_bayar: 'YYYY-MM-DD' }` → `{ employee, calculation, disbursement_preview }`. Karyawan harus di bisnis caller (lain → 404) |
+| POST | `/thr/disburse` | payroll.run | Catat pencairan THR: body sama, menulis baris `thr_payments` + audit `thr.disburse`. Idempoten — duplikat `(employee_id, periode)` → 409 |
+| GET | `/thr/payments?periode=YYYY` | Bearer | Daftar pencairan THR bisnis caller (opsional filter `periode`), urut periode + nama karyawan. Semua role bisa membaca |
+| GET | `/thr/payments/:id` | Bearer | Detail satu pembayaran THR (scoped bisnis; lain → 404) |
 
 Catatan absensi: status `hadir`/`telat` dihitung otomatis dari `jam_mulai` shift (shift_assignments) saat clock-in, fallback `08:00` bila tak ada shift. Owner boleh clock-in/out atas nama karyawan lain via `employee_id`; employee hanya untuk dirinya sendiri.
 
@@ -223,6 +229,8 @@ Catatan payroll: `POST /api/payroll-runs` membuat satu run `status=draft` per `(
 Catatan persetujuan & slip gaji: `PATCH /api/payroll-items/:id` memungkinkan Owner mengoreksi item saat run `status=draft` (nilai `koreksi` ditambahkan ke `take_home`); setelah approve/lock semua edit ditolak 409. `POST /api/payroll-runs/:id/approve` memindahkan run ke `disetujui`, mencatat `approved_at` + `approved_by_user_id`, lalu otomatis membuat satu record `payslips` per item dan men-generate PDF slip gaji (pdfkit) yang disimpan di `backend/data/payslips/{payslip_id}.pdf` (lokasi bisa di-override via env `PAYSLIP_DIR`); `pdf_url` disimpan di DB. Re-approve idempoten — tidak menduplikasi payslip. `POST /api/payroll-runs/:id/lock` mengunci run setelah disetujui. `GET /api/payslips*` scoped: Owner melihat semua di bisnis, karyawan hanya miliknya. `GET /api/payslips/:id` mengembalikan breakdown inline (earnings/deductions dengan `nama_komponen`, `nominal`, `formula`) yang disusun dari `detail_breakdown` + komponen BPJS/PPh21; PDF slip gaji merender bagian Pendapatan & Potongan per komponen sebelum take-home (maks 10 baris per bagian, sisanya diringkas "+N komponen lainnya"). `GET /api/payroll-runs/:id/export.csv` (owner) menghasilkan CSV UTF-8 (BOM) berisi Nama, NIP/ID, Gaji Pokok, Total Tunjangan, BPJS Kesehatan (employee), BPJS Ketenagakerjaan (employee), PPh 21, Koreksi, Take-Home plus baris total; `?format=xlsx` menghasilkan file XLSX (exceljs).
 
 Catatan: saat `POST/PATCH /users` mengirim `employee_id`, sistem memvalidasi karyawan tsb ada di bisnis yang sama.
+
+Catatan THR (ticket #55, Permenaker 6/2016): THR Keagamaan wajib dibayarkan setahun sekali menjelang hari raya keagamaan, paling lambat 7 hari sebelumnya. Basis upah = gaji pokok + tunjangan tetap (`salary_components.is_fixed = true`); tunjangan variabel/tidak tetap tidak dihitung. Karyawan masa kerja ≥ 12 bulan menerima 1× basis upah; masa kerja 1–11 bulan diprorata (`upah × bulan / 12`, dibulatkan ke rupiah penuh); < 1 bulan tidak berhak (0). `POST /api/thr/calculate` hanya pratinjau; `POST /api/thr/disburse` (butuh capability `payroll.run` = owner) menulis baris `thr_payments` dan mencatat audit `thr.disburse` dalam satu transaksi. Unik constraint `(employee_id, periode)` mencegah pembayaran ganda per tahun (duplikat → 409). Masa kerja dihitung dari `employees.tanggal_masuk` terhadap `tanggal_bayar`; tanggal masuk null/valid tapi di masa depan → 0. Pembayaran tercatat, bukan transfer uang (eksekusi bank di luar scope). `GET /api/thr/payments*` bisa dibaca semua role dalam bisnisnya.
 
 Catatan audit (ticket #57): setiap perubahan consequential pada payroll (buat run, koreksi item, approve, lock), komponen & penugasan gaji, absensi manual/koreksi, keputusan cuti (approve/reject), mutasi role/status user, dan pengaturan bisnis dicatat ke tabel append-only `audit_logs` lewat satu helper `src/lib/audit.ts` (`recordAudit(...)`). Actor diambil dari sesi terautentikasi (JWT), **bukan** dari body request; `before`/`after` menyimpan snapshot JSON dengan field sensitif (password hash, token/jti/refresh, secret) otomatis diredaksi menjadi `[redacted]`. Perubahan dan baris audit-nya ditulis dalam transaksi yang sama sehingga atomik — gagal satu, batal keduanya. Tidak ada rute API yang mengubah/menghapus baris audit, dan helper-nya memperingatkan agar tidak pernah backdate/edit. Pembaca: `GET /api/audit-logs` (owner-only).
 
@@ -314,7 +322,7 @@ Aturan tambahan:
 - Manager hanya bisa mengelola akun ber-role `employee`; menetapkan/menurunkan/menonaktifkan `manager`/`owner` → 403.
 - Manager tidak dapat menyetujui/menolak cuti miliknya sendiri.
 - Semua aksi manager di-scope ke `business_id`-nya sendiri (divalidasi server-side, bukan dari body).
-- Payroll, salary components/assignments, settings bisnis, dan manage role tetap owner-only.
+- Payroll, salary components/assignments, settings bisnis, pencairan THR (`payroll.run`), dan manage role tetap owner-only.
 
 `GET /api/auth/me` mengekspos `capabilities` (capability user saat ini) dan `role_capabilities` (matriks penuh) sehingga frontend bisa menurunkan gating-nya dari sumber yang sama.
 

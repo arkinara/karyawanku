@@ -19,6 +19,7 @@ const formulaSchema = z.union([
   z.null(),
 ])
 const aktifSchema = z.boolean()
+const isFixedSchema = z.boolean()
 
 const createSchema = z
   .object({
@@ -27,6 +28,7 @@ const createSchema = z
     nominal: nominalSchema.optional(),
     formula: formulaSchema.optional(),
     aktif: aktifSchema.optional(),
+    is_fixed: isFixedSchema.optional(),
   })
   .refine((d) => d.nominal != null || d.formula != null, {
     message: 'Wajib mengisi nominal atau formula',
@@ -39,6 +41,7 @@ const updateSchema = z
     nominal: nominalSchema.optional(),
     formula: formulaSchema.optional(),
     aktif: aktifSchema.optional(),
+    is_fixed: isFixedSchema.optional(),
   })
   .refine((d) => Object.keys(d).length > 0, { message: 'Tidak ada field yang diubah' })
 
@@ -106,6 +109,7 @@ export default async function salaryComponentsRoutes(app: FastifyInstance): Prom
           nominal: data.nominal ?? null,
           formula: data.formula ?? null,
           aktif: data.aktif ?? true,
+          is_fixed: data.is_fixed ?? false,
         })
         .returning()
         .get()
@@ -164,6 +168,7 @@ export default async function salaryComponentsRoutes(app: FastifyInstance): Prom
     if (data.nominal !== undefined) patch.nominal = data.nominal
     if (data.formula !== undefined) patch.formula = data.formula
     if (data.aktif !== undefined) patch.aktif = data.aktif
+    if (data.is_fixed !== undefined) patch.is_fixed = data.is_fixed
 
     const updated = db.transaction((tx) => {
       const changed = tx.update(salaryComponents).set(patch).where(eq(salaryComponents.id, id)).returning().get()

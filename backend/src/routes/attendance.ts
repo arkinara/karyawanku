@@ -16,6 +16,12 @@ import { recordAudit } from '../lib/audit.js'
 import { ApiError, ConflictError, ForbiddenError } from '../lib/errors.js'
 import { computeAttendanceStatus, DEFAULT_SCHEDULE_START } from '../lib/attendance-status.js'
 import { offsetOf, paginateResult, parsePagination } from '../lib/pagination.js'
+import {
+  computeOvertimeMinutes,
+  DEFAULT_GRACE_MINUTES,
+  DEFAULT_SCHEDULE_END,
+  MAX_OVERTIME_MINUTES,
+} from '../lib/overtime.js'
 
 /**
  * Toleransi selisih antara klaim waktu klien dan jam server (5 menit).
@@ -46,6 +52,7 @@ const manualSchema = z.object({
   catatan: z.string().nullable().optional(),
   status: z.enum(['hadir', 'telat', 'absen', 'izin']).optional(),
   late_minutes: z.number().int().min(0).optional(),
+  overtime_minutes: z.number().int().min(0).max(MAX_OVERTIME_MINUTES).optional(),
 })
 
 const patchSchema = z.object({
@@ -55,6 +62,13 @@ const patchSchema = z.object({
   catatan: z.string().nullable().optional(),
   status: z.enum(['hadir', 'telat', 'absen', 'izin']).optional(),
   late_minutes: z.number().int().min(0).optional(),
+  overtime_override_minutes: z
+    .number()
+    .int()
+    .min(0)
+    .max(MAX_OVERTIME_MINUTES)
+    .nullable()
+    .optional(),
 })
 
 function localDateStr(d: Date): string {
@@ -193,6 +207,21 @@ function getScheduleStart(employeeId: string, tanggal: string): string | null {
   return row?.jamMulai ?? null
 }
 
+/** Jam selesai shift aktif untuk employee pada tanggal tsb, atau null bila tak ada. */
+function getScheduleEnd(
+  employeeId: string,
+  tanggal: string,
+): { jamMulai: string; jamSelesai: string } | null {
+  const { db } = getDb()
+  const row = db
+    .select({ jamMulai: shifts.jam_mulai, jamSelesai: shifts.jam_selesai })
+    .from(shiftAssignments)
+    .innerJoin(shifts, eq(shiftAssignments.shift_id, shifts.id))
+    .where(and(eq(shiftAssignments.employee_id, employeeId), eq(shiftAssignments.tanggal, tanggal)))
+    .get()
+  return row ?? null
+}
+
 /** Memastikan record absensi milik karyawan dalam bisnis user. */
 function assertRecordInBusiness(recordId: string, businessId: string) {
   const { db } = getDb()
@@ -214,6 +243,8 @@ function attendanceSnapshot(rec: {
   catatan: string | null
   status: string
   late_minutes: number
+  overtime_minutes: number
+  overtime_override_minutes: number | null
 }) {
   return {
     clock_in: rec.clock_in,
@@ -221,6 +252,18 @@ function attendanceSnapshot(rec: {
     catatan: rec.catatan,
     status: rec.status,
     late_minutes: rec.late_minutes,
+    overtime_minutes: rec.overtime_minutes,
+    overtime_override_minutes: rec.overtime_override_minutes,
+  }
+}
+
+/**
+ * Lembur hanya sah untuk hari yang benar-benar dihadiri (hadir/telat/izin
+ * dengan kehadiran). Hari berstatus `absen` tidak boleh membawa nilai lembur.
+ */
+function assertOvertimeAllowedForStatus(status: string, overtimeMinutes: number): void {
+  if (status === 'absen' && overtimeMinutes > 0) {
+    throw new ApiError(422, 'Overtime tidak dapat dicatat untuk hari dengan status absen')
   }
 }
 
@@ -318,6 +361,18 @@ export default async function attendanceRoutes(app: FastifyInstance): Promise<vo
       throw new ConflictError('Sudah melakukan clock-out pada tanggal ini')
     }
 
+    const schedule = getScheduleEnd(employeeId, tanggal)
+    const scheduleEnd = schedule?.jamSelesai ?? DEFAULT_SCHEDULE_END
+    const clockInDate = new Date(existing.clock_in ?? toIso(clock.effective))
+    const overtimeMinutes = computeOvertimeMinutes(
+      clockInDate,
+      clock.effective,
+      scheduleEnd,
+      DEFAULT_GRACE_MINUTES,
+      existing.overtime_override_minutes,
+      schedule?.jamMulai ?? null,
+    )
+
     const record = db.transaction((tx) => {
       const updated = tx
         .update(attendanceRecords)
@@ -326,6 +381,7 @@ export default async function attendanceRoutes(app: FastifyInstance): Promise<vo
           clock_out_client_claim_at: clock.clientClaim ? toIso(clock.clientClaim) : null,
           time_drift_detected: Boolean(existing.time_drift_detected) || clock.timeDriftDetected,
           submission_method: submissionMethod,
+          overtime_minutes: overtimeMinutes,
         })
         .where(eq(attendanceRecords.id, existing.id))
         .returning()
@@ -448,15 +504,24 @@ export default async function attendanceRoutes(app: FastifyInstance): Promise<vo
     let absen = 0
     let izin = 0
     let totalLateMinutes = 0
+    let totalOvertimeMinutes = 0
     for (const r of rows) {
       if (r.status === 'hadir') hadir++
       else if (r.status === 'telat') telat++
       else if (r.status === 'absen') absen++
       else if (r.status === 'izin') izin++
       totalLateMinutes += r.late_minutes ?? 0
+      totalOvertimeMinutes += r.overtime_override_minutes ?? r.overtime_minutes ?? 0
     }
 
-    return { hadir, telat, absen, izin, total_late_minutes: totalLateMinutes }
+    return {
+      hadir,
+      telat,
+      absen,
+      izin,
+      total_late_minutes: totalLateMinutes,
+      total_overtime_minutes: totalOvertimeMinutes,
+    }
   })
 
   app.post('/attendance/manual', { preHandler: requireCapability('attendance.manage') }, async (req) => {
@@ -489,6 +554,12 @@ export default async function attendanceRoutes(app: FastifyInstance): Promise<vo
         if (body.catatan !== undefined) patch.catatan = body.catatan
         if (body.status !== undefined) patch.status = body.status
         if (body.late_minutes !== undefined) patch.late_minutes = body.late_minutes
+        if (body.overtime_minutes !== undefined) patch.overtime_minutes = body.overtime_minutes
+
+        const finalStatus = body.status ?? existing.status
+        const finalOvertime = body.overtime_minutes ?? existing.overtime_minutes
+        assertOvertimeAllowedForStatus(finalStatus, finalOvertime)
+
         const changed = tx
           .update(attendanceRecords)
           .set(patch)
@@ -510,6 +581,10 @@ export default async function attendanceRoutes(app: FastifyInstance): Promise<vo
         return { record: changed, upserted: false }
       }
 
+      const overtimeMinutes = body.overtime_minutes ?? 0
+      const status = body.status ?? 'hadir'
+      assertOvertimeAllowedForStatus(status, overtimeMinutes)
+
       const changed = tx
         .insert(attendanceRecords)
         .values({
@@ -518,8 +593,9 @@ export default async function attendanceRoutes(app: FastifyInstance): Promise<vo
           clock_in: body.clock_in ?? null,
           clock_out: body.clock_out ?? null,
           catatan: body.catatan ?? null,
-          status: body.status ?? 'hadir',
+          status,
           late_minutes: body.late_minutes ?? 0,
+          overtime_minutes: overtimeMinutes,
         })
         .returning()
         .get()
@@ -560,6 +636,13 @@ export default async function attendanceRoutes(app: FastifyInstance): Promise<vo
     if (body.catatan !== undefined) patch.catatan = body.catatan
     if (body.status !== undefined) patch.status = body.status
     if (body.late_minutes !== undefined) patch.late_minutes = body.late_minutes
+    if (body.overtime_override_minutes !== undefined) {
+      patch.overtime_override_minutes = body.overtime_override_minutes
+    }
+
+    const finalStatus = body.status ?? before.status
+    const finalOverride = body.overtime_override_minutes ?? before.overtime_override_minutes
+    assertOvertimeAllowedForStatus(finalStatus, finalOverride ?? before.overtime_minutes)
 
     const record = db.transaction((tx) => {
       const changed = tx

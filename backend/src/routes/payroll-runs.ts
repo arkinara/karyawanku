@@ -109,13 +109,21 @@ function getAttendanceAggregate(db: ReturnType<typeof getDb>['db'], employeeId: 
     )
     .all()
 
-  const agg: AttendanceAggregate = { hadir: 0, telat: 0, absen: 0, izin: 0, total_late_minutes: 0 }
+  const agg: AttendanceAggregate = {
+    hadir: 0,
+    telat: 0,
+    absen: 0,
+    izin: 0,
+    total_late_minutes: 0,
+    total_overtime_minutes: 0,
+  }
   for (const r of rows) {
     if (r.status === 'hadir') agg.hadir++
     else if (r.status === 'telat') agg.telat++
     else if (r.status === 'absen') agg.absen++
     else if (r.status === 'izin') agg.izin++
     agg.total_late_minutes += r.late_minutes ?? 0
+    agg.total_overtime_minutes += r.overtime_override_minutes ?? r.overtime_minutes ?? 0
   }
   return agg
 }

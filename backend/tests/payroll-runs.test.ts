@@ -114,7 +114,14 @@ describe('POST /api/payroll-runs', () => {
     expect(item.pph21).toBe(0)
     expect(item.take_home).toBe(4_260_000)
 
-    expect(item.detail_breakdown.attendance).toEqual({ hadir: 1, telat: 1, absen: 0, izin: 1, total_late_minutes: 15 })
+    expect(item.detail_breakdown.attendance).toEqual({
+      hadir: 1,
+      telat: 1,
+      absen: 0,
+      izin: 1,
+      total_late_minutes: 15,
+      total_overtime_minutes: 0,
+    })
     expect(item.detail_breakdown.bpjs.bpjs_kesehatan.employee).toBe(35_000)
   })
 
