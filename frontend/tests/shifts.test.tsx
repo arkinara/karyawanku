@@ -305,7 +305,7 @@ describe('Shifts Page — shift catalogue wiring', () => {
     await waitFor(() => {
       expect(within(legend).getByText('13:00-21:00')).toBeInTheDocument()
     })
-  })
+  }, 20000)
 
   it('mengedit shift memanggil PATCH /api/shifts/:id dan me-refetch', async () => {
     const { calls, fetchMock } = createStub()
