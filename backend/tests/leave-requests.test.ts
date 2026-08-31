@@ -180,7 +180,7 @@ describe('GET /api/leave-requests', () => {
         employee_id: other.id,
         leave_type_id: typeId,
         tanggal_mulai: dateStr(40),
-        tanggal_selesi: dateStr(41),
+        tanggal_selesai: dateStr(41),
         status: 'pending',
       })
       .run()
@@ -243,7 +243,7 @@ describe('GET /api/leave-requests', () => {
         employee_id: otherEmp.id,
         leave_type_id: typeId,
         tanggal_mulai: dateStr(40),
-        tanggal_selesi: dateStr(41),
+        tanggal_selesai: dateStr(41),
         status: 'pending',
       })
       .run()

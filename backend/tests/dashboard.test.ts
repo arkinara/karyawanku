@@ -120,7 +120,7 @@ async function seedLeaveRequest(
       employee_id: employeeId,
       leave_type_id: leaveTypeId,
       tanggal_mulai: tanggalMulai,
-      tanggal_selesi: tanggalMulai,
+      tanggal_selesai: tanggalMulai,
       status,
       created_at: createdAt,
     })

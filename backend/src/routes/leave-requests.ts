@@ -55,7 +55,7 @@ function serialize(row: LeaveRequestRow) {
     leave_type_id: row.request.leave_type_id,
     leave_type_name: row.leave_type_name,
     tanggal_mulai: row.request.tanggal_mulai,
-    tanggal_selesai: row.request.tanggal_selesi,
+    tanggal_selesai: row.request.tanggal_selesai,
     alasan: row.request.alasan,
     status: row.request.status,
     approver_user_id: row.request.approver_user_id,
@@ -114,7 +114,7 @@ export default async function leaveRequestsRoutes(app: FastifyInstance): Promise
         employee_id: emp.id,
         leave_type_id: type.id,
         tanggal_mulai: data.tanggal_mulai,
-        tanggal_selesi: data.tanggal_selesai,
+        tanggal_selesai: data.tanggal_selesai,
         alasan: data.alasan ?? null,
         status: 'pending',
       })
@@ -248,7 +248,7 @@ export default async function leaveRequestsRoutes(app: FastifyInstance): Promise
       .where(eq(leaveTypes.id, row.request.leave_type_id))
       .get()
     const tahun = Number(row.request.tanggal_mulai.split('-')[0])
-    const requestedDays = daysBetween(row.request.tanggal_mulai, row.request.tanggal_selesi)
+    const requestedDays = daysBetween(row.request.tanggal_mulai, row.request.tanggal_selesai)
 
     const updated = db.transaction((tx) => {
       if (type && type.default_kuota_hari > 0) {

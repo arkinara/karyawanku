@@ -76,7 +76,7 @@ async function seedLeaveRequests(employeeId: string, n: number): Promise<void> {
         employee_id: employeeId,
         leave_type_id: typeId,
         tanggal_mulai: `2026-09-0${i}`,
-        tanggal_selesi: `2026-09-0${i}`,
+        tanggal_selesai: `2026-09-0${i}`,
         status: 'pending',
       })
       .run()

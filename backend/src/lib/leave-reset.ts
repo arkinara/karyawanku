@@ -1,13 +1,20 @@
 import { and, eq } from 'drizzle-orm'
-import { getDb } from '../db/index.js'
+import { getDb, type DB } from '../db/index.js'
 import {
+  businesses,
   employees,
   leaveBalances,
   leaveTypes,
+  systemState,
   type Employee,
   type LeaveBalance,
   type LeaveType,
 } from '../db/schema.js'
+
+/** Key `system_state` yang mencatat tahun terakhir reset tahunan saldo cuti. */
+export const SYSTEM_STATE_KEY_LAST_LEAVE_RESET = 'last_leave_reset_year'
+/** Key `system_state` yang dicadangkan untuk proses THR berkala (belum dipakai). */
+export const SYSTEM_STATE_KEY_LAST_THR_RESET = 'last_thr_reset_year'
 
 /** Jenis cuti tahunan dikenali dari nama (case-insensitive). */
 export function isAnnualLeaveType(nama: string): boolean {
@@ -182,4 +189,47 @@ export function runYearlyReset(businessId: string, tahun: number): YearlyResetRe
   }
 
   return { business_id: businessId, tahun, created, skipped }
+}
+
+export interface YearlyResetIfNeededResult {
+  /** Tahun yang diperiksa/direset. */
+  tahun: number
+  /** true bila reset benar-benar dijalankan untuk tahun ini. */
+  ran: boolean
+  /** Alasan: first_run (baris system_state belum ada), new_year (tahun berganti), already_current (sudah dijalankan tahun ini). */
+  reason: 'first_run' | 'new_year' | 'already_current'
+  /** Hasil reset per bisnis (kosong bila tidak menjalankan apa-apa). */
+  businesses: YearlyResetResult[]
+}
+
+/**
+ * Reset tahunan terjadwal (ticket #56) — dipanggil otomatis saat server start.
+ *
+ * Memeriksa `system_state` untuk key `last_leave_reset_year`:
+ * - Belum ada baris → catat `last_leave_reset_year = tahun` lalu jalankan reset
+ *   saldo cuti untuk tahun ini di SEMUA bisnis (`reason: 'first_run'`).
+ * - Baris ada dengan tahun sama → sudah dijalankan tahun ini, tidak melakukan
+ *   apa-apa (`reason: 'already_current'`, idempoten).
+ * - Baris ada dengan tahun lama → tahun berganti, jalankan reset untuk tahun
+ *   berjalan (`reason: 'new_year'`).
+ *
+ * `runYearlyReset` sendiri sudah idempoten (baris saldo yang ada tidak dibuat
+ * ulang), sehingga aman dipanggil berkali-kali untuk tahun yang sama.
+ */
+export async function runYearlyResetIfNeeded(tahun: number, db: DB): Promise<YearlyResetIfNeededResult> {
+  const state = db.select().from(systemState).where(eq(systemState.key, SYSTEM_STATE_KEY_LAST_LEAVE_RESET)).get()
+
+  if (state && Number(state.value) === tahun) {
+    return { tahun, ran: false, reason: 'already_current', businesses: [] }
+  }
+
+  const bizRows = db.select({ id: businesses.id }).from(businesses).all()
+  const results = bizRows.map((b) => runYearlyReset(b.id, tahun))
+
+  db.insert(systemState)
+    .values({ key: SYSTEM_STATE_KEY_LAST_LEAVE_RESET, value: tahun })
+    .onConflictDoUpdate({ target: systemState.key, set: { value: tahun } })
+    .run()
+
+  return { tahun, ran: true, reason: state ? 'new_year' : 'first_run', businesses: results }
 }

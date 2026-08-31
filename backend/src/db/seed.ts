@@ -164,7 +164,7 @@ async function seedEmployeeData(businessId: string): Promise<void> {
       employee_id: siti.id,
       leave_type_id: tahunan.id,
       tanggal_mulai: isoDate(7),
-      tanggal_selesi: isoDate(9),
+      tanggal_selesai: isoDate(9),
       alasan: 'Pulang kampung menengok orang tua',
       status: 'pending',
     })
@@ -175,7 +175,7 @@ async function seedEmployeeData(businessId: string): Promise<void> {
       employee_id: budi.id,
       leave_type_id: sakit.id,
       tanggal_mulai: isoDate(-10),
-      tanggal_selesi: isoDate(-9),
+      tanggal_selesai: isoDate(-9),
       alasan: 'Demam, ada surat keterangan dokter',
       status: 'disetujui',
       approver_user_id: owner?.id,

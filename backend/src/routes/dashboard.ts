@@ -138,7 +138,7 @@ export default async function dashboardRoutes(app: FastifyInstance): Promise<voi
           employee: { nama: r.employee_name },
           leave_type: r.leave_type_name,
           tanggal_mulai: r.request.tanggal_mulai,
-          tanggal_selesai: r.request.tanggal_selesi,
+          tanggal_selesai: r.request.tanggal_selesai,
           alasan: r.request.alasan,
           created_at: r.request.created_at,
         })),

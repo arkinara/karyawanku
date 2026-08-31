@@ -251,7 +251,7 @@ describe('manager — leave.approve', () => {
         employee_id: employeeId,
         leave_type_id: typeId,
         tanggal_mulai: dateStr(15),
-        tanggal_selesi: dateStr(16),
+        tanggal_selesai: dateStr(16),
         status: 'pending',
       })
       .returning()

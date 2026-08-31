@@ -1,5 +1,7 @@
 import 'dotenv/config'
 import { migrate } from './db/migrate.js'
+import { getDb } from './db/index.js'
+import { runYearlyResetIfNeeded } from './lib/leave-reset.js'
 import { start } from './app.js'
 
 /**
@@ -11,6 +13,17 @@ export async function boot(port?: number): Promise<void> {
   if (process.env.MIGRATE_ON_BOOT === '1') {
     migrate()
   }
+
+  // Startup hook (ticket #56): reset tahunan saldo cuti berjalan otomatis saat
+  // server start — tidak perlu panggilan manual. Idempoten: bila `system_state`
+  // sudah mencatat tahun berjalan, tidak melakukan apa-apa. Gagal hanya dicatat
+  // ke log agar server tetap bisa menyala.
+  try {
+    await runYearlyResetIfNeeded(new Date().getFullYear(), getDb().db)
+  } catch (err) {
+    console.error('[karyawanku] reset tahunan cuti gagal saat boot (server tetap berjalan):', err)
+  }
+
   await start(port)
 }
 

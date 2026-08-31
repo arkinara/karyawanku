@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify'
 import { and, asc, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDb } from '../db/index.js'
-import { leaveTypes, type LeavePolicy } from '../db/schema.js'
+import { businesses, leaveTypes, type LeavePolicy } from '../db/schema.js'
 import { currentUser, requireAuth, requireOwner } from '../lib/auth.js'
 import { ApiError } from '../lib/errors.js'
 import { ensureLeaveTypesSeeded } from '../lib/leave-reset.js'
@@ -37,9 +37,23 @@ const updateSchema = z
   .refine((d) => Object.keys(d).length > 0, { message: 'Tidak ada field yang diubah' })
 
 export default async function leaveTypesRoutes(app: FastifyInstance): Promise<void> {
+  /**
+   * Kontrak otorisasi (ticket #56): READ tersedia untuk SEMUA user
+   * terautentikasi dalam bisnis (owner/manager/employee) — employee butuh
+   * jenis cuti untuk mengisi formulir pengajuan. WRITE (POST/PATCH/DELETE)
+   * tetap owner-only.
+   *
+   * Guard bisnis: bila `business_id` di token tidak merujuk ke bisnis yang
+   * dikenal, tolak 404 — user dari luar bisnis tidak bisa membaca jenis cuti
+   * (sekaligus mencegah `ensureLeaveTypesSeeded` men-seed ke bisnis tak dikenal).
+   */
   app.get('/leave-types', { preHandler: requireAuth }, async (req) => {
     const user = currentUser(req)
     const { db } = getDb()
+
+    const business = db.select().from(businesses).where(eq(businesses.id, user.business_id)).get()
+    if (!business) throw new ApiError(404, 'Bisnis tidak ditemukan')
+
     ensureLeaveTypesSeeded(user.business_id)
 
     const rows = db

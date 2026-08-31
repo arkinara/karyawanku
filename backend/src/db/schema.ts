@@ -246,7 +246,7 @@ export const leaveRequests = sqliteTable(
       .notNull()
       .references(() => leaveTypes.id, { onDelete: 'cascade' }),
     tanggal_mulai: text('tanggal_mulai').notNull(),
-    tanggal_selesi: text('tanggal_selesi').notNull(),
+    tanggal_selesai: text('tanggal_selesai').notNull(),
     alasan: text('alasan'),
     status: text('status', { enum: leaveRequestStatuses }).notNull().default('pending'),
     approver_user_id: text('approver_user_id').references(() => users.id),
@@ -484,6 +484,17 @@ export const auditLogs = sqliteTable(
   },
   (table) => [index('audit_logs_business_created_at_idx').on(table.business_id, table.created_at)],
 )
+
+/**
+ * Bookkeeping key-value untuk proses berkala (ticket #56). Key yang dikenal:
+ * `last_leave_reset_year` (tahun terakhir reset tahunan cuti, ditulis oleh
+ * `runYearlyResetIfNeeded`) dan `last_thr_reset_year` (dicadangkan untuk proses
+ * THR berkala). Satu baris per key — unik oleh `key` (primary key).
+ */
+export const systemState = sqliteTable('system_state', {
+  key: text('key').primaryKey(),
+  value: integer('value'),
+})
 
 export type Business = typeof businesses.$inferSelect
 export type NewBusiness = typeof businesses.$inferInsert

@@ -1,3 +1,7 @@
+-- OBSOLETE (ticket #56): kolom `leave_requests.tanggal_selesi` di migrasi ini
+-- salah eja; telah di-rename menjadi `tanggal_selesai` oleh migrasi
+-- `0014_rename-tanggal-selesi.sql`. File lama tidak diubah agar DB yang sudah
+-- dimigrasi dan DB baru tetap konsisten (0014 yang melakukan rename aktual).
 CREATE TABLE `attendance_records` (
 	`id` text PRIMARY KEY NOT NULL,
 	`employee_id` text NOT NULL,

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { eq } from 'drizzle-orm'
 import type { TestCtx } from './helpers.js'
 import { setupTest } from './helpers.js'
-import { leaveTypes } from '../src/db/schema.js'
+import { leaveTypes, users } from '../src/db/schema.js'
 
 let ctx: TestCtx
 
@@ -49,6 +49,32 @@ describe('GET /api/leave-types', () => {
     ctx = await setupTest()
     const res = await ctx.app.inject({ method: 'GET', url: '/api/leave-types', headers: auth(ctx.employeeToken) })
     expect(res.statusCode).toBe(200)
+  })
+
+  it('user dari bisnis lain (bisnis tidak dikenal) → 404', async () => {
+    ctx = await setupTest()
+    const { signToken } = await import('../src/lib/auth.js')
+    ctx.db.sqlite.pragma('foreign_keys = OFF')
+    const phantom = ctx.db.db
+      .insert(users)
+      .values({
+        business_id: 'biz-tidak-ada',
+        nama: 'Hantu Lintas Bisnis',
+        email: 'hantu@demo.com',
+        password_hash: 'x',
+        role: 'owner',
+      })
+      .returning()
+      .get()
+    ctx.db.sqlite.pragma('foreign_keys = ON')
+    const issued = await signToken({
+      id: phantom.id,
+      business_id: phantom.business_id,
+      role: phantom.role,
+      email: phantom.email,
+    })
+    const res = await ctx.app.inject({ method: 'GET', url: '/api/leave-types', headers: auth(issued.accessToken) })
+    expect(res.statusCode).toBe(404)
   })
 })
 
