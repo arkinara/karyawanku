@@ -344,6 +344,44 @@ describe('Leave Page — Owner view', () => {
       expect(within(queue).getAllByRole('button', { name: 'Tolak' })).toHaveLength(1)
     })
   })
+
+  it('gagal approve dari API → status dirollback ke pending dan tetap di queue', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input.toString()
+        if (url.includes('/api/leave-requests') && (init?.method ?? 'GET') !== 'GET') {
+          return new Response(
+            JSON.stringify({ error: { message: 'Server sedang sibuk' } }),
+            { status: 500, headers: { 'Content-Type': 'application/json' } },
+          )
+        }
+        if (url.includes('/api/leave-requests')) {
+          return new Response(JSON.stringify(requestsPayload), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        }
+        return new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }),
+    )
+    render(<LeavePage />)
+    const queue = await waitFor(() => screen.getByTestId('approval-queue'))
+    await waitFor(() => within(queue).getAllByRole('button', { name: 'Setujui' }))
+
+    fireEvent.click(within(queue).getAllByRole('button', { name: 'Setujui' })[0])
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Setujui' }))
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+    // Rollback: Budi tetap pending, queue tetap 2 entri.
+    await waitFor(() => {
+      expect(within(queue).getAllByRole('button', { name: 'Setujui' })).toHaveLength(2)
+      expect(within(queue).getByText('Budi Santoso')).toBeInTheDocument()
+    })
+  })
 })
 
 describe('Leave Page — Employee view', () => {

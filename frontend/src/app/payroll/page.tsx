@@ -56,8 +56,6 @@ function ComponentRows({ rows }: { rows: Array<{ nama: string; nominal: number }
 }
 
 function BreakdownDetail({ item }: { item: PayrollItem }) {
-  const totalTunjangan = gross(item) - item.gajiPokok
-  const totalPotongan = potongan(item)
   const total = takeHome(item)
   const hasPenyesuaian = item.penyesuaian !== 0
 

@@ -193,7 +193,7 @@ export async function requireAuth(req: FastifyRequest, _reply: FastifyReply): Pr
   if (!user) {
     throw new UnauthorizedError()
   }
-  ;(req as AuthRequest).user = user
+  (req as AuthRequest).user = user
 }
 
 export async function requireOwner(req: FastifyRequest, reply: FastifyReply): Promise<void> {

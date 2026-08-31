@@ -78,21 +78,20 @@ class Parser {
 
   private expr(): number {
     let value = this.term()
-    while (true) {
-      const op = this.peek()
-      if (op?.type !== 'op' || (op.value !== '+' && op.value !== '-')) break
+    let op = this.peek()
+    while (op?.type === 'op' && (op.value === '+' || op.value === '-')) {
       this.next()
       const rhs = this.term()
       value = op.value === '+' ? value + rhs : value - rhs
+      op = this.peek()
     }
     return value
   }
 
   private term(): number {
     let value = this.factor()
-    while (true) {
-      const op = this.peek()
-      if (op?.type !== 'op' || (op.value !== '*' && op.value !== '/')) break
+    let op = this.peek()
+    while (op?.type === 'op' && (op.value === '*' || op.value === '/')) {
       this.next()
       const rhs = this.factor()
       if (op.value === '*') {
@@ -101,6 +100,7 @@ class Parser {
         if (rhs === 0) throw new Error('Pembagian dengan nol')
         value /= rhs
       }
+      op = this.peek()
     }
     return value
   }

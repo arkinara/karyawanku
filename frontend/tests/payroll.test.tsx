@@ -495,3 +495,66 @@ describe('Payroll Run Page', () => {
     clickSpy.mockRestore()
   })
 })
+
+describe('Payroll Run Page — error states', () => {
+  it('menampilkan ErrorSurface ketika load run gagal dari API', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        new Response(JSON.stringify({ error: { message: 'Gagal memuat data' } }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    )
+    render(<PayrollPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toBeInTheDocument()
+    })
+    expect(screen.getByText('Terjadi kesalahan')).toBeInTheDocument()
+    expect(screen.getByText('Gagal memuat data')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Coba lagi' })).toBeInTheDocument()
+  })
+
+  it('gagal approve → status kembali draft dan ErrorSurface tampil', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input.toString()
+        if (url.includes('/approve')) {
+          return new Response(
+            JSON.stringify({ error: { message: 'Run tidak ditemukan' } }),
+            { status: 500, headers: { 'Content-Type': 'application/json' } },
+          )
+        }
+        if (url.includes('/api/payroll-runs') && /\/(pr-[^/]+)/.test(url)) {
+          return new Response(JSON.stringify(runPayload), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        }
+        if (url.includes('/api/payroll-runs')) {
+          return new Response(JSON.stringify(listPayload), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        }
+        return new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }),
+    )
+    render(<PayrollPage />)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Setujui Payroll' })).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Setujui Payroll' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Setujui' }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toBeInTheDocument()
+    })
+    expect(screen.getByText('Terjadi kesalahan')).toBeInTheDocument()
+    expect(screen.getByText('Run tidak ditemukan')).toBeInTheDocument()
+    expect(screen.getByText('Draft — Belum disetujui')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Setujui Payroll' })).toBeInTheDocument()
+  })
+})

@@ -1,5 +1,7 @@
 # KaryawanKu
 
+[![CI](https://github.com/arkinara/karyawanku/actions/workflows/ci.yml/badge.svg)](https://github.com/arkinara/karyawanku/actions/workflows/ci.yml)
+
 Employee management web app for Indonesian small businesses — cafe/restaurant + service (salon, laundry, etc.).
 
 Phase 1 = web app (Next.js + TypeScript + Tailwind + shadcn/ui + M3 + Drizzle + SQLite + Better Auth).
@@ -35,6 +37,18 @@ This repo uses the `product-ux-dev-qa-workflow` skill:
 3. Dev builds per-ticket (OpenCode + GLM 5.2 primary, MiniMax-M3 failover)
 4. QA per-ticket (OpenCode + MiniMax-M3 primary, Sonnet 5 failover)
 5. Push directly to `main` — no feature branches
+
+CI (`.github/workflows/ci.yml`) runs on every push to `main` and every PR to `main`: both packages
+typecheck, test, and lint in parallel; the frontend also builds. A red suite is visible immediately —
+there is no other gate.
+
+## Linting & formatting
+
+- **Backend** — `cd backend && npm run lint` (`eslint . --ext .ts`, typescript-eslint recommended).
+- **Frontend** — `cd frontend && npm run lint` (`next lint`, `next/core-web-vitals` + typescript-eslint).
+- **No-mock-in-app rule** — ESLint forbids importing `*-mock` modules from `frontend/src/app/**`:
+  `Do not import mock data from app/ — wire to real API instead`. This enforces the mock-retirement
+  work (ticket #60); mock helpers may still be imported from `tests/` or `src/lib/`.
 
 ## Lane semantics
 

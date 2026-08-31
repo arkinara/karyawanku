@@ -16,7 +16,7 @@ import {
 import type { DataTableColumn } from '@/components/ui'
 import { cn } from '@/lib/cn'
 import { JENIS_USAHA_OPTIONS } from '@/lib/settings-options'
-import type { BusinessProfile, CarryOverPolicy, LeaveTypeSetting, UserRole, WorkspaceUser } from '@/lib/settings-options'
+import type { BusinessProfile, LeaveTypeSetting, UserRole, WorkspaceUser } from '@/lib/settings-options'
 import { api } from '@/lib/api-client'
 import { useAuth } from '@/lib/auth-context'
 import { AuthGuard, MANAGER_ROLES } from '@/lib/route-guard'

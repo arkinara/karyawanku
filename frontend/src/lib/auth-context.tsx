@@ -184,5 +184,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth(): AuthApi {
   const ctx = useContext(AuthContext)
   if (ctx) return ctx
+  // Deliberate conditional fallback for environments without a mounted
+  // <AuthProvider> (isolated component tests, SSR edges). Mounting the full
+  // state machine unconditionally would fire /api/auth/me per consumer.
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   return useAuthImpl()
 }

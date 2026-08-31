@@ -281,4 +281,26 @@ describe('OnboardingPage', () => {
     expect(localStorage.getItem(WIZARD_STORAGE_KEY)).not.toBeNull()
     expect(pushMock).not.toHaveBeenCalled()
   })
+
+  it('GET komponen default gagal (500) → wizard tetap pakai komponen lokal', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input.toString()
+        const u = new URL(url, 'http://localhost')
+        if (u.pathname === '/api/salary-components' && (init?.method ?? 'GET') === 'GET') {
+          return json({ error: { message: 'Server sedang sibuk' } }, 500)
+        }
+        return json({})
+      }),
+    )
+    render(<OnboardingPage />)
+    await goToStep2()
+
+    // Fallback ke daftar komponen lokal — wizard tetap jalan tanpa error.
+    await waitFor(() => {
+      expect(screen.getByRole('switch', { name: /Gaji pokok/ })).toBeInTheDocument()
+    })
+    expect(screen.getAllByRole('switch')).toHaveLength(6)
+  })
 })

@@ -9,7 +9,6 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock,
-  Download,
   Plus,
   Users,
   Wallet,
@@ -27,7 +26,7 @@ import {
 } from '@/components/ui'
 import { MetricCard } from '@/components/dashboard/metric-card'
 import { MetricGrid } from '@/components/dashboard/metric-grid'
-import { apiRequest, ApiError, getStoredUser } from '@/lib/api-client'
+import { apiRequest, getStoredUser } from '@/lib/api-client'
 import { useAuth } from '@/lib/auth-context'
 import { AuthGuard, MANAGER_ROLES, OWNER_ONLY } from '@/lib/route-guard'
 import { formatIDR } from '@/lib/format'

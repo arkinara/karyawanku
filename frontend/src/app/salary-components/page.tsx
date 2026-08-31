@@ -490,7 +490,6 @@ export default function SalaryComponentsPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<SalaryComponent | null>(null)
   const [deleting, setDeleting] = useState<SalaryComponent | null>(null)
-  const [saving, setSaving] = useState(false)
 
   const reload = async (): Promise<void> => {
     setLoading(true)
@@ -534,7 +533,6 @@ export default function SalaryComponentsPage() {
   }
 
   const save = async (component: SalaryComponent) => {
-    setSaving(true)
     try {
       const body = {
         nama_komponen: component.nama_komponen,
@@ -553,8 +551,6 @@ export default function SalaryComponentsPage() {
       await reload()
     } catch (e) {
       setError(e instanceof Error ? e : new Error(String(e)))
-    } finally {
-      setSaving(false)
     }
   }
 

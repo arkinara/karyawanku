@@ -18,7 +18,6 @@ export default function NewEmployeePage() {
   const router = useRouter()
   const [toast, setToast] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
   const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(
@@ -29,7 +28,6 @@ export default function NewEmployeePage() {
   )
 
   const handleSubmit = async (values: EmployeeFormValues) => {
-    setBusy(true)
     setError(null)
     try {
       const res = await apiRequest<{ employee: { id: string } }>('/api/employees', {
@@ -51,8 +49,6 @@ export default function NewEmployeePage() {
       redirectTimer.current = setTimeout(() => router.push(`/employees/${res.employee.id}`), 600)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal menambah karyawan')
-    } finally {
-      setBusy(false)
     }
   }
 
