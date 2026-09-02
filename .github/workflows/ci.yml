@@ -44,6 +44,20 @@ jobs:
         working-directory: backend
         run: npm run lint
 
+      # Guards the migrate/seed path, which the test suite does not exercise:
+      # it builds its own throwaway DBs via the migrator directly, so a broken
+      # `db:migrate` script (e.g. wired to an interactive `drizzle-kit push`)
+      # stays invisible. Runs each twice — both must be idempotent.
+      - name: DB migrate + seed smoke
+        working-directory: backend
+        env:
+          DATABASE_URL: /tmp/ci-smoke.db
+        run: |
+          npm run db:migrate
+          npm run db:migrate
+          npm run db:seed
+          npm run db:seed
+
   frontend:
     name: Frontend (typecheck + test + lint + build)
     runs-on: ubuntu-latest
