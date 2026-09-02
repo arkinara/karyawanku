@@ -42,6 +42,7 @@ export async function seed(): Promise<void> {
   const { db } = getDb()
 
   let business = db.select().from(businesses).where(eq(businesses.nama_bisnis, 'Warung Kopi Nusantara')).get()
+  const businessCreated = !business
 
   if (!business) {
     const inserted = db
@@ -59,6 +60,7 @@ export async function seed(): Promise<void> {
     { nama: 'Budi', email: 'budi@demo.com', password: 'demo123', role: 'employee' },
   ]
 
+  let usersCreated = 0
   for (const u of seedUsers) {
     const existing = db
       .select()
@@ -76,9 +78,15 @@ export async function seed(): Promise<void> {
       password_hash: await hashPassword(u.password),
       role: u.role,
     }).run()
+    usersCreated++
   }
 
-  console.log('[seed] selesai: 1 bisnis, 4 user demo')
+  // Laporkan yang benar-benar dibuat, bukan angka tetap — seed idempoten, jadi
+  // run kedua wajar melaporkan 0 baris baru.
+  console.log(
+    `[seed] selesai: ${businessCreated ? 1 : 0} bisnis baru, ${usersCreated} user demo baru` +
+      `${businessCreated || usersCreated > 0 ? '' : ' (sudah ada semua, tidak ada perubahan)'}`,
+  )
 
   await seedEmployeeData(business.id)
 }
@@ -97,7 +105,10 @@ async function seedEmployeeData(businessId: string): Promise<void> {
     .where(eq(employees.business_id, businessId))
     .all()
     .find((e) => e.no_ktp === '3171012501980001')
-  if (existingSiti) return
+  if (existingSiti) {
+    console.log('[seed] data karyawan demo dilewati — karyawan demo sudah ada')
+    return
+  }
 
   const siti = db
     .insert(employees)

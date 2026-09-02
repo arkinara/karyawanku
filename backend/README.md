@@ -22,7 +22,7 @@ Sesuaikan nilai di `.env` (wajib isi `JWT_SECRET`).
 | `npm run dev` | Jalankan server dev dengan hot-reload (tsx watch) |
 | `npm run build` | Kompilasi TypeScript ke `dist/` |
 | `npm start` | Jalankan hasil build |
-| `npm run db:migrate` | Terapkan skema ke DB (`drizzle-kit push`) — **wajib dijalankan eksplisit, tidak otomatis saat boot** |
+| `npm run db:migrate` | Terapkan migrasi SQL di `drizzle/` ke DB (drizzle-orm migrator) — **wajib dijalankan eksplisit, tidak otomatis saat boot** |
 | `npm run db:seed` | Isi data demo (1 bisnis + 4 user: owner, manager, 2 karyawan) |
 | `npm test` | Jalankan test (vitest) |
 
@@ -41,7 +41,7 @@ src/
   db/
     schema.ts     # tabel businesses, users, sessions, password_resets, employees + scaffold (cuti, shift, absensi, payroll)
     index.ts      # koneksi DB
-    migrate.ts    # drizzle-kit push
+    migrate.ts    # runner migrasi (drizzle-orm migrator)
     seed.ts       # data demo
   lib/
     capabilities.ts # matriks capability per peran (ticket #49) + hasCapability + export frontend
