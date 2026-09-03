@@ -12,7 +12,6 @@ import 'package:karyawanku_mobile/features/jadwal/jadwal_screen.dart';
 import 'package:karyawanku_mobile/features/jadwal/shift_provider.dart';
 import 'package:karyawanku_mobile/features/slip/slip_detail_screen.dart';
 import 'package:karyawanku_mobile/features/slip/slip_gaji_screen.dart';
-import 'package:karyawanku_mobile/data/mock_data.dart';
 import 'package:karyawanku_mobile/theme/app_theme.dart';
 
 import 'helpers.dart';
@@ -24,7 +23,7 @@ final screens = <String, Widget>{
   'Cuti': const CutiScreen(),
   'AjukanCuti': const AjukanCutiScreen(),
   'SlipGaji': const SlipGajiScreen(),
-  'SlipDetail': SlipDetailScreen(payslip: Mock.latestPayslip),
+  'SlipDetail': SlipDetailScreen(payslip: testPayslip()),
   'Jadwal': const JadwalScreen(),
 };
 
@@ -48,6 +47,7 @@ child: ProviderScope(
                         attendanceOverride(const AttendanceState()),
                         shiftOverride(const ShiftState()),
                         leaveOverride(sampleLeaveState()),
+                        payslipOverride(samplePayslipState()),
                         ...blockedNetworkOverrides(),
                       ],
                     child: MaterialApp(

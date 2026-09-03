@@ -4,14 +4,16 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/auth/auth_provider.dart';
 import '../../core/format.dart';
-import '../../data/mock_data.dart';
 import '../../data/models.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/common.dart';
+import 'payslip_provider.dart';
 import 'slip_detail_screen.dart';
 
-/// Payslip list: the newest one as a tonal hero with earnings/deductions
-/// split, then history including THR.
+/// Payslip list. The newest payslip is promoted to a tonal hero card, then the
+/// rest render as history. Year filter chips are derived from the years
+/// actually present in the server data — never a hardcoded 2026/2025 pair.
+/// THR rows are flagged from the server (`is_thr` / `category`), not a fixture.
 class SlipGajiScreen extends ConsumerStatefulWidget {
   const SlipGajiScreen({super.key});
 
@@ -20,21 +22,33 @@ class SlipGajiScreen extends ConsumerStatefulWidget {
 }
 
 class _SlipGajiScreenState extends ConsumerState<SlipGajiScreen> {
-  static const _filters = ['Semua', '2026', '2025'];
+  static const _allYears = 'Semua';
+
+  /// Selected year chip index. `0` = all years; rebuilt lazily from the data.
   int _filter = 0;
 
-  List<Payslip> get _history => Mock.payslipHistory
-      .skip(1)
-      .where(
-        (p) => _filter == 0 || p.paidOn.year.toString() == _filters[_filter],
-      )
-      .toList();
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(payslipProvider.notifier).loadList();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final latest = Mock.latestPayslip;
-    final history = _history;
+    final payslips = ref.watch(payslipProvider);
     final user = ref.watch(authProvider).user;
+
+    // Years present in the data, newest first — drives the chips.
+    final years = <int>[];
+    for (final p in payslips.payslips) {
+      if (!years.contains(p.year)) years.add(p.year);
+    }
+    final labels = [for (final y in years) '$y'];
+    if (_filter >= labels.length + 1) _filter = 0;
+
+    final latest = payslips.payslips.isNotEmpty ? payslips.payslips.first : null;
 
     return Scaffold(
       body: SafeArea(
@@ -48,9 +62,7 @@ class _SlipGajiScreenState extends ConsumerState<SlipGajiScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    user == null
-                        ? '${Mock.employee.name} · ${Mock.employee.role}'
-                        : '${user.nama} · ${user.roleLabel}',
+                    user == null ? 'Karyawan' : '${user.nama} · ${user.roleLabel}',
                     style: context.texts.bodyMedium?.copyWith(
                       color: context.colors.onSurfaceVariant,
                     ),
@@ -61,43 +73,53 @@ class _SlipGajiScreenState extends ConsumerState<SlipGajiScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            ChipRow(
-              labels: _filters,
-              selectedIndex: _filter,
-              onSelected: (i) => setState(() => _filter = i),
-            ),
-            const SizedBox(height: 20),
-            _LatestCard(payslip: latest, onOpen: () => _open(latest)),
-            const SectionLabel('Riwayat'),
-            if (history.isEmpty)
-              _EmptyHistory(year: _filters[_filter])
-            else
-              ListCard(
-                children: [
-                  for (final slip in history)
-                    CardRow(
-                      leading: RoundToken(
-                        icon: slip.isThr
-                            ? LucideIcons.banknote
-                            : LucideIcons.fileText,
-                        background: slip.isThr
-                            ? context.status.warningContainer
-                            : context.colors.surfaceContainerHigh,
-                        foreground: slip.isThr
-                            ? context.status.onWarningContainer
-                            : context.colors.onSurfaceVariant,
-                      ),
-                      title: slip.period,
-                      subtitle: Fmt.date(slip.paidOn),
-                      trailing: Fmt.rupiah(slip.takeHome),
-                      onTap: () => _open(slip),
-                    ),
-                ],
+            if (payslips.loading && payslips.payslips.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 48),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (payslips.error != null && payslips.payslips.isEmpty)
+              _ErrorState(
+                message: payslips.error!,
+                onRetry: () => ref.read(payslipProvider.notifier).loadList(),
+              )
+            else if (payslips.payslips.isEmpty)
+              const _EmptyState()
+            else ...[
+              ChipRow(
+                labels: [_allYears, ...labels],
+                selectedIndex: _filter,
+                onSelected: (i) => setState(() => _filter = i),
               ),
+              const SizedBox(height: 20),
+              if (latest != null)
+                _LatestCard(payslip: latest, onOpen: () => _open(latest)),
+              const SectionLabel('Riwayat'),
+              _HistoryList(
+                payslips: _filteredHistory(payslips.payslips, latest, labels),
+                year: _filter == 0 ? null : labels[_filter - 1],
+              ),
+            ],
           ],
         ),
       ),
     );
+  }
+
+  List<Payslip> _filteredHistory(
+    List<Payslip> all,
+    Payslip? latest,
+    List<String> labels,
+  ) {
+    final selectedYear = _filter == 0 ? null : labels[_filter - 1];
+    final wanted = selectedYear == null ? null : int.parse(selectedYear);
+    final out = <Payslip>[];
+    for (final p in all) {
+      if (latest != null && p.id == latest.id) continue;
+      if (wanted != null && p.year != wanted) continue;
+      out.add(p);
+    }
+    return out;
   }
 
   void _open(Payslip slip) {
@@ -107,13 +129,129 @@ class _SlipGajiScreenState extends ConsumerState<SlipGajiScreen> {
   }
 }
 
-class _EmptyHistory extends StatelessWidget {
-  const _EmptyHistory({required this.year});
+class _HistoryList extends StatelessWidget {
+  const _HistoryList({required this.payslips, required this.year});
 
-  final String year;
+  final List<Payslip> payslips;
+  final String? year;
+
+  static String? _historySubtitle(Payslip slip) {
+    final parts = <String>[];
+    if (slip.isThr) parts.add('THR');
+    final created = slip.createdAt;
+    if (created != null) parts.add('Digenerate ${Fmt.date(created)}');
+    return parts.isEmpty ? null : parts.join(' · ');
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (payslips.isEmpty) {
+      return _EmptyHistory(year: year);
+    }
+    return ListCard(
+      children: [
+        for (final slip in payslips)
+          CardRow(
+            leading: RoundToken(
+              icon: slip.isThr
+                  ? LucideIcons.banknote
+                  : LucideIcons.fileText,
+              background: slip.isThr
+                  ? context.status.warningContainer
+                  : context.colors.surfaceContainerHigh,
+              foreground: slip.isThr
+                  ? context.status.onWarningContainer
+                  : context.colors.onSurfaceVariant,
+            ),
+            title: slip.periodLabel,
+            subtitle: _historySubtitle(slip),
+            trailing: Fmt.rupiah(slip.takeHome),
+            onTap: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => SlipDetailScreen(payslip: slip))),
+          ),
+      ],
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(32, 48, 32, 48),
+      child: Column(
+        children: [
+          Icon(
+            LucideIcons.fileText,
+            size: 40,
+            color: context.colors.onSurfaceVariant,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Belum ada slip gaji tersedia',
+            textAlign: TextAlign.center,
+            style: context.texts.titleMedium,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Slip gaji akan muncul di sini setelah payroll periode berjalan disetujui.',
+            textAlign: TextAlign.center,
+            style: context.texts.bodyMedium?.copyWith(
+              color: context.colors.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  const _ErrorState({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: Insets.page,
+      child: Column(
+        children: [
+          Icon(
+            LucideIcons.alertCircle,
+            size: 40,
+            color: context.status.onDangerContainer,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: context.texts.bodyMedium,
+          ),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(LucideIcons.rotateCcw, size: 18),
+            label: const Text('Coba lagi'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyHistory extends StatelessWidget {
+  const _EmptyHistory({this.year});
+
+  final String? year;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = year == null ? 'tahun ini' : 'tahun $year';
     return Padding(
       padding: const EdgeInsets.fromLTRB(32, 16, 32, 16),
       child: Column(
@@ -125,7 +263,7 @@ class _EmptyHistory extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'Belum ada slip gaji untuk $year',
+            'Belum ada slip gaji lain untuk $label',
             textAlign: TextAlign.center,
             style: context.texts.titleMedium,
           ),
@@ -149,9 +287,9 @@ class _LatestCard extends StatelessWidget {
     return Semantics(
       button: true,
       label:
-          'Slip gaji terbaru ${payslip.period}, '
-          '${Fmt.rupiah(payslip.takeHome)}, dibayar '
-          '${Fmt.date(payslip.paidOn)} ke ${payslip.account}',
+          'Slip gaji terbaru ${payslip.periodLabel}, '
+          '${Fmt.rupiah(payslip.takeHome)}, '
+          'digenerate ${payslip.createdAt == null ? '' : Fmt.date(payslip.createdAt!)}',
       excludeSemantics: true,
       child: Container(
         margin: Insets.page,
@@ -176,7 +314,7 @@ class _LatestCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Terbaru · ${payslip.period}',
+                            'Terbaru · ${payslip.periodLabel}',
                             style: context.texts.bodySmall?.copyWith(
                               color: status.onPrimaryContainerMuted(colors),
                             ),
@@ -191,8 +329,9 @@ class _LatestCard extends StatelessWidget {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            'Dibayar ${Fmt.date(payslip.paidOn)} · '
-                            '${payslip.account}',
+                            payslip.createdAt == null
+                                ? ''
+                                : 'Digenerate ${Fmt.date(payslip.createdAt!)}',
                             style: context.texts.bodySmall?.copyWith(
                               color: status.onPrimaryContainerMuted(colors),
                               fontFeatures: Fmt.tabular,
@@ -218,10 +357,10 @@ class _LatestCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                // Wrap, not Row: the two rupiah totals no longer fit side by
-                // side once text is scaled up.
-                _MiniStats(payslip: payslip),
+                if (payslip.isThr) ...[
+                  const SizedBox(height: 12),
+                  _ThrBadge(),
+                ],
               ],
             ),
           ),
@@ -231,81 +370,21 @@ class _LatestCard extends StatelessWidget {
   }
 }
 
-class _MiniStats extends StatelessWidget {
-  const _MiniStats({required this.payslip});
-
-  final Payslip payslip;
-
-  @override
-  Widget build(BuildContext context) {
-    final tiles = [
-      _MiniStat(
-        label: 'Pendapatan',
-        value: Fmt.rupiah(payslip.totalEarnings),
-        color: context.status.onSuccessContainer,
-      ),
-      _MiniStat(
-        label: 'Potongan',
-        value: Fmt.rupiah(payslip.totalDeductions),
-        color: context.status.onDangerContainer,
-      ),
-    ];
-
-    if (context.isLargeText) {
-      return Column(
-        children: [tiles.first, const SizedBox(height: 8), tiles.last],
-      );
-    }
-
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(child: tiles.first),
-          const SizedBox(width: 8),
-          Expanded(child: tiles.last),
-        ],
-      ),
-    );
-  }
-}
-
-class _MiniStat extends StatelessWidget {
-  const _MiniStat({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final String label;
-  final String value;
-  final Color color;
-
+class _ThrBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: context.status.containerOverlay,
+        color: context.status.warningContainer,
         borderRadius: Shape.rSm,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: context.texts.labelSmall?.copyWith(
-              color: context.status.onPrimaryContainerMuted(context.colors),
-            ),
-          ),
-          Text(
-            value,
-            style: context.texts.titleSmall?.copyWith(
-              color: color,
-              fontFeatures: Fmt.tabular,
-            ),
-          ),
-        ],
+      child: Text(
+        'THR',
+        style: context.texts.labelMedium?.copyWith(
+          fontWeight: FontWeight.w600,
+          color: context.status.onWarningContainer,
+        ),
       ),
     );
   }

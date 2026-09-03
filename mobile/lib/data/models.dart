@@ -1,3 +1,5 @@
+import '../core/format.dart';
+
 enum ShiftKind { pagi, siang, malam, libur }
 
 /// Map a BE shift name (`Pagi` / `Siang` / `Malam`, or a custom label) onto
@@ -292,35 +294,211 @@ DateTime? _parseInstant(Object? raw) {
   return null;
 }
 
+/// One line of the server's payslip breakdown — `nama_komponen` + `nominal`
+/// (`backend/src/lib/payslip-breakdown.ts#BreakdownLine`). Rendered verbatim;
+/// the client never recomputes or re-labels a compliance line.
 class PayslipLine {
-  const PayslipLine(this.label, this.amount);
-  final String label;
-  final int amount;
+  const PayslipLine({required this.namaKomponen, required this.nominal});
+
+  final String namaKomponen;
+  final int nominal;
+
+  factory PayslipLine.fromJson(Map<String, dynamic> json) {
+    return PayslipLine(
+      namaKomponen: json['nama_komponen'] as String? ?? 'Komponen',
+      nominal: (json['nominal'] as num?)?.toInt() ?? 0,
+    );
+  }
 }
 
-class Payslip {
-  const Payslip({
-    required this.period,
-    required this.paidOn,
+/// Server-computed payslip totals. The BE is the source of truth — take-home,
+/// earnings and deductions totals are read from here, never summed client-side.
+class PayslipTotals {
+  const PayslipTotals({
+    required this.totalEarnings,
+    required this.totalDeductions,
     required this.takeHome,
+  });
+
+  final int totalEarnings;
+  final int totalDeductions;
+  final int takeHome;
+
+  factory PayslipTotals.fromJson(Map<String, dynamic> json) {
+    return PayslipTotals(
+      totalEarnings: (json['total_earnings'] as num?)?.toInt() ?? 0,
+      totalDeductions: (json['total_deductions'] as num?)?.toInt() ?? 0,
+      takeHome: (json['take_home'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+/// The per-line earnings + deductions breakdown from `GET /payslips/:id`
+/// (ticket #42). `totals` is the server's own arithmetic; the client renders
+/// the lines and totals exactly as received.
+class PayslipBreakdown {
+  const PayslipBreakdown({
     required this.earnings,
     required this.deductions,
-    required this.account,
+    required this.totals,
+  });
+
+  final List<PayslipLine> earnings;
+  final List<PayslipLine> deductions;
+  final PayslipTotals totals;
+
+  factory PayslipBreakdown.fromJson(Map<String, dynamic> json) {
+    return PayslipBreakdown(
+      earnings: _lines(json['earnings']),
+      deductions: _lines(json['deductions']),
+      totals: PayslipTotals.fromJson(
+        json['totals'] is Map<String, dynamic>
+            ? json['totals'] as Map<String, dynamic>
+            : const <String, dynamic>{},
+      ),
+    );
+  }
+
+  static List<PayslipLine> _lines(Object? raw) {
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map<String, dynamic>>()
+        .map(PayslipLine.fromJson)
+        .toList();
+  }
+}
+
+/// One payslip row from `GET /payslips` — the summary the list and the Beranda
+/// latest row render. The full breakdown lives on [PayslipDetail] and is
+/// fetched on demand so the list never carries line arithmetic.
+class Payslip {
+  const Payslip({
+    required this.id,
+    required this.periode,
+    required this.status,
+    required this.employeeName,
+    required this.takeHome,
+    this.createdAt,
+    this.pdfUrl,
     this.isThr = false,
   });
 
-  final String period;
-  final DateTime paidOn;
+  final String id;
+
+  /// `YYYY-MM` from the BE (e.g. `2026-08`).
+  final String periode;
+
+  /// `draft` | `disetujui` | `locked` — mirrors the payroll run status.
+  final String status;
+
+  final String employeeName;
   final int takeHome;
-  final List<PayslipLine> earnings;
-  final List<PayslipLine> deductions;
-  final String account;
+  final DateTime? createdAt;
+  final String? pdfUrl;
+
+  /// THR is a server decision (`is_thr` flag or `category: "thr"`), never a
+  /// client fixture. Absent fields default to a regular monthly payslip.
   final bool isThr;
 
-  int get totalEarnings => earnings.fold(0, (sum, line) => sum + line.amount);
+  /// The calendar year a `YYYY-MM` periode belongs to; used by the year
+  /// filter chips. Falls back to the current year for non-periodic keys.
+  int get year {
+    final parts = periode.split('-');
+    final y = parts.isNotEmpty ? int.tryParse(parts.first) : null;
+    return y ?? DateTime.now().year;
+  }
 
-  int get totalDeductions =>
-      deductions.fold(0, (sum, line) => sum + line.amount);
+  /// `2026-08` -> `Agustus 2026`; non-periodic keys (e.g. `THR-2026`) pass
+  /// through with a server-tolerant fallback.
+  String get periodLabel {
+    final parts = periode.split('-');
+    if (parts.length != 2) return periode;
+    final y = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    if (y == null || m == null || m < 1 || m > 12) return periode;
+    return '${Fmt.monthNames[m - 1]} $y';
+  }
+
+  /// A payslip an employee can rely on — approved or locked runs. Draft rows
+  /// are not yet payable.
+  bool get paid => status == 'disetujui' || status == 'locked';
+
+  factory Payslip.fromJson(Map<String, dynamic> json) {
+    return Payslip(
+      id: json['id'] as String,
+      periode: json['periode'] as String? ?? '',
+      status: json['status'] as String? ?? 'draft',
+      employeeName:
+          (json['employee'] is Map<String, dynamic>
+                  ? json['employee'] as Map<String, dynamic>
+                  : const <String, dynamic>{})['nama_lengkap'] as String? ??
+              'Karyawan',
+      takeHome: (json['take_home'] as num?)?.toInt() ?? 0,
+      createdAt: switch (json['created_at']) {
+        final String raw => DateTime.tryParse(raw),
+        _ => null,
+      },
+      pdfUrl: json['pdf_url'] as String?,
+      isThr:
+          json['is_thr'] == true ||
+          (json['category'] as String?)?.toLowerCase() == 'thr',
+    );
+  }
+}
+
+/// Full payslip payload from `GET /payslips/:id` (ticket #42). Holds the
+/// server's per-line breakdown plus its computed totals; nothing on this
+/// model is derived client-side.
+class PayslipDetail {
+  const PayslipDetail({
+    required this.id,
+    required this.periode,
+    required this.employeeName,
+    required this.jabatan,
+    required this.breakdown,
+    this.pdfUrl,
+  });
+
+  final String id;
+  final String periode;
+  final String employeeName;
+  final String jabatan;
+  final PayslipBreakdown breakdown;
+  final String? pdfUrl;
+
+  String get periodLabel => _periodLabel(periode);
+
+  int get takeHome => breakdown.totals.takeHome;
+  int get totalEarnings => breakdown.totals.totalEarnings;
+  int get totalDeductions => breakdown.totals.totalDeductions;
+
+  factory PayslipDetail.fromJson(Map<String, dynamic> json) {
+    final employee =
+        json['employee'] is Map<String, dynamic>
+            ? json['employee'] as Map<String, dynamic>
+            : const <String, dynamic>{};
+    return PayslipDetail(
+      id: json['id'] as String,
+      periode: json['periode'] as String? ?? '',
+      employeeName: employee['nama'] as String? ?? 'Karyawan',
+      jabatan: employee['jabatan'] as String? ?? '',
+      breakdown: PayslipBreakdown.fromJson(
+        json['breakdown'] is Map<String, dynamic>
+            ? json['breakdown'] as Map<String, dynamic>
+            : const <String, dynamic>{},
+      ),
+      pdfUrl: json['pdf_url'] as String?,
+    );
+  }
+}
+
+String _periodLabel(String periode) {
+  final parts = periode.split('-');
+  if (parts.length != 2) return periode;
+  final y = int.tryParse(parts[0]);
+  final m = int.tryParse(parts[1]);
+  if (y == null || m == null || m < 1 || m > 12) return periode;
+  return '${Fmt.monthNames[m - 1]} $y';
 }
 
 /// One attendance row from the BE. Times are server-authoritative ISO-8601

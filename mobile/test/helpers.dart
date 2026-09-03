@@ -11,9 +11,11 @@ import 'package:karyawanku_mobile/core/api/models.dart';
 import 'package:karyawanku_mobile/core/auth/auth_provider.dart';
 import 'package:karyawanku_mobile/core/auth/secure_session_store.dart';
 import 'package:karyawanku_mobile/data/models.dart';
+import 'package:karyawanku_mobile/data/repositories/payslip_file_store.dart';
 import 'package:karyawanku_mobile/features/absensi/attendance_provider.dart';
 import 'package:karyawanku_mobile/features/cuti/leave_provider.dart';
 import 'package:karyawanku_mobile/features/jadwal/shift_provider.dart';
+import 'package:karyawanku_mobile/features/slip/payslip_provider.dart';
 
 /// In-memory [SecureStorageBackend] so session roundtrips and auth flows run
 /// without platform channels.
@@ -380,4 +382,150 @@ AttendanceRecord testAttendanceRecord({
     submissionMethod: 'live',
     timeDriftDetected: false,
   );
+}
+
+/// A payslip list row fixture mirroring `GET /payslips` items.
+Payslip testPayslip({
+  String id = 'ps-1',
+  String periode = '2026-08',
+  String status = 'disetujui',
+  int takeHome = 4235000,
+  String employeeName = 'Siti Nurhaliza',
+  bool isThr = false,
+}) {
+  return Payslip(
+    id: id,
+    periode: periode,
+    status: status,
+    employeeName: employeeName,
+    takeHome: takeHome,
+    createdAt: DateTime.parse('2026-08-31T02:00:00.000Z'),
+    isThr: isThr,
+  );
+}
+
+/// A full payslip detail fixture mirroring `GET /payslips/:id` — lines and
+/// totals as the server computed them (ticket #42).
+PayslipDetail testPayslipDetail({
+  String id = 'ps-1',
+  String periode = '2026-08',
+  String employeeName = 'Siti Nurhaliza',
+  String jabatan = 'Kasir',
+  int takeHome = 4235000,
+  int totalEarnings = 5150000,
+  int totalDeductions = 915000,
+  List<PayslipLine>? earnings,
+  List<PayslipLine>? deductions,
+}) {
+  return PayslipDetail(
+    id: id,
+    periode: periode,
+    employeeName: employeeName,
+    jabatan: jabatan,
+    breakdown: PayslipBreakdown(
+      earnings:
+          earnings ??
+          const [
+            PayslipLine(namaKomponen: 'Gaji Pokok', nominal: 4200000),
+            PayslipLine(namaKomponen: 'Tunjangan Makan', nominal: 500000),
+            PayslipLine(namaKomponen: 'Tunjangan Transport', nominal: 300000),
+            PayslipLine(namaKomponen: 'Lembur (6 jam)', nominal: 150000),
+          ],
+      deductions:
+          deductions ??
+          const [
+            PayslipLine(namaKomponen: 'BPJS Kesehatan', nominal: 42000),
+            PayslipLine(namaKomponen: 'BPJS JHT', nominal: 84000),
+            PayslipLine(namaKomponen: 'BPJS JP', nominal: 42000),
+            PayslipLine(namaKomponen: 'PPh 21', nominal: 747000),
+          ],
+      totals: PayslipTotals(
+        totalEarnings: totalEarnings,
+        totalDeductions: totalDeductions,
+        takeHome: takeHome,
+      ),
+    ),
+  );
+}
+
+/// Pin [payslipProvider] to a fixed state with no network work — shared widget
+/// tests get a deterministic payslip screen instead of a live ApiClient.
+Override payslipOverride(PayslipState state) =>
+    payslipProvider.overrideWith(() => _ReadyPayslip(state));
+
+class _ReadyPayslip extends PayslipNotifier {
+  _ReadyPayslip(this.initial);
+  final PayslipState initial;
+
+  @override
+  PayslipState build() => initial;
+
+  @override
+  Future<void> loadList({int? year}) async {}
+
+  @override
+  Future<void> loadLatest() async {}
+
+  @override
+  Future<void> select(String id) async {}
+
+  @override
+  Future<void> download(String id, {String fileName = 'slip-gaji.pdf'}) async {}
+
+  @override
+  void clearError() {}
+
+  @override
+  void clearMessage() {}
+}
+
+/// A populated [PayslipState] mirroring the seeded BE data, for the shared
+/// widget tests so the payslip screens render their real content.
+PayslipState samplePayslipState() => PayslipState(
+  payslips: [
+    testPayslip(
+      id: 'ps-1',
+      periode: '2026-08',
+      takeHome: 4235000,
+    ),
+    testPayslip(
+      id: 'ps-2',
+      periode: '2026-07',
+      takeHome: 4180000,
+    ),
+    testPayslip(
+      id: 'ps-3',
+      periode: '2026-03',
+      takeHome: 4200000,
+      isThr: true,
+    ),
+    testPayslip(
+      id: 'ps-4',
+      periode: '2025-12',
+      takeHome: 4100000,
+    ),
+  ],
+  latest: testPayslip(),
+  // Pre-loaded detail so shared widget tests (a11y, stress) render the full
+  // breakdown without a fetch and settle instead of spinning forever.
+  selected: testPayslipDetail(),
+  loading: false,
+);
+
+/// An in-memory [PayslipFileStore] recording writes instead of touching
+/// platform channels — used by provider tests.
+class FakePayslipFileStore implements PayslipFileStore {
+  final saved = <String, Uint8List>{};
+  final paths = <String>[];
+  Object? throwOnSave;
+
+  @override
+  Future<String> saveAndShare(Uint8List bytes, String fileName) async {
+    final error = throwOnSave;
+    if (error != null) throw error;
+    saved[fileName] = bytes;
+    final path = '/documents/payslips/$fileName';
+    paths.add(path);
+    return path;
+  }
 }

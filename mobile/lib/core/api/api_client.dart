@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 
 import '../auth/secure_session_store.dart';
@@ -169,9 +172,11 @@ class ApiClient {
   void _emitSessionExpired() => onSessionExpired?.call();
 
   /// Parse `{ error: { message, details } }` into [ApiException]. Non-JSON
-  /// bodies keep a friendly status-derived fallback.
+  /// bodies keep a friendly status-derived fallback. Error bodies on a
+  /// `ResponseType.bytes` request arrive as raw bytes, so they are UTF-8
+  /// decoded before the envelope is read.
   ApiException _envelopeError(DioException error, int status) {
-    final data = error.response?.data;
+    final data = _responseData(error);
     if (data is Map<String, dynamic>) {
       final errorBody = data['error'];
       if (errorBody is Map<String, dynamic>) {
@@ -186,6 +191,18 @@ class ApiClient {
       }
     }
     return ApiException(status: status, message: 'Permintaan gagal ($status)');
+  }
+
+  Object? _responseData(DioException error) {
+    final data = error.response?.data;
+    if (data is List<int>) {
+      try {
+        return jsonDecode(utf8.decode(data));
+      } catch (_) {
+        return null;
+      }
+    }
+    return data;
   }
 
   /// Run a request, unwrapping the typed exceptions the error interceptor
@@ -210,6 +227,20 @@ class ApiClient {
         );
         return _decode<T>(res);
       });
+
+  /// Raw-bytes `GET` for binary payloads (payslip PDFs). The same auth, refresh
+  /// and error-envelope plumbing as [get], but the response body stays a byte
+  /// array instead of being decoded as JSON.
+  Future<Uint8List> getBytes(String path) => _guard(() async {
+    final res = await _dio.get<List<int>>(
+      path,
+      options: Options(
+        responseType: ResponseType.bytes,
+        extra: {_Extra.anonymous: false},
+      ),
+    );
+    return Uint8List.fromList(res.data ?? const []);
+  });
 
   Future<T> post<T>(
     String path, {

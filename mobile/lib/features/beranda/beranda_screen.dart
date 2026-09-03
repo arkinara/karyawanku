@@ -14,6 +14,8 @@ import '../absensi/attendance_provider.dart';
 import '../jadwal/jadwal_screen.dart';
 import '../jadwal/shift_provider.dart';
 import '../shell/home_shell.dart';
+import '../slip/payslip_provider.dart';
+import '../slip/slip_detail_screen.dart';
 
 /// Home. The shift hero answers "am I on the clock and for how much longer",
 /// then three tonal shortcuts, then the two things staff check most often.
@@ -31,16 +33,18 @@ class _BerandaScreenState extends ConsumerState<BerandaScreen> {
   @override
   void initState() {
     super.initState();
-    // The upcoming list comes from the live roster — fetch it once on mount.
+    // The upcoming list comes from the live roster — fetch it once on mount,
+    // and the "Slip gaji terakhir" row from the payslip API.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(shiftProvider.notifier).loadUpcoming(days: 3);
+      ref.read(payslipProvider.notifier).loadLatest();
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final upcoming = ref.watch(shiftProvider).upcoming;
-    final latest = Mock.latestPayslip;
+    final latest = ref.watch(payslipProvider).latest;
 
     return Scaffold(
       body: SafeArea(
@@ -79,23 +83,35 @@ class _BerandaScreenState extends ConsumerState<BerandaScreen> {
             const SectionLabel('Slip gaji terakhir'),
             ListCard(
               children: [
-                CardRow(
-                  title: latest.period,
-                  subtitle: 'Dibayar ${Fmt.date(latest.paidOn)}',
-                  trailingWidget: Text(
-                    Fmt.rupiah(latest.takeHome),
-                    textAlign: TextAlign.end,
-                    style: context.texts.titleMedium?.copyWith(
-                      fontSize: 18,
-                      color: context.colors.primary,
-                      fontFeatures: Fmt.tabular,
+                if (latest == null)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                    child: Text('Belum ada slip gaji tersedia.'),
+                  )
+                else
+                  CardRow(
+                    title: latest.periodLabel,
+                    subtitle: latest.createdAt == null
+                        ? null
+                        : 'Digenerate ${Fmt.date(latest.createdAt!)}',
+                    trailingWidget: Text(
+                      Fmt.rupiah(latest.takeHome),
+                      textAlign: TextAlign.end,
+                      style: context.texts.titleMedium?.copyWith(
+                        fontSize: 18,
+                        color: context.colors.primary,
+                        fontFeatures: Fmt.tabular,
+                      ),
+                    ),
+                    semanticLabel:
+                        'Slip gaji terakhir ${latest.periodLabel}, '
+                        '${Fmt.rupiah(latest.takeHome)}',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => SlipDetailScreen(payslip: latest),
+                      ),
                     ),
                   ),
-                  semanticLabel:
-                      'Slip gaji ${latest.period}, dibayar '
-                      '${Fmt.date(latest.paidOn)}, ${Fmt.rupiah(latest.takeHome)}',
-                  onTap: () => widget.onOpenTab(3),
-                ),
               ],
             ),
           ],

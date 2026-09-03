@@ -2,9 +2,10 @@
 
 Phase 2 native mobile app — employee self-service. Sign-in, session restore and
 sign-out talk to the Fastify BE in `backend/`; attendance (ticket #63), the
-shift schedule (ticket #64) and the leave screens (ticket #65) are wired to the
-real endpoints. The remaining domain (payslip) still runs off fixtures in
-`lib/data/mock_data.dart` until its per-domain MOB ticket lands.
+shift schedule (ticket #64), the leave screens (ticket #65) and payslips
+(ticket #66) are wired to the real endpoints. No screen still runs off
+`lib/data/mock_data.dart` fixtures for its data — the only remaining `Mock`
+uses are brand-level placeholders (greeting, notification count).
 
 Built from the Claude Design doc `KaryawanKu Mobile.dc.html`, option **1b
 (Android / Material 3)** — M3 top app bars, tonal containers, pill buttons, an
@@ -205,6 +206,54 @@ Behaviour contract:
 - **The Cuti nav badge** shows the real pending count from the provider, not a
   fixture.
 
+## Payslips (ticket #66)
+
+`SlipGajiScreen`, `SlipDetailScreen` and the Beranda "Slip gaji terakhir" row are
+driven by `lib/features/slip/payslip_provider.dart` (Riverpod), which talks to
+the BE through `lib/data/repositories/payslip_repository.dart`. The signed-in
+employee is resolved server-side from the JWT, so another employee's payslips —
+including by direct id — can never reach this device.
+
+Endpoints used (`backend/src/routes/payslips.ts`):
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET /payslips?page=&limit=` | the employee's payslips, newest first | SlipGaji list + year chips + hero |
+| `GET /payslips?limit=1` | the single newest payslip | Beranda "Slip gaji terakhir" |
+| `GET /payslips/:id` | the full earnings + deductions breakdown (ticket #42) | SlipDetail lines + totals |
+| `GET /payslips/:id/download` | the PDF bytes | Download + share |
+
+Behaviour contract:
+
+- **The server is the source of truth for every number, and the client never
+  sums a payslip.** The list carries only summaries; the detail renders the
+  server's `breakdown.earnings` / `breakdown.deductions` lines
+  (`nama_komponen` + `nominal`) and the `totals` (`total_earnings`,
+  `total_deductions`, `take_home`) verbatim. There are zero `reduce`/`fold`/`sum`
+  calls over payslip data — a payroll run's compliance lines (BPJS Kesehatan,
+  JHT, JP, PPh 21) must never be re-derived on the device. `test/slip_detail_screen_test.dart`
+  proves it: the fixture's server totals deliberately disagree with the naive
+  line sum and the screen must show the server figure.
+- **THR comes from the server, not a fixture flag.** A row is THR only when the
+  API sends `is_thr: true` or `category: "thr"`. History rows and the hero show
+  a THR badge from that flag; the old hardcoded `Mock.payslipHistory` is gone.
+- **The year filter is derived from the data.** SlipGaji builds its `Semua` +
+  year chips from the years actually present in the fetched list — never a fixed
+  2026/2025 pair. The newest payslip is always the hero, and the year chips only
+  narrow the history below it.
+- **Download = bytes → device file → share sheet.** The download action fetches
+  the PDF via the one `ApiClient` (with the same auth/refresh plumbing), writes
+  it to `getApplicationDocumentsDirectory()/payslips/` (no storage permission
+  needed on Android) and hands the file to the platform share sheet so the user
+  can open it in a viewer or send it. The button is disabled with a spinner
+  while in flight; success toasts "Slip gaji tersimpan", a failure surfaces the
+  BE's message, and a failed write never reports success. Save + share live in
+  `lib/data/repositories/payslip_file_store.dart`, injectable so provider tests
+  record writes without platform channels.
+- **Empty states, not zero cards.** An employee with no payslips sees the
+  existing empty state; a load failure shows an error surface with retry —
+  partial figures are never rendered as if complete.
+
 ## Design tokens and theming
 
 The palette, shape scale, motion rhythm and elevation are **mirrored from the
@@ -275,7 +324,7 @@ flutter run              # attached device or emulator
 flutter run -d chrome    # quickest way to compare against the design doc
 flutter run --dart-define=API_BASE_URL=http://localhost:3001  # against local BE
 flutter analyze
-flutter test                            # 226 tests
+flutter test                            # 254 tests
 flutter test test/token_parity_test.dart # mobile palette == web globals.css
 flutter test test/a11y_test.dart         # tap targets, labels, contrast x theme
 flutter test test/stress_test.dart       # text scale x width x theme matrix

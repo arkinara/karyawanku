@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:karyawanku_mobile/data/mock_data.dart';
 import 'package:karyawanku_mobile/features/absensi/absensi_screen.dart';
 import 'package:karyawanku_mobile/features/absensi/attendance_provider.dart';
 import 'package:karyawanku_mobile/features/auth/masuk_screen.dart';
@@ -25,7 +24,7 @@ final screens = <String, Widget>{
   'Cuti': const CutiScreen(),
   'AjukanCuti': const AjukanCutiScreen(),
   'SlipGaji': const SlipGajiScreen(),
-  'SlipDetail': SlipDetailScreen(payslip: Mock.latestPayslip),
+  'SlipDetail': SlipDetailScreen(payslip: testPayslip()),
   'Jadwal': const JadwalScreen(),
   'HomeShell': const HomeShell(),
 };
@@ -46,6 +45,7 @@ void main() {
               attendanceOverride(const AttendanceState()),
               shiftOverride(const ShiftState()),
               leaveOverride(sampleLeaveState()),
+              payslipOverride(samplePayslipState()),
               ...blockedNetworkOverrides(),
             ],
             child: MaterialApp(
