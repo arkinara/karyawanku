@@ -562,6 +562,109 @@ export const systemState = sqliteTable('system_state', {
   value: integer('value'),
 })
 
+export const devicePlatforms = ['android', 'ios'] as const
+export type DevicePlatform = (typeof devicePlatforms)[number]
+
+/**
+ * Token push FCM per perangkat (ticket #71). Satu baris per (user_id, token) —
+ * registrasi ulang token yang sama (re-login, token refresh) menimpa platform
+ * + versi app, tidak membuat baris ganda. `business_id` ikut dicatat agar
+ * cascade penghapusan bisnis ikut membersihkan perangkat. Token yang ditolak
+ * provider (`UNREGISTERED` / `INVALID_ARGUMENT`) dihapus oleh push-service.
+ */
+export const pushDevices = sqliteTable(
+  'push_devices',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    user_id: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    business_id: text('business_id')
+      .notNull()
+      .references(() => businesses.id, { onDelete: 'cascade' }),
+    platform: text('platform', { enum: devicePlatforms }).notNull(),
+    token: text('token').notNull(),
+    app_version: text('app_version'),
+    created_at: integer('created_at', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    updated_at: integer('updated_at', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (table) => [
+    uniqueIndex('push_devices_user_token_unique').on(table.user_id, table.token),
+    index('push_devices_user_idx').on(table.user_id),
+  ],
+)
+
+/**
+ * Audit pengiriman push + jendela retry (ticket #71). Satu baris per percobaan
+ * pengiriman per perangkat. `payload_json` menyimpan data notifikasi (deep-link
+ * + kind) dengan teks title/body di kunci `_n` sehingga retry bisa
+ * merekonstruksi isi notifikasi asli. `delivered_at` terisi saat sukses (atau
+ * saat token diputus sebagai invalid); `next_retry_at` terisi hanya untuk
+ * kegagalan transien yang masih dalam kebijakan retry (maks 5 percobaan).
+ */
+export const notificationLog = sqliteTable(
+  'notification_log',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    user_id: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** `leave_decided` | `shift_reminder` | ... */
+    kind: text('kind').notNull(),
+    payload_json: text('payload_json', { mode: 'json' }),
+    device_token: text('device_token'),
+    attempts: integer('attempts').notNull().default(1),
+    last_error: text('last_error'),
+    delivered_at: integer('delivered_at', { mode: 'timestamp' }),
+    next_retry_at: integer('next_retry_at', { mode: 'timestamp' }),
+    created_at: integer('created_at', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (table) => [
+    index('notification_log_user_idx').on(table.user_id),
+    index('notification_log_retry_idx').on(table.next_retry_at),
+  ],
+)
+
+/**
+ * Preferensi notifikasi per user (ticket #71). Saat ini hanya toggle pengingat
+ * shift + lead time (menit sebelum shift mulai). Baris dibuat saat user pertama
+ * kali menyimpan preferensi; ketiadaan baris berarti default (aktif, 30 menit).
+ */
+export const reminderSettings = sqliteTable('reminder_settings', {
+  user_id: text('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  shift_reminders_enabled: integer('shift_reminders_enabled', { mode: 'boolean' })
+    .notNull()
+    .default(true),
+  reminder_lead_minutes: integer('reminder_lead_minutes').notNull().default(30),
+})
+
+/**
+ * Log pengiriman pengingat shift (ticket #71). `assignment_id` adalah primary
+ * key — satu pengingat per shift, dijamin idempoten terhadap restart server dan
+ * tick ganda. Baris ditulis SEBELUM notifikasi dikirim (di dalam tick), jadi
+ * crash di antara keduanya tidak menyebabkan pengingat ganda.
+ */
+export const shiftReminderLog = sqliteTable('shift_reminder_log', {
+  assignment_id: text('assignment_id')
+    .primaryKey()
+    .references(() => shiftAssignments.id, { onDelete: 'cascade' }),
+  fired_at: integer('fired_at', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
 export type Business = typeof businesses.$inferSelect
 export type NewBusiness = typeof businesses.$inferInsert
 export type User = typeof users.$inferSelect
@@ -591,3 +694,11 @@ export type SelfieMeta = typeof selfieMeta.$inferSelect
 export type NewSelfieMeta = typeof selfieMeta.$inferInsert
 export type AttendanceIdempotency = typeof attendanceIdempotency.$inferSelect
 export type NewAttendanceIdempotency = typeof attendanceIdempotency.$inferInsert
+export type PushDevice = typeof pushDevices.$inferSelect
+export type NewPushDevice = typeof pushDevices.$inferInsert
+export type NotificationLog = typeof notificationLog.$inferSelect
+export type NewNotificationLog = typeof notificationLog.$inferInsert
+export type ReminderSettings = typeof reminderSettings.$inferSelect
+export type NewReminderSettings = typeof reminderSettings.$inferInsert
+export type ShiftReminderLog = typeof shiftReminderLog.$inferSelect
+export type NewShiftReminderLog = typeof shiftReminderLog.$inferInsert

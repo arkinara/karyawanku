@@ -1,11 +1,19 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/auth/auth_provider.dart';
+import 'core/push/deep_link_router.dart';
+import 'core/push/push_bootstrap.dart';
 import 'features/auth/masuk_screen.dart';
+import 'features/cuti/leave_detail_screen.dart';
+import 'features/cuti/leave_provider.dart';
+import 'features/jadwal/jadwal_screen.dart';
 import 'features/shell/home_shell.dart';
 import 'theme/app_theme.dart';
 import 'theme/tokens.dart';
+import 'widgets/not_found_screen.dart';
 
 class KaryawanKuApp extends StatelessWidget {
   const KaryawanKuApp({super.key});
@@ -35,6 +43,9 @@ class RootRouter extends ConsumerStatefulWidget {
 }
 
 class _RootRouterState extends ConsumerState<RootRouter> {
+  StreamSubscription<DeepLinkTarget>? _deepLinkSub;
+  DeepLinkTarget? _pendingTarget;
+
   @override
   void initState() {
     super.initState();
@@ -43,11 +54,69 @@ class _RootRouterState extends ConsumerState<RootRouter> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(authProvider.notifier).restoreSession();
     });
+    // Ticket #71 — route push taps / deep links. Cold start waits for auth in
+    // [build]'s auth listener below; background taps navigate immediately when
+    // signed in.
+    final router = ref.read(deepLinkRouterProvider);
+    router.start();
+    _deepLinkSub = router.targets.listen(_onDeepLink);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      router.handleColdStart();
+    });
+  }
+
+  @override
+  void dispose() {
+    _deepLinkSub?.cancel();
+    super.dispose();
+  }
+
+  void _onDeepLink(DeepLinkTarget target) {
+    if (!mounted) return;
+    if (ref.read(authProvider).isSignedIn) {
+      _navigate(target);
+    } else {
+      // Signed out: wait for sign-in, then navigate (cold-start deep links
+      // may need a session).
+      _pendingTarget = target;
+    }
+  }
+
+  Future<void> _navigate(DeepLinkTarget target) async {
+    if (!mounted) return;
+    final navigator = Navigator.of(context);
+    if (target.kind == DeepLinkKind.shift) {
+      navigator.push(MaterialPageRoute(builder: (_) => const JadwalScreen()));
+      return;
+    }
+    // Cross-employee guard: a leave id that does not belong to the signed-in
+    // user resolves to the not-found page, never to their data.
+    final guard = DeepLinkGuard(
+      leaveRepo: ref.read(leaveRepositoryProvider),
+    );
+    final owned = await guard.owns(target);
+    if (!mounted) return;
+    navigator.push(
+      MaterialPageRoute(
+        builder: (_) => owned
+            ? LeaveDetailScreen(requestId: target.id)
+            : const NotFoundScreen(),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authProvider);
+
+    // Cold-start deep link: navigate once auth resolves.
+    ref.listen<AuthState>(authProvider, (prev, next) {
+      final pending = _pendingTarget;
+      if (next.isSignedIn && pending != null) {
+        _pendingTarget = null;
+        _navigate(pending);
+      }
+    });
 
     if (auth.isSignedIn) return const HomeShell();
     if (auth.loading && !auth.signingIn) return const _Splash();

@@ -27,6 +27,16 @@ class LeaveRepository {
         .toList();
   }
 
+  /// `GET /leave-requests/:id` — a single request. Server-side authorization is
+  /// the primary deep-link gate: fetching another employee's request returns
+  /// 403/404, which the deep-link guard maps to a not-found state.
+  Future<LeaveRequest> getById(String id) async {
+    final data = await _api.get<Map<String, dynamic>>('/leave-requests/$id');
+    final raw = data['request'];
+    if (raw is Map<String, dynamic>) return LeaveRequest.fromJson(raw);
+    return LeaveRequest.fromJson(data);
+  }
+
   /// `GET /leave-balances?tahun=` — the signed-in employee's quota rows for
   /// the current year, one per active leave type.
   Future<List<LeaveBalance>> getBalances() async {

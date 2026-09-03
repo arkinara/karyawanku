@@ -6,13 +6,14 @@ import '../../core/format.dart';
 import '../../data/models.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/common.dart';
+import 'notification_prefs_provider.dart';
 import 'shift_provider.dart';
 
 /// The shift schedule: week strip for orientation, a tonal detail card for the
 /// selected day, and a month grid for the wider picture. Every shift comes
 /// from the employee's published roster via [shiftProvider] — the device clock
-/// decides "today", never a fixture. The reminder line is a static string: the
-/// BE roster has no per-shift reminder setting.
+/// decides "today", never a fixture. The reminder line is live: the toggle and
+/// lead-time dropdown write to `notification_prefs` on the BE (ticket #71).
 class JadwalScreen extends ConsumerStatefulWidget {
   const JadwalScreen({super.key});
 
@@ -21,8 +22,6 @@ class JadwalScreen extends ConsumerStatefulWidget {
 }
 
 class _JadwalScreenState extends ConsumerState<JadwalScreen> {
-  static const _reminderLine = 'Pengingat 30 menit sebelum shift — aktif';
-
   late DateTime _selected = DateTime.now();
   late DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
   bool _monthView = false;
@@ -363,36 +362,112 @@ class _TodayCard extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: status.containerOverlay,
-              borderRadius: Shape.rMd,
-            ),
-            child: Row(
+          const _ReminderToggle(),
+        ],
+      ),
+    );
+  }
+}
+
+/// Shift-reminder control: the toggle flips `shift_reminders_enabled` and the
+/// dropdown picks the lead time (15/30/60 min), both persisted to the BE via
+/// `notification_prefs` (ticket #71). The line reflects the server value.
+class _ReminderToggle extends ConsumerStatefulWidget {
+  const _ReminderToggle();
+
+  @override
+  ConsumerState<_ReminderToggle> createState() => _ReminderToggleState();
+}
+
+class _ReminderToggleState extends ConsumerState<_ReminderToggle> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(notificationPrefsProvider.notifier).load();
+    });
+  }
+
+  Future<void> _save(Future<void> Function() action) async {
+    try {
+      await action();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Gagal menyimpan preferensi pengingat.')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final status = context.status;
+    final prefs = ref.watch(notificationPrefsProvider).prefs;
+    final enabled = prefs?.shiftRemindersEnabled ?? true;
+    final lead = prefs?.reminderLeadMinutes ?? 30;
+    final line = enabled
+        ? 'Pengingat $lead menit sebelum shift — aktif'
+        : 'Pengingat shift nonaktif';
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: status.containerOverlay,
+        borderRadius: Shape.rMd,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(
+            LucideIcons.bell,
+            size: 20,
+            color: colors.onPrimaryContainer,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  LucideIcons.bell,
-                  size: 20,
-                  color: colors.onPrimaryContainer,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    _JadwalScreenState._reminderLine,
-                    style: context.texts.bodySmall?.copyWith(
-                      color: colors.onPrimaryContainer,
-                    ),
+                Text(
+                  line,
+                  style: context.texts.bodySmall?.copyWith(
+                    color: colors.onPrimaryContainer,
                   ),
                 ),
+                if (enabled)
+                  DropdownButton<int>(
+                    value: lead,
+                    isDense: true,
+                    underline: const SizedBox.shrink(),
+                    items: [
+                      for (final minutes in reminderLeadOptions)
+                        DropdownMenuItem(
+                          value: minutes,
+                          child: Text('$minutes menit sebelum shift'),
+                        ),
+                    ],
+                    onChanged: (v) {
+                      if (v != null) _save(() => _setLead(v));
+                    },
+                  ),
               ],
             ),
+          ),
+          Switch(
+            value: enabled,
+            onChanged: (v) => _save(() => _setEnabled(v)),
           ),
         ],
       ),
     );
   }
+
+  Future<void> _setEnabled(bool value) =>
+      ref.read(notificationPrefsProvider.notifier).setEnabled(value);
+
+  Future<void> _setLead(int minutes) =>
+      ref.read(notificationPrefsProvider.notifier).setLeadMinutes(minutes);
 }
 
 /// Empty state for a selected day with no shift (or a leave-covered day).

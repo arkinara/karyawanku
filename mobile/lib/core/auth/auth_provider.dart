@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/api_client.dart';
 import '../api/api_exception.dart';
 import '../api/models.dart';
+import '../push/push_registration.dart';
 import 'secure_session_store.dart';
 
 /// Backing store shared by the [ApiClient] interceptor (token attachment) and
@@ -123,7 +126,9 @@ class AuthNotifier extends Notifier<AuthState> {
 
   /// `POST /auth/sign-in`. Stores the session and enters the shell only on
   /// success; rethrows the typed exception so the form can show the BE's
-  /// message ("Email atau kata sandi salah", …).
+  /// message ("Email atau kata sandi salah", …). On success the device
+  /// registers for push (permission → token → POST /api/devices) — fire and
+  /// forget, so a push outage or denied permission never blocks sign-in.
   Future<void> signIn(String email, String password) async {
     state = const AuthState.signingIn();
     try {
@@ -135,6 +140,7 @@ class AuthNotifier extends Notifier<AuthState> {
       final response = SignInResponse.fromJson(data);
       await _store.saveSession(response.session);
       state = AuthState.signedIn(response.session);
+      unawaited(ref.read(pushRegistrationProvider).register());
     } catch (e) {
       state = const AuthState.signedOut();
       rethrow;
@@ -142,8 +148,15 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
   /// `POST /auth/sign-out`, then clear local state even when the call fails.
+  /// The session's push device is removed first so a signed-out device
+  /// receives nothing (negative AC); unregister is best-effort.
   Future<void> signOut() async {
     _manualSignOut = true;
+    try {
+      await ref.read(pushRegistrationProvider).unregister();
+    } catch (_) {
+      // Best-effort on mobile; local state must still be cleared.
+    }
     try {
       await _api.post<Map<String, dynamic>>('/auth/sign-out');
     } catch (_) {
@@ -158,6 +171,11 @@ class AuthNotifier extends Notifier<AuthState> {
   /// `POST /auth/sign-out-all`, then clear local state.
   Future<void> signOutAll() async {
     _manualSignOut = true;
+    try {
+      await ref.read(pushRegistrationProvider).unregister();
+    } catch (_) {
+      // best-effort
+    }
     try {
       await _api.post<Map<String, dynamic>>('/auth/sign-out-all');
     } catch (_) {

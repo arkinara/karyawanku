@@ -28,6 +28,8 @@ import payrollExportRoutes from './routes/payroll-export.js'
 import thrRoutes from './routes/thr.js'
 import dashboardRoutes from './routes/dashboard.js'
 import auditLogsRoutes from './routes/audit-logs.js'
+import devicesRoutes from './routes/devices.js'
+import notificationPrefsRoutes from './routes/notification-prefs.js'
 import { ApiError, RateLimitError } from './lib/errors.js'
 import { assertJwtSecretValid } from './lib/auth.js'
 
@@ -117,6 +119,8 @@ export function buildApp(): FastifyInstance {
       await api.register(thrRoutes)
       await api.register(dashboardRoutes)
       await api.register(auditLogsRoutes)
+      await api.register(devicesRoutes)
+      await api.register(notificationPrefsRoutes)
     },
     { prefix: '/api' },
   )

@@ -3,12 +3,13 @@
 Phase 2 native mobile app — employee self-service. Sign-in, session restore and
 sign-out talk to the Fastify BE in `backend/`; attendance (ticket #63), the
 shift schedule (ticket #64), the leave screens (ticket #65), payslips
-(ticket #66) and the geofence clock-in location flow (ticket #68) are wired to
-the real endpoints. No screen still runs off
-`lib/data/mock_data.dart` fixtures for its data — the only remaining `Mock`
-uses are brand-level placeholders (greeting, notification count) and the dev
-geofence point (see below; the real `GET /businesses/:id/geofence` from #67 is
-used as soon as the BE lands it).
+(ticket #66), the geofence clock-in location flow (ticket #68) and push
+notifications (ticket #71) are wired to the real endpoints. No screen still runs
+off `lib/data/mock_data.dart` fixtures for its data — the only remaining `Mock`
+uses are brand-level placeholders (greeting) and the dev geofence point (see
+below; the real `GET /businesses/:id/geofence` from #67 is used as soon as the
+BE lands it). The notification badge is a local counter fed by foreground FCM
+messages until a server-backed notification list exists (see ticket #71).
 
 Built from the Claude Design doc `KaryawanKu Mobile.dc.html`, option **1b
 (Android / Material 3)** — M3 top app bars, tonal containers, pill buttons, an
@@ -297,6 +298,61 @@ Behaviour contract:
   existing empty state; a load failure shows an error surface with retry —
   partial figures are never rendered as if complete.
 
+## Push notifications (ticket #71)
+
+Provider is **Firebase Cloud Messaging** (FCM). The app registers the device
+token after sign-in (`POST /api/devices`), re-registers on FCM token rotation,
+and removes it on sign-out — a signed-out device receives nothing. The BE sends
+on leave decisions and shift reminders; taps deep-link to the leave request or
+the schedule.
+
+- **Device registration** (`lib/core/push/push_registration.dart`): on
+  `signIn` success → permission → `FCMService.getDeviceToken()` →
+  `DeviceRepository.register` (upserted server-side on `(user_id, token)`);
+  `onTokenRefresh` re-registers; `signOut` deletes the session's device. All
+  best-effort — a denied permission or a push outage never breaks sign-in.
+- **Foreground display** (`lib/core/push/local_notifications.dart`): FCM
+  foreground messages surface as on-device notifications (the OS would swallow
+  them); taps emit the deep-link payload. Background/terminated taps arrive via
+  `FirebaseMessaging.onMessageOpenedApp` / `getInitialMessage`.
+- **Deep links** (`lib/core/push/deep_link_router.dart`): `karyawanku://leave/<id>`
+  and `karyawanku://shift/<id>`. The router waits for auth on cold start, then
+  navigates. A cross-employee leave id resolves to the not-found page — the BE's
+  ownership check is the primary gate, the client guard is a pre-check.
+- **In-app badge** (`lib/core/push/notifications_provider.dart`): the Beranda
+  bell shows a local unread count that increments per foreground message and
+  clears when the bell is tapped; the bottom sheet lists the 5 most recent
+  events with tap-through.
+
+### Firebase setup (developers)
+
+The repo ships **placeholder** credential files only — real credentials are
+**never committed**. Push degrades to "off" (no token, no crash) until the real
+files are added.
+
+1. **Android** — replace `android/app/google-services.json` with the file from
+   the Firebase console (Project settings → Your apps → Android; package name
+   `com.karyawanku.mobile`). Also set `minSdkVersion` ≥ 21 and apply the Google
+   Services Gradle plugin in `android/app/build.gradle` if not present.
+2. **iOS** — replace `ios/Runner/GoogleService-Info.plist` with the one from
+   the console (Your apps → iOS; bundle id `com.karyawanku.mobile`). Enable the
+   **Push Notifications** capability (APNs) in Xcode for the target. The app
+   declares `UIBackgroundModes = remote-notification` and
+   `aps-environment` in `ios/Runner/Info.plist`.
+3. **Backend** — set `PUSH_PROVIDER=fcm` plus
+   `FIREBASE_SERVICE_ACCOUNT_JSON` (or `FIREBASE_PROJECT_ID` +
+   `FIREBASE_CREDENTIALS_PATH`, default `/var/secrets/karyawanku/firebase.json`).
+   Default `PUSH_PROVIDER=log` sends nothing real.
+4. **Deep-link scheme** — the app handles `karyawanku://` URIs. On iOS the
+   scheme is auto-registered through the URL scheme in
+   `ios/Runner/Info.plist` (`CFBundleURLTypes`); on Android add an
+   `android:scheme="karyawanku"` intent-filter for `MainActivity` when a
+   custom-scheme deep link is required (FCM `data` taps work without it).
+
+**Tests never touch Firebase** — `FCMService` wraps a thin `PushMessaging`
+interface (`lib/core/push/push_messaging.dart`); `test/helpers.dart` provides
+`FakeMessaging` and tests inject it via the `fcmServiceProvider` override.
+
 ## Design tokens and theming
 
 The palette, shape scale, motion rhythm and elevation are **mirrored from the
@@ -367,7 +423,7 @@ flutter run              # attached device or emulator
 flutter run -d chrome    # quickest way to compare against the design doc
 flutter run --dart-define=API_BASE_URL=http://localhost:3001  # against local BE
 flutter analyze
-flutter test                            # 254 tests
+flutter test                            # 369 tests
 flutter test test/token_parity_test.dart # mobile palette == web globals.css
 flutter test test/a11y_test.dart         # tap targets, labels, contrast x theme
 flutter test test/stress_test.dart       # text scale x width x theme matrix
@@ -375,11 +431,15 @@ flutter test test/stress_test.dart       # text scale x width x theme matrix
 
 ## Not yet wired
 
-Camera capture (the selfie slot), push notifications, the offline queue, and
-the home-screen widget. The remaining mobile-only capabilities appear as UI
-states only. Sign-in/sign-out, attendance (today + clock in/out + monthly
-aggregate), the geofence clock-in location flow (permission + fix + chip +
-coordinates), the shift schedule (roster by range + upcoming + leave-blocked
-days), leave (balances + history + submit + types) and payslips (list +
-detail + PDF download/share) are all wired to the BE; the remaining screen-by-
+Camera capture (the selfie slot), the offline queue, and the home-screen
+widget. Push notifications are wired end-to-end but need the real Firebase
+credential files (see the ticket #71 section) before a device can receive a
+real FCM message — the app degrades to no-push without them. The remaining
+mobile-only capabilities appear as UI states only. Sign-in/sign-out,
+attendance (today + clock in/out + monthly aggregate), the geofence clock-in
+location flow (permission + fix + chip + coordinates), the shift schedule
+(roster by range + upcoming + leave-blocked days), leave (balances + history +
+submit + types), payslips (list + detail + PDF download/share) and push
+(device registration, leave-decision notifications, shift-reminder toggle,
+in-app badge + deep links) are all wired to the BE; the remaining screen-by-
 screen data wiring is covered by the per-domain MOB tickets.

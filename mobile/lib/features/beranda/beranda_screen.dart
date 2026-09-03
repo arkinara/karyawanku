@@ -6,11 +6,16 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/auth/auth_provider.dart';
 import '../../core/format.dart';
+import '../../core/push/deep_link_router.dart';
+import '../../core/push/notifications_provider.dart';
 import '../../data/mock_data.dart';
 import '../../data/models.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/common.dart';
+import '../../widgets/not_found_screen.dart';
 import '../absensi/attendance_provider.dart';
+import '../cuti/leave_detail_screen.dart';
+import '../cuti/leave_provider.dart';
 import '../jadwal/jadwal_screen.dart';
 import '../jadwal/shift_provider.dart';
 import '../shell/home_shell.dart';
@@ -161,6 +166,7 @@ class _Header extends ConsumerWidget {
         'Siti';
     final greeting =
         user == null ? Mock.greeting : 'Selamat pagi, $firstName';
+    final unread = ref.watch(notificationsProvider).unread;
 
     return Padding(
       // Was a fixed 64 dp box; two lines of scaled-up text overflowed it.
@@ -185,11 +191,17 @@ class _Header extends ConsumerWidget {
                 ],
               ),
             ),
+            // Ticket #71 — bell opens the in-app notification sheet and clears
+            // the unread badge. Count is local, fed by foreground FCM messages.
             IconButton(
-              onPressed: () {},
-              tooltip: 'Notifikasi',
+              onPressed: () {
+                ref.read(notificationsProvider.notifier).markAllRead();
+                _openNotificationSheet(context, ref);
+              },
+              tooltip: unread > 0 ? 'Notifikasi ($unread belum dibaca)' : 'Notifikasi',
               icon: Badge(
-                label: const Text('${Mock.notificationCount}'),
+                isLabelVisible: unread > 0,
+                label: Text('$unread'),
                 child: const Icon(LucideIcons.bell, size: 24),
               ),
             ),
@@ -198,6 +210,121 @@ class _Header extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Bottom sheet with the most recent notification events. Tapping an event
+/// opens its deep-link target (leave request / shift); a link that does not
+/// belong to the signed-in user lands on the not-found page.
+Future<void> _openNotificationSheet(BuildContext context, WidgetRef ref) async {
+  final state = ref.read(notificationsProvider);
+  await showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    builder: (sheetContext) => SafeArea(
+      child: state.recent.isEmpty
+          ? Padding(
+              padding: const EdgeInsets.symmetric(vertical: 48),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    LucideIcons.bellOff,
+                    size: 40,
+                    color: context.colors.onSurfaceVariant,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Belum ada notifikasi',
+                    style: context.texts.titleSmall?.copyWith(
+                      color: context.colors.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : ListView(
+              shrinkWrap: true,
+              padding: const EdgeInsets.only(bottom: 24),
+              children: [
+                Padding(
+                  padding: Insets.page.copyWith(top: 0),
+                  child: Text(
+                    'Notifikasi',
+                    style: context.texts.titleMedium,
+                  ),
+                ),
+                for (final event in state.recent)
+                  _NotificationRow(
+                    event: event,
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      _openNotificationTarget(context, ref, event.data);
+                    },
+                  ),
+              ],
+            ),
+    ),
+  );
+}
+
+/// Tap-through: resolve the event's data into a deep-link target and open it.
+void _openNotificationTarget(
+  BuildContext context,
+  WidgetRef ref,
+  Map<String, dynamic> data,
+) {
+  final target = targetFromMessage(data);
+  final navigator = Navigator.of(context);
+  if (target == null) {
+    navigator.push(MaterialPageRoute(builder: (_) => const NotFoundScreen()));
+    return;
+  }
+  if (target.kind == DeepLinkKind.shift) {
+    navigator.push(MaterialPageRoute(builder: (_) => const JadwalScreen()));
+    return;
+  }
+  final guard = DeepLinkGuard(leaveRepo: ref.read(leaveRepositoryProvider));
+  guard.owns(target).then((owned) {
+    if (!context.mounted) return;
+    navigator.push(
+      MaterialPageRoute(
+        builder: (_) => owned
+            ? LeaveDetailScreen(requestId: target.id)
+            : const NotFoundScreen(),
+      ),
+    );
+  });
+}
+
+class _NotificationRow extends StatelessWidget {
+  const _NotificationRow({required this.event, required this.onTap});
+
+  final InAppNotification event;
+  final VoidCallback onTap;
+
+  String get _relative {
+    final diff = DateTime.now().difference(event.receivedAt);
+    if (diff.inMinutes < 1) return 'baru saja';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} m lalu';
+    if (diff.inHours < 24) return '${diff.inHours} j lalu';
+    return '${diff.inDays} h lalu';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CardRow(
+      leading: RoundToken(
+        icon: LucideIcons.bell,
+        background: context.colors.primaryContainer,
+        foreground: context.colors.onPrimaryContainer,
+        size: 40,
+      ),
+      title: event.title,
+      subtitle: '${event.body} · $_relative',
+      onTap: onTap,
+      semanticLabel: '${event.title}, ${event.body}, $_relative',
     );
   }
 }

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
@@ -13,6 +14,8 @@ import 'package:karyawanku_mobile/core/auth/auth_provider.dart';
 import 'package:karyawanku_mobile/core/auth/secure_session_store.dart';
 import 'package:karyawanku_mobile/core/connectivity/connectivity_provider.dart';
 import 'package:karyawanku_mobile/core/location/location_service.dart';
+import 'package:karyawanku_mobile/core/push/fcm_service.dart';
+import 'package:karyawanku_mobile/core/push/push_messaging.dart';
 import 'package:karyawanku_mobile/data/models.dart';
 import 'package:karyawanku_mobile/data/repositories/payslip_file_store.dart';
 import 'package:karyawanku_mobile/features/absensi/attendance_provider.dart';
@@ -587,6 +590,65 @@ Position testPosition({
     speedAccuracy: 0,
   );
 }
+
+/// A `RemoteMessage` fixture mirroring a BE push payload (ticket #71).
+RemoteMessage fakeRemoteMessage({
+  String messageId = 'msg-1',
+  String? title = 'Cuti disetujui',
+  String? body = 'Pengajuan cuti Anda telah disetujui.',
+  Map<String, dynamic> data = const {},
+}) {
+  return RemoteMessage(
+    messageId: messageId,
+    notification: RemoteNotification(title: title, body: body),
+    data: data,
+  );
+}
+
+/// Test double for [PushMessaging] — no Firebase/APNs channel anywhere. Feed
+/// it a token, a permission verdict and message streams; tests drive the
+/// streams to simulate foreground push / taps / token rotation.
+class FakeMessaging implements PushMessaging {
+  String? token = 'fcm-fake-token';
+  bool permissionGranted = true;
+  RemoteMessage? initialMessage;
+
+  final _messages = StreamController<RemoteMessage>.broadcast();
+  final _opened = StreamController<RemoteMessage>.broadcast();
+  final _tokenRefresh = StreamController<String>.broadcast();
+
+  /// Emit a foreground message (surfaces via the in-app badge/sheet).
+  void sendMessage(RemoteMessage message) => _messages.add(message);
+
+  /// Emit a background/terminated tap (deep-link router).
+  void tapOpenedApp(RemoteMessage message) => _opened.add(message);
+
+  /// Emit an FCM token rotation.
+  void rotateToken(String newToken) => _tokenRefresh.add(newToken);
+
+  @override
+  Future<String?> getToken() async => token;
+
+  @override
+  Future<bool> requestPermission() async => permissionGranted;
+
+  @override
+  Stream<RemoteMessage> get onMessage => _messages.stream;
+
+  @override
+  Stream<RemoteMessage> get onMessageOpenedApp => _opened.stream;
+
+  @override
+  Stream<String> get onTokenRefresh => _tokenRefresh.stream;
+
+  @override
+  Future<RemoteMessage?> getInitialMessage() async => initialMessage;
+}
+
+/// Build an [FCMService] backed by [FakeMessaging] — the injectable seam for
+/// every push test.
+FCMService testFCMService(FakeMessaging messaging) =>
+    FCMService(messaging: messaging);
 
 /// Pin [geofenceProvider] to a fixed state with no platform work — shared
 /// widget tests get a deterministic chip instead of a live LocationService

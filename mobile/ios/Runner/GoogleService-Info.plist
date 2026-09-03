@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  PLACEHOLDER — Ticket #71.
+  This is NOT a real Firebase configuration. Developers must replace this file
+  with the real `GoogleService-Info.plist` downloaded from the Firebase console
+  (Project settings → Your apps → iOS app). The Firebase iOS SDK fails to
+  initialize without a valid plist, so the app degrades to "no push" (see
+  `lib/core/push/fcm_service.dart`) until it is provided. Never commit real
+  credentials.
+-->
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>PLACEHOLDER.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.PLACEHOLDER</string>
+	<key>API_KEY</key>
+	<string>PLACEHOLDER_API_KEY</string>
+	<key>GCM_SENDER_ID</key>
+	<string>PLACEHOLDER_SENDER_ID</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.karyawanku.mobile</string>
+	<key>PROJECT_ID</key>
+	<string>karyawanku-placeholder</string>
+	<key>STORAGE_BUCKET</key>
+	<string>karyawanku-placeholder.appspot.com</string>
+	<key>IS_ADS_ENABLED</key>
+	<false/>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false/>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true/>
+	<key>IS_GCM_ENABLED</key>
+	<true/>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true/>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:PLACEHOLDER:ios:PLACEHOLDER</string>
+</dict>
+</plist>

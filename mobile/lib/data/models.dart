@@ -691,3 +691,56 @@ class AttendanceAggregate {
     );
   }
 }
+
+/// Notification preferences from `GET/PATCH /api/notification-prefs/me`
+/// (ticket #71). The server is the source of truth; a missing row reads as the
+/// defaults (reminders on, 30 minutes before shift start).
+class NotificationPrefs {
+  const NotificationPrefs({
+    required this.shiftRemindersEnabled,
+    required this.reminderLeadMinutes,
+  });
+
+  final bool shiftRemindersEnabled;
+  final int reminderLeadMinutes;
+
+  factory NotificationPrefs.fromJson(Map<String, dynamic> json) {
+    return NotificationPrefs(
+      shiftRemindersEnabled: json['shift_reminders_enabled'] as bool? ?? true,
+      reminderLeadMinutes:
+          (json['reminder_lead_minutes'] as num?)?.toInt() ?? 30,
+    );
+  }
+}
+
+/// One registered push device from `GET /api/devices`
+/// (`backend/src/routes/devices.ts`, ticket #71). Rows are keyed by
+/// `(user_id, token)` server-side, so the list is deduplicated.
+class DeviceRegistration {
+  const DeviceRegistration({
+    required this.id,
+    required this.platform,
+    required this.token,
+    this.appVersion,
+    this.createdAt,
+    this.updatedAt,
+  });
+
+  final String id;
+  final String platform;
+  final String token;
+  final String? appVersion;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  factory DeviceRegistration.fromJson(Map<String, dynamic> json) {
+    return DeviceRegistration(
+      id: json['id'] as String? ?? '',
+      platform: json['platform'] as String? ?? '',
+      token: json['token'] as String? ?? '',
+      appVersion: json['app_version'] as String?,
+      createdAt: _parseInstant(json['created_at']),
+      updatedAt: _parseInstant(json['updated_at']),
+    );
+  }
+}

@@ -2,13 +2,14 @@ import type { FastifyInstance } from 'fastify'
 import { and, count, desc, eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDb } from '../db/index.js'
-import { employees, leaveBalances, leaveRequests, leaveTypes } from '../db/schema.js'
+import { employees, leaveBalances, leaveRequests, leaveTypes, users } from '../db/schema.js'
 import { currentUser, requireAuth, requireCapability } from '../lib/auth.js'
 import { hasCapability } from '../lib/capabilities.js'
 import { recordAudit } from '../lib/audit.js'
 import { ApiError, ConflictError, ForbiddenError } from '../lib/errors.js'
 import { ensureLeaveBalance, referenceDateForYear } from '../lib/leave-reset.js'
 import { offsetOf, paginateResult, parsePagination } from '../lib/pagination.js'
+import { sendNotification } from '../lib/push-service.js'
 
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Tanggal wajib berformat YYYY-MM-DD')
 
@@ -39,6 +40,41 @@ function daysBetween(start: string, end: string): number {
   const a = parseDate(start).getTime()
   const b = parseDate(end).getTime()
   return Math.round((b - a) / 86400000) + 1
+}
+
+/**
+ * Kirim notifikasi keputusan cuti ke user pemohon (ticket #71). Fire-and-forget
+ * DAN DI LUAR transaksi approval: kegagalan push tidak pernah menggagalkan
+ * persetujuan/penolakan. Bahasa Indonesia, TANPA nominal gaji/slip (negative
+ * AC). Payload membawa `requestId` + `decision` untuk deep-link.
+ */
+function notifyLeaveDecision(
+  request: typeof leaveRequests.$inferSelect,
+  employeeId: string,
+  decision: 'approved' | 'rejected',
+): void {
+  try {
+    const { db } = getDb()
+    const requestingUser = db.select().from(users).where(eq(users.employee_id, employeeId)).get()
+    if (!requestingUser) return
+
+    const days = daysBetween(request.tanggal_mulai, request.tanggal_selesai)
+    const tanggal = request.tanggal_mulai
+    const title = decision === 'approved' ? 'Cuti disetujui' : 'Cuti ditolak'
+    const body =
+      decision === 'approved'
+        ? `Pengajuan cuti ${days} hari mulai ${tanggal} telah disetujui.`
+        : `Pengajuan cuti ${days} hari mulai ${tanggal} ditolak.`
+
+    void sendNotification(
+      requestingUser.id,
+      'leave_decided',
+      { title, body },
+      { kind: 'leave', requestId: request.id, decision },
+    )
+  } catch (err) {
+    console.error('[push] notifikasi keputusan cuti gagal:', err)
+  }
 }
 
 export interface LeaveRequestRow {
@@ -294,6 +330,8 @@ export default async function leaveRequestsRoutes(app: FastifyInstance): Promise
       return changed
     })
 
+    notifyLeaveDecision(updated, row.employee.id, 'approved')
+
     return { request: serialize({ request: updated, employee_name: row.employee.nama_lengkap, leave_type_name: type?.nama_jenis_cuti ?? '' }) }
   })
 
@@ -355,6 +393,8 @@ export default async function leaveRequestsRoutes(app: FastifyInstance): Promise
 
       return changed
     })
+
+    notifyLeaveDecision(updated, row.employee.id, 'rejected')
 
     return { request: serialize({ request: updated, employee_name: row.employee.nama_lengkap, leave_type_name: type?.nama_jenis_cuti ?? '' }) }
   })

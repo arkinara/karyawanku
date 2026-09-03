@@ -4,6 +4,7 @@ import { getDb } from './db/index.js'
 import { runYearlyResetIfNeeded } from './lib/leave-reset.js'
 import { getSelfieRetentionDays, purgeSelfiesOlderThan } from './lib/selfie-storage.js'
 import { purgeExpired as purgeIdempotencyExpired } from './lib/attendance-idem.js'
+import { startShiftReminderScheduler, stopShiftReminderScheduler } from './lib/shift-reminder-scheduler.js'
 import { start } from './app.js'
 
 const SELFIE_PURGE_INTERVAL_MS = 24 * 60 * 60 * 1000
@@ -64,11 +65,17 @@ export async function boot(port?: number): Promise<void> {
 
   await start(port)
   scheduleSelfiePurge()
+  // Ticket #71 — cron pengingat shift (tick tiap menit) + retry push.
+  startShiftReminderScheduler()
 }
 
 const entry = process.argv[1]
 const isEntry = entry?.endsWith('index.ts') || entry?.endsWith('dist/index.js')
 if (isEntry) {
+  process.on('SIGINT', () => {
+    stopShiftReminderScheduler()
+    process.exit(0)
+  })
   boot().catch((err) => {
     console.error('[karyawanku] gagal memulai server:', err)
     process.exit(1)
