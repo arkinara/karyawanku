@@ -2,10 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:karyawanku_mobile/core/api/api_client.dart';
 import 'package:karyawanku_mobile/core/auth/secure_session_store.dart';
+import 'package:karyawanku_mobile/core/location/location_service.dart';
+import 'package:karyawanku_mobile/data/models.dart';
 import 'package:karyawanku_mobile/features/absensi/absensi_screen.dart';
+import 'package:karyawanku_mobile/features/absensi/geofence_provider.dart';
 
 import 'helpers.dart';
 
@@ -43,13 +48,80 @@ Map<String, dynamic> aggregateJson() => {
   'total_overtime_minutes': 180,
 };
 
-Widget screen(SecureSessionStore store, ApiClient client) {
+Widget screen(
+  SecureSessionStore store,
+  ApiClient client, {
+  GeofenceState? geofence,
+}) {
   return testScope(
     store,
     client,
-    extra: [signedInEmployeeOverride],
+    extra: [
+      signedInEmployeeOverride,
+      geofenceOverride(geofence ?? const GeofenceState()),
+    ],
     child: const MaterialApp(home: AbsensiScreen()),
   );
+}
+
+/// A geofence notifier whose state the test can flip after pump — lets the
+/// widget test exercise the one-shot notice snackbars.
+class _LiveGeofence extends GeofenceNotifier {
+  _LiveGeofence(this.initial);
+
+  GeofenceState initial;
+
+  @override
+  GeofenceState build() => initial;
+
+  Future<void> setNotice(GeofenceNotice notice) async {
+    initial = initial.copyWith(notice: notice);
+    state = initial;
+  }
+
+  @override
+  Future<void> ensurePermission() async {}
+
+  @override
+  Future<void> refresh() async {}
+
+  @override
+  GeofenceStatus evaluate({
+    required Position user,
+    required Geofence geofence,
+  }) =>
+      GeofenceStatus.inside;
+
+  @override
+  void clearNotice() {}
+}
+
+/// A geofence notifier that records chip taps (ensurePermission + refresh).
+class _RecordingGeofence extends GeofenceNotifier {
+  _RecordingGeofence(this.initial);
+
+  final GeofenceState initial;
+  int ensureCalls = 0;
+  int refreshCalls = 0;
+
+  @override
+  GeofenceState build() => initial;
+
+  @override
+  Future<void> ensurePermission() async => ensureCalls++;
+
+  @override
+  Future<void> refresh() async => refreshCalls++;
+
+  @override
+  GeofenceStatus evaluate({
+    required Position user,
+    required Geofence geofence,
+  }) =>
+      GeofenceStatus.inside;
+
+  @override
+  void clearNotice() {}
 }
 
 /// The Absensi screen is a tall ListView; the timeline sits below the clock
@@ -225,5 +297,161 @@ void main() {
     // Shown twice: as chips in the clock card and as timeline notes.
     expect(find.text('Telat 15 mnt'), findsWidgets);
     expect(find.text('Lembur 1j 30m'), findsWidgets);
+  });
+
+  group('geofence chip', () {
+    ApiClient todayClient() => buildTestClient(store, (o) async {
+      if (o.path == '/attendance/today') {
+        return jsonResponse(todayJson());
+      }
+      return jsonResponse(aggregateJson());
+    });
+
+    testWidgets('inside: green chip with distance', (tester) async {
+      tallViewport(tester);
+      await tester.pumpWidget(
+        screen(store, todayClient(), geofence: sampleGeofenceInside(distance: 0)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Di dalam area · 0m'), findsOneWidget);
+      expect(find.byIcon(LucideIcons.mapPinCheck), findsOneWidget);
+    });
+
+    testWidgets('outside: red chip with distance', (tester) async {
+      tallViewport(tester);
+      await tester.pumpWidget(
+        screen(store, todayClient(), geofence: sampleGeofenceOutside(distance: 25)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Di luar area · 25m'), findsOneWidget);
+      expect(find.byIcon(LucideIcons.mapPinOff), findsOneWidget);
+    });
+
+    testWidgets('unknown: grey chip, honest "do not know"', (tester) async {
+      tallViewport(tester);
+      await tester.pumpWidget(
+        screen(store, todayClient(), geofence: sampleGeofenceUnknown()),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Lokasi tidak tersedia'), findsOneWidget);
+      expect(find.byIcon(LucideIcons.mapPinX), findsOneWidget);
+    });
+
+    testWidgets('low accuracy: amber chip with the accuracy', (tester) async {
+      tallViewport(tester);
+      await tester.pumpWidget(
+        screen(store, todayClient(), geofence: sampleGeofenceLowAccuracy()),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Akurasi rendah · 65m'), findsOneWidget);
+      expect(find.byIcon(LucideIcons.mapPinMinus), findsOneWidget);
+    });
+
+    testWidgets('acquiring: spinner instead of a stale verdict', (tester) async {
+      tallViewport(tester);
+      await tester.pumpWidget(
+        screen(store, todayClient(), geofence: sampleGeofenceAcquiring()),
+      );
+      // Attendance loads on a post-frame callback; pump past the skeleton
+      // without pumpAndSettle (the chip spinner animates forever).
+      for (
+        var i = 0;
+        i < 20 && tester.any(find.text('Mencari lokasi…')) == false;
+        i++
+      ) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+
+      expect(find.text('Mencari lokasi…'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      // The clock-in button stays enabled while the fix is slow.
+      final button = tester.widget<FilledButton>(find.byType(FilledButton));
+      expect(button.onPressed, isNotNull);
+    });
+
+    testWidgets('tapping the chip re-runs ensurePermission + refresh', (
+      tester,
+    ) async {
+      tallViewport(tester);
+      final geofence = _RecordingGeofence(const GeofenceState());
+      await tester.pumpWidget(
+        testScope(
+          store,
+          todayClient(),
+          extra: [
+            signedInEmployeeOverride,
+            geofenceProvider.overrideWith(() => geofence),
+          ],
+          child: const MaterialApp(home: AbsensiScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Geofence'));
+      await tester.pumpAndSettle();
+
+      expect(geofence.ensureCalls, 1);
+      expect(geofence.refreshCalls, 1);
+    });
+
+    testWidgets('disabled service surfaces the settings snackbar', (
+      tester,
+    ) async {
+      tallViewport(tester);
+      final geofence = _LiveGeofence(const GeofenceState());
+      await tester.pumpWidget(
+        testScope(
+          store,
+          todayClient(),
+          extra: [
+            signedInEmployeeOverride,
+            geofenceProvider.overrideWith(() => geofence),
+          ],
+          child: const MaterialApp(home: AbsensiScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await geofence.setNotice(GeofenceNotice.serviceDisabled);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Aktifkan layanan lokasi di pengaturan perangkat'),
+        findsOneWidget,
+      );
+      expect(find.text('Buka'), findsOneWidget);
+    });
+
+    testWidgets('permanently denied surfaces the app-settings snackbar', (
+      tester,
+    ) async {
+      tallViewport(tester);
+      final geofence = _LiveGeofence(const GeofenceState());
+      await tester.pumpWidget(
+        testScope(
+          store,
+          todayClient(),
+          extra: [
+            signedInEmployeeOverride,
+            geofenceProvider.overrideWith(() => geofence),
+          ],
+          child: const MaterialApp(home: AbsensiScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await geofence.setNotice(GeofenceNotice.permanentlyDenied);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Lokasi tidak diizinkan. Aktifkan di Pengaturan.'),
+        findsOneWidget,
+      );
+      expect(find.text('Pengaturan'), findsOneWidget);
+    });
   });
 }

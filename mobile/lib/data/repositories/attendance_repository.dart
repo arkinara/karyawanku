@@ -22,30 +22,47 @@ class AttendanceRepository {
 
   /// `POST /attendance/clock-in`. The server stamps `clock_in` with its own
   /// clock; [clientTimestamp] is only the drift-review claim.
+  ///
+  /// Coordinates are attached when the device has a fix; null means "no
+  /// coordinates available" (permission denied / service off / no GPS) and the
+  /// BE accepts null per the #59 contract.
   Future<void> clockIn({
     required DateTime clientTimestamp,
     String submissionMethod = 'live',
+    double? lat,
+    double? lng,
+    double? accuracyM,
   }) async {
     await _api.post<Map<String, dynamic>>(
       '/attendance/clock-in',
       body: {
         'client_timestamp': clientTimestamp.toUtc().toIso8601String(),
         'submission_method': submissionMethod,
+        'lat': lat,
+        'lng': lng,
+        'accuracy_m': accuracyM,
       },
     );
   }
 
   /// `POST /attendance/clock-out`. Closes today's record; the server computes
-  /// `overtime_minutes` from the shift schedule.
+  /// `overtime_minutes` from the shift schedule. Coordinates attach exactly as
+  /// in [clockIn].
   Future<void> clockOut({
     required DateTime clientTimestamp,
     String submissionMethod = 'live',
+    double? lat,
+    double? lng,
+    double? accuracyM,
   }) async {
     await _api.post<Map<String, dynamic>>(
       '/attendance/clock-out',
       body: {
         'client_timestamp': clientTimestamp.toUtc().toIso8601String(),
         'submission_method': submissionMethod,
+        'lat': lat,
+        'lng': lng,
+        'accuracy_m': accuracyM,
       },
     );
   }

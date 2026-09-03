@@ -126,6 +126,63 @@ void main() {
       expect(body!['submission_method'], 'live');
     });
 
+    test('clockIn attaches coordinates when the device has a fix', () async {
+      Map<String, dynamic>? body;
+      final repo = repoFor((o) async {
+        body = (o.data as Map).cast<String, dynamic>();
+        return jsonResponse({'record': recordJson()});
+      });
+
+      await repo.clockIn(
+        clientTimestamp: DateTime.utc(2026, 9, 3, 0, 58),
+        lat: -6.2088,
+        lng: 106.8456,
+        accuracyM: 5.0,
+      );
+
+      expect(body!['lat'], -6.2088);
+      expect(body!['lng'], 106.8456);
+      expect(body!['accuracy_m'], 5.0);
+    });
+
+    test('clockIn sends null coordinates when there is no fix', () async {
+      Map<String, dynamic>? body;
+      final repo = repoFor((o) async {
+        body = (o.data as Map).cast<String, dynamic>();
+        return jsonResponse({'record': recordJson()});
+      });
+
+      await repo.clockIn(clientTimestamp: DateTime.utc(2026, 9, 3, 0, 58));
+
+      // The keys must be present (the BE accepts null per the #59 contract),
+      // so a basement clock-in is distinguishable from a client omission.
+      expect(body!.containsKey('lat'), isTrue);
+      expect(body!['lat'], isNull);
+      expect(body!.containsKey('lng'), isTrue);
+      expect(body!['lng'], isNull);
+      expect(body!.containsKey('accuracy_m'), isTrue);
+      expect(body!['accuracy_m'], isNull);
+    });
+
+    test('clockOut attaches coordinates when the device has a fix', () async {
+      Map<String, dynamic>? body;
+      final repo = repoFor((o) async {
+        body = (o.data as Map).cast<String, dynamic>();
+        return jsonResponse({'record': recordJson()});
+      });
+
+      await repo.clockOut(
+        clientTimestamp: DateTime.utc(2026, 9, 3, 7, 0),
+        lat: -6.2088,
+        lng: 106.8456,
+        accuracyM: 8.0,
+      );
+
+      expect(body!['lat'], -6.2088);
+      expect(body!['lng'], 106.8456);
+      expect(body!['accuracy_m'], 8.0);
+    });
+
     test('honors a non-live submission method (offline flush)', () async {
       Map<String, dynamic>? body;
       final repo = repoFor((o) async {

@@ -5,10 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/format.dart';
+import '../../core/location/location_service.dart';
 import '../../data/models.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/common.dart';
 import 'attendance_provider.dart';
+import 'geofence_provider.dart';
 
 /// Attendance — clock-in direction A ("geofence card") from the design doc:
 /// wall clock, status, elapsed hero, one primary pill button, today's
@@ -78,6 +80,20 @@ class _AbsensiScreenState extends ConsumerState<AbsensiScreen>
       }
     });
 
+    // Geofence failure modes need a settings detour, not a fruitless re-prompt:
+    // a permanently denied permission opens app settings, a disabled location
+    // service opens the device's location settings. One-shot per [GeofenceNotice].
+    ref.listen(geofenceProvider, (previous, next) {
+      final notice = next.notice;
+      if (notice != null && previous?.notice != notice) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _showGeofenceSnackbar(notice);
+          ref.read(geofenceProvider.notifier).clearNotice();
+        });
+      }
+    });
+
     final loading = attendance.today == null && attendance.loading;
     final failed =
         attendance.today == null && attendance.error != null && !loading;
@@ -120,6 +136,36 @@ class _AbsensiScreenState extends ConsumerState<AbsensiScreen>
         ],
       ),
     );
+  }
+
+  /// Failure modes need a way out, not a dead end:
+  /// permanently-denied → app settings; disabled service → location settings.
+  void _showGeofenceSnackbar(GeofenceNotice notice) {
+    final messenger = ScaffoldMessenger.of(context);
+    switch (notice) {
+      case GeofenceNotice.permanentlyDenied:
+        messenger.showSnackBar(
+          SnackBar(
+            content: const Text('Lokasi tidak diizinkan. Aktifkan di Pengaturan.'),
+            action: SnackBarAction(
+              label: 'Pengaturan',
+              onPressed: () =>
+                  ref.read(locationServiceProvider).openAppSettings(),
+            ),
+          ),
+        );
+      case GeofenceNotice.serviceDisabled:
+        messenger.showSnackBar(
+          SnackBar(
+            content: const Text('Aktifkan layanan lokasi di pengaturan perangkat'),
+            action: SnackBarAction(
+              label: 'Buka',
+              onPressed: () =>
+                  ref.read(locationServiceProvider).openLocationSettings(),
+            ),
+          ),
+        );
+    }
   }
 }
 
@@ -317,55 +363,116 @@ class _ClockCard extends StatelessWidget {
   }
 }
 
-/// Static geofence chip. Real geofence verification is a separate ticket, so
-/// this is the designed slot without fabricated distance data.
-class _GeofenceChip extends StatelessWidget {
+/// Geofence chip driven by [geofenceProvider]. Four distinct states, each with
+/// icon + label + colour (never colour alone): inside (green), outside (red),
+/// unknown (grey, honest "we do not know") and low-accuracy (amber). While a
+/// fix is being acquired it shows a progress spinner instead of a stale
+/// verdict. Tapping re-runs `ensurePermission` + `refresh` — the point-of-use
+/// permission request.
+class _GeofenceChip extends ConsumerWidget {
+  const _GeofenceChip();
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(geofenceProvider);
+    final colors = context.colors;
     final status = context.status;
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: status.successContainer,
-        borderRadius: Shape.rMd,
+    final (icon, foreground, background) = switch (state.status) {
+      GeofenceStatus.inside => (
+        LucideIcons.mapPinCheck,
+        status.onSuccessContainer,
+        status.successContainer,
       ),
-      child: Row(
-        children: [
-          Icon(
-            LucideIcons.mapPin,
-            size: 20,
-            color: status.onSuccessContainer,
+      GeofenceStatus.outside => (
+        LucideIcons.mapPinOff,
+        status.onDangerContainer,
+        status.dangerContainer,
+      ),
+      GeofenceStatus.lowAccuracy => (
+        LucideIcons.mapPinMinus,
+        status.onWarningContainer,
+        status.warningContainer,
+      ),
+      GeofenceStatus.unknown => (
+        LucideIcons.mapPinX,
+        colors.onSurfaceVariant,
+        colors.surfaceContainerHigh,
+      ),
+    };
+
+    final label = state.acquiring
+        ? 'Mencari lokasi…'
+        : switch (state.status) {
+            GeofenceStatus.inside =>
+              'Di dalam area · ${state.distanceMeters ?? 0}m',
+            GeofenceStatus.outside =>
+              'Di luar area · ${state.distanceMeters ?? 0}m',
+            GeofenceStatus.lowAccuracy =>
+              'Akurasi rendah · ${state.distanceMeters ?? 0}m',
+            GeofenceStatus.unknown => 'Lokasi tidak tersedia',
+          };
+
+    return Semantics(
+      button: true,
+      label: state.acquiring ? 'Mencari lokasi' : 'Geofence · $label',
+      child: InkWell(
+        onTap: () {
+          // Permission is requested here, at the point of use — never on app
+          // launch. A permanently denied state routes to settings via the
+          // snackbar instead of re-prompting fruitlessly.
+          ref.read(geofenceProvider.notifier).ensurePermission();
+          ref.read(geofenceProvider.notifier).refresh();
+        },
+        borderRadius: Shape.rMd,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: Shape.rMd,
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'Geofence',
-                  style: context.texts.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w500,
-                    color: status.onSuccessContainer,
-                  ),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: state.acquiring
+                    ? Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: foreground,
+                        ),
+                      )
+                    : Icon(icon, size: 20, color: foreground),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Geofence',
+                      style: context.texts.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w500,
+                        color: foreground,
+                      ),
+                    ),
+                    Text(
+                      label,
+                      style: context.texts.labelMedium?.copyWith(
+                        color: foreground,
+                      ),
+                    ),
+                  ],
                 ),
-                Text(
-                  'Verifikasi lokasi aktif',
-                  style: context.texts.labelMedium?.copyWith(
-                    color: status.onSuccessContainer,
-                  ),
-                ),
-              ],
-            ),
+              ),
+              Icon(LucideIcons.refreshCcw, size: 16, color: foreground),
+            ],
           ),
-          Icon(
-            LucideIcons.badgeCheck,
-            size: 20,
-            color: status.onSuccessContainer,
-          ),
-        ],
+        ),
       ),
     );
   }

@@ -5,6 +5,7 @@ import '../../core/api/api_exception.dart';
 import '../../core/auth/auth_provider.dart';
 import '../../data/models.dart';
 import '../../data/repositories/attendance_repository.dart';
+import 'geofence_provider.dart';
 
 /// Single [AttendanceRepository] shared by the notifier and by tests.
 final attendanceRepositoryProvider = Provider<AttendanceRepository>(
@@ -129,14 +130,34 @@ class AttendanceNotifier extends Notifier<AttendanceState> {
   /// hero reconcile with the server's authoritative stamp. Server rejections
   /// (409 already clocked in, 422 no shift, 403 no linked employee) surface
   /// their Bahasa message verbatim in [AttendanceState.actionError].
-  Future<void> clockIn() => _submit(
-    (clientTimestamp) => _repo.clockIn(clientTimestamp: clientTimestamp),
-  );
+  ///
+  /// The device's latest fix (from the geofence chip) is attached to the
+  /// payload; null when there is no fix — the BE accepts null, so a basement
+  /// or a denied permission never blocks the clock-in.
+  Future<void> clockIn() {
+    final location = ref.read(geofenceProvider).userLocation;
+    return _submit(
+      (clientTimestamp) => _repo.clockIn(
+        clientTimestamp: clientTimestamp,
+        lat: location?.latitude,
+        lng: location?.longitude,
+        accuracyM: location?.accuracy,
+      ),
+    );
+  }
 
   /// Clock out — same contract as [clockIn].
-  Future<void> clockOut() => _submit(
-    (clientTimestamp) => _repo.clockOut(clientTimestamp: clientTimestamp),
-  );
+  Future<void> clockOut() {
+    final location = ref.read(geofenceProvider).userLocation;
+    return _submit(
+      (clientTimestamp) => _repo.clockOut(
+        clientTimestamp: clientTimestamp,
+        lat: location?.latitude,
+        lng: location?.longitude,
+        accuracyM: location?.accuracy,
+      ),
+    );
+  }
 
   Future<void> _submit(
     Future<void> Function(DateTime clientTimestamp) action,

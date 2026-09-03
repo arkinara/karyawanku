@@ -2,10 +2,13 @@
 
 Phase 2 native mobile app — employee self-service. Sign-in, session restore and
 sign-out talk to the Fastify BE in `backend/`; attendance (ticket #63), the
-shift schedule (ticket #64), the leave screens (ticket #65) and payslips
-(ticket #66) are wired to the real endpoints. No screen still runs off
+shift schedule (ticket #64), the leave screens (ticket #65), payslips
+(ticket #66) and the geofence clock-in location flow (ticket #68) are wired to
+the real endpoints. No screen still runs off
 `lib/data/mock_data.dart` fixtures for its data — the only remaining `Mock`
-uses are brand-level placeholders (greeting, notification count).
+uses are brand-level placeholders (greeting, notification count) and the dev
+geofence point (see below; the real `GET /businesses/:id/geofence` from #67 is
+used as soon as the BE lands it).
 
 Built from the Claude Design doc `KaryawanKu Mobile.dc.html`, option **1b
 (Android / Material 3)** — M3 top app bars, tonal containers, pill buttons, an
@@ -120,6 +123,46 @@ Behaviour contract:
 - **Geofence and selfie** remain static placeholders; the offline queue
   (`submission_method: 'offline_queue'`) is a separate ticket — live
   submissions only.
+
+## Geofence & device location (ticket #68)
+
+The Absensi geofence chip is honest: it shows the real relationship to the
+business's work point and attaches coordinates to clock-in/out.
+
+- **Location flow.** Foreground ("when in use") location only — never
+  background. Permission is requested **at the point of use**: tapping the
+  chip runs `ensurePermission()` + `refresh()`. Nothing prompts on app launch.
+  iOS `NSLocationWhenInUseUsageDescription` and the Android
+  `ACCESS_FINE_LOCATION` / `ACCESS_COARSE_LOCATION` permissions are declared
+  with Indonesian rationale.
+- **Four chip states**, each icon + label + colour (never colour alone):
+  *inside* (green, "Di dalam area · Nm"), *outside* (red, "Di luar area · Nm"),
+  *unknown* (grey, "Lokasi tidak tersedia") and *low-accuracy* (amber,
+  "Akurasi rendah · Nm"). While a fix is being acquired the chip shows a
+  progress spinner and **the clock-in button stays enabled**.
+- **Failure modes are the priority.** Permanently denied permission routes to
+  system settings ("Lokasi tidak diizinkan. Aktifkan di Pengaturan."); a
+  disabled location service routes to the device location settings
+  ("Aktifkan layanan lokasi di pengaturan perangkat"). A timed-out or
+  basement fix shows "Lokasi tidak tersedia" and **clock-in still works**,
+  sending `lat` / `lng` / `accuracy_m` as `null` (the BE accepts null per the
+  #59 contract). Denial is never presented as "outside the area".
+- **Coordinates travel with the request.** `POST /attendance/clock-in` and
+  `POST /attendance/clock-out` include `lat`, `lng`, `accuracy_m` from the
+  latest fix (null when there is none). A low-accuracy fix (> 50 m) is sent,
+  but the chip does not present it as confidently on-site.
+- **Geofence config.** `lib/data/repositories/geofence_repository.dart` reads
+  `GET /businesses/:id/geofence` (ticket #67 contract `{ workLat, workLng,
+  radiusMeters }`). **#67 has not landed on the BE yet**, so a 404 or any
+  failure falls back to a fixed dev mock point (Jakarta `-6.2088, 106.8456`,
+  100 m radius, flagged `isMock: true`) — the chip stays honest in dev without
+  fabricated per-user distance. When #67 returns a definitive "no work
+  location configured", the repository should return `null` and the screen
+  hides the chip.
+- **Distance is computed client-side with `Geolocator.distanceBetween`** until
+  #67 also returns the server's evaluation (`inside_geofence`, `distance_m`)
+  on the today record; the chip is then switched to the server figure to keep
+  the AC "distance never disagrees with the server".
 
 ## Shifts (ticket #64)
 
@@ -332,10 +375,11 @@ flutter test test/stress_test.dart       # text scale x width x theme matrix
 
 ## Not yet wired
 
-Real geolocation, camera capture, push notifications, the offline queue, and
-the home-screen widget. The four remaining mobile-only capabilities appear as
-UI states only. Sign-in/sign-out, attendance (today + clock in/out + monthly
-aggregate), the shift schedule (roster by range + upcoming + leave-blocked
+Camera capture (the selfie slot), push notifications, the offline queue, and
+the home-screen widget. The remaining mobile-only capabilities appear as UI
+states only. Sign-in/sign-out, attendance (today + clock in/out + monthly
+aggregate), the geofence clock-in location flow (permission + fix + chip +
+coordinates), the shift schedule (roster by range + upcoming + leave-blocked
 days), leave (balances + history + submit + types) and payslips (list +
 detail + PDF download/share) are all wired to the BE; the remaining screen-by-
 screen data wiring is covered by the per-domain MOB tickets.

@@ -5,14 +5,17 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 
 import 'package:karyawanku_mobile/core/api/api_client.dart';
 import 'package:karyawanku_mobile/core/api/models.dart';
 import 'package:karyawanku_mobile/core/auth/auth_provider.dart';
 import 'package:karyawanku_mobile/core/auth/secure_session_store.dart';
+import 'package:karyawanku_mobile/core/location/location_service.dart';
 import 'package:karyawanku_mobile/data/models.dart';
 import 'package:karyawanku_mobile/data/repositories/payslip_file_store.dart';
 import 'package:karyawanku_mobile/features/absensi/attendance_provider.dart';
+import 'package:karyawanku_mobile/features/absensi/geofence_provider.dart';
 import 'package:karyawanku_mobile/features/cuti/leave_provider.dart';
 import 'package:karyawanku_mobile/features/jadwal/shift_provider.dart';
 import 'package:karyawanku_mobile/features/slip/payslip_provider.dart';
@@ -529,3 +532,99 @@ class FakePayslipFileStore implements PayslipFileStore {
     return path;
   }
 }
+
+/// A work-area point fixture mirroring the #67 geofence contract.
+Geofence testGeofence({
+  double workLat = -6.2088,
+  double workLng = 106.8456,
+  double radiusMeters = 100,
+}) {
+  return Geofence(workLat: workLat, workLng: workLng, radiusMeters: radiusMeters);
+}
+
+/// A device fix fixture (geolocator `Position`). [accuracy] drives the
+/// low-accuracy verdict; pass 65 to stand in for a coarse fix.
+Position testPosition({
+  double latitude = -6.2088,
+  double longitude = 106.8456,
+  double accuracy = 5,
+}) {
+  return Position(
+    latitude: latitude,
+    longitude: longitude,
+    timestamp: DateTime.utc(2026, 9, 3),
+    accuracy: accuracy,
+    altitude: 0,
+    altitudeAccuracy: 0,
+    heading: 0,
+    headingAccuracy: 0,
+    speed: 0,
+    speedAccuracy: 0,
+  );
+}
+
+/// Pin [geofenceProvider] to a fixed state with no platform work — shared
+/// widget tests get a deterministic chip instead of a live LocationService
+/// reaching for a missing platform channel.
+Override geofenceOverride(GeofenceState state) =>
+    geofenceProvider.overrideWith(() => _ReadyGeofence(state));
+
+class _ReadyGeofence extends GeofenceNotifier {
+  _ReadyGeofence(this.initial);
+  final GeofenceState initial;
+
+  @override
+  GeofenceState build() => initial;
+
+  @override
+  Future<void> ensurePermission() async {}
+
+  @override
+  Future<void> refresh() async {}
+
+  @override
+  GeofenceStatus evaluate({
+    required Position user,
+    required Geofence geofence,
+  }) =>
+      GeofenceStatus.inside;
+
+  @override
+  void clearNotice() {}
+}
+
+/// The four chip states, as the provider would produce them.
+GeofenceState sampleGeofenceInside({int distance = 0}) => GeofenceState(
+  permission: LocationPermissionStatus.granted,
+  service: LocationServiceStatus.enabled,
+  userLocation: testPosition(),
+  geofence: testGeofence(),
+  status: GeofenceStatus.inside,
+  distanceMeters: distance,
+);
+
+GeofenceState sampleGeofenceOutside({int distance = 25}) => GeofenceState(
+  permission: LocationPermissionStatus.granted,
+  service: LocationServiceStatus.enabled,
+  userLocation: testPosition(
+    latitude: -6.2,
+    longitude: 106.86,
+  ),
+  geofence: testGeofence(),
+  status: GeofenceStatus.outside,
+  distanceMeters: distance,
+);
+
+GeofenceState sampleGeofenceLowAccuracy({int accuracy = 65}) => GeofenceState(
+  permission: LocationPermissionStatus.granted,
+  service: LocationServiceStatus.enabled,
+  userLocation: testPosition(accuracy: accuracy.toDouble()),
+  geofence: testGeofence(),
+  status: GeofenceStatus.lowAccuracy,
+  distanceMeters: accuracy,
+);
+
+GeofenceState sampleGeofenceUnknown() => const GeofenceState();
+
+GeofenceState sampleGeofenceAcquiring() =>
+    const GeofenceState(acquiring: true);

@@ -1,4 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Ticket #68 — foreground location for geofence clock-in verification.
+         Only ACCESS_FINE/COARSE_LOCATION (when-in-use); background location is
+         never requested. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <application
         android:label="karyawanku_mobile"
         android:name="${applicationName}"

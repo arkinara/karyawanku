@@ -597,6 +597,43 @@ class TodayAttendance {
   bool get isOnShift => hasClockIn && !hasClockOut;
 }
 
+/// The business's work-area point, from `GET /businesses/:id/geofence`
+/// (ticket #67 contract: `{ workLat, workLng, radiusMeters }`). The mobile
+/// computes distance with `Geolocator.distanceBetween` against this point and
+/// evaluates on-site/off-site client-side until #67 also returns the server's
+/// evaluation on the today record.
+class Geofence {
+  const Geofence({
+    required this.workLat,
+    required this.workLng,
+    required this.radiusMeters,
+    this.isMock = false,
+  });
+
+  final double workLat;
+  final double workLng;
+  final double radiusMeters;
+
+  /// True when the repository fell back to the dev mock point because the
+  /// geofence endpoint (or the configured work location) does not exist yet.
+  /// The chip renders identically — this only distinguishes dev data.
+  final bool isMock;
+
+  bool get isConfigured => radiusMeters > 0;
+
+  factory Geofence.fromJson(Map<String, dynamic> json) {
+    double coord(String camel, String snake) =>
+        (json[camel] as num?)?.toDouble() ??
+        (json[snake] as num?)?.toDouble() ??
+        0;
+    return Geofence(
+      workLat: coord('workLat', 'work_lat'),
+      workLng: coord('workLng', 'work_lng'),
+      radiusMeters: coord('radiusMeters', 'radius_meters'),
+    );
+  }
+}
+
 /// Monthly summary from `GET /attendance/aggregate/:employeeId`.
 class AttendanceAggregate {
   const AttendanceAggregate({
