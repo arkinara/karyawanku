@@ -31,9 +31,15 @@ class AttendanceRepository {
   /// Coordinates are attached when the device has a fix; null means "no
   /// coordinates available" (permission denied / service off / no GPS) and the
   /// BE accepts null per the #59 contract.
+  ///
+  /// [idempotencyKey] (ticket #70): a client-generated UUID v4 / hex key sent
+  /// as the `Idempotency-Key` header. The BE returns the original record on a
+  /// replay instead of writing again — a retried offline flush can never
+  /// double-write attendance. `null` keeps the legacy no-key path.
   Future<void> clockIn({
     required DateTime clientTimestamp,
     String submissionMethod = 'live',
+    String? idempotencyKey,
     double? lat,
     double? lng,
     double? accuracyM,
@@ -47,15 +53,19 @@ class AttendanceRepository {
         'lng': lng,
         'accuracy_m': accuracyM,
       },
+      headers: idempotencyKey == null
+          ? null
+          : {'Idempotency-Key': idempotencyKey},
     );
   }
 
   /// `POST /attendance/clock-out`. Closes today's record; the server computes
   /// `overtime_minutes` from the shift schedule. Coordinates attach exactly as
-  /// in [clockIn].
+  /// in [clockIn]; [idempotencyKey] behaves as in [clockIn].
   Future<void> clockOut({
     required DateTime clientTimestamp,
     String submissionMethod = 'live',
+    String? idempotencyKey,
     double? lat,
     double? lng,
     double? accuracyM,
@@ -69,6 +79,9 @@ class AttendanceRepository {
         'lng': lng,
         'accuracy_m': accuracyM,
       },
+      headers: idempotencyKey == null
+          ? null
+          : {'Idempotency-Key': idempotencyKey},
     );
   }
 

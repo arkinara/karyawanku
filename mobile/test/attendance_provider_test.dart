@@ -16,6 +16,7 @@ ProviderContainer makeContainer(SecureSessionStore store, ApiClient client) {
       secureSessionStoreProvider.overrideWithValue(store),
       apiClientProvider.overrideWithValue(client),
       signedInEmployeeOverride,
+      onlineOverride(true),
     ],
   );
   addTearDown(container.dispose);

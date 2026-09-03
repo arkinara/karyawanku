@@ -120,6 +120,13 @@
       "when": 1789002000000,
       "tag": "0016_selfie-meta",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1789003000000,
+      "tag": "0017_attendance-idem",
+      "breakpoints": true
     }
   ]
 }

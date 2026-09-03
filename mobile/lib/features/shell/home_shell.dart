@@ -7,6 +7,7 @@ import '../../data/mock_data.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/common.dart';
 import '../absensi/absensi_screen.dart';
+import '../absensi/offline_queue_manager.dart';
 import '../beranda/beranda_screen.dart';
 import '../cuti/cuti_screen.dart';
 import '../cuti/leave_provider.dart';
@@ -26,6 +27,16 @@ class HomeShell extends ConsumerStatefulWidget {
 
 class _HomeShellState extends ConsumerState<HomeShell> {
   late int _index = widget.initialIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    // App mount / signed-in shell: kick the offline queue flush so anything
+    // queued while the device was away is sent (#70).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(offlineQueueManagerProvider.notifier).flush();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyRequest } from 'fastify'
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { and, count, desc, eq, gte, lte, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDb } from '../db/index.js'
@@ -15,6 +15,7 @@ import { hasCapability } from '../lib/capabilities.js'
 import { recordAudit } from '../lib/audit.js'
 import { ApiError, ConflictError, ForbiddenError } from '../lib/errors.js'
 import { computeAttendanceStatus, DEFAULT_SCHEDULE_START } from '../lib/attendance-status.js'
+import { findIdempotentResult, recordIdempotency } from '../lib/attendance-idem.js'
 import { offsetOf, paginateResult, parsePagination } from '../lib/pagination.js'
 import {
   computeOvertimeMinutes,
@@ -267,8 +268,49 @@ function assertOvertimeAllowedForStatus(status: string, overtimeMinutes: number)
   }
 }
 
+/**
+ * Parse header `Idempotency-Key` (ticket #70). Nilai sah: UUID v4 atau hex
+ * 256-bit (64 karakter). Header tidak ada → `null` (jalur lama tanpa
+ * idempotensi, tetap didukung). Header ada tapi tidak sah → 422.
+ */
+function parseIdempotencyKey(raw: unknown): string | null {
+  if (raw === undefined || raw === null) return null
+  const key = String(raw)
+  const uuidV4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+  const hex256 = /^[0-9a-f]{64}$/i
+  if (!uuidV4.test(key) && !hex256.test(key)) {
+    throw new ApiError(422, 'Idempotency-Key tidak valid')
+  }
+  return key
+}
+
+/**
+ * Jalur replay idempoten (ticket #70): key sudah pernah sukses untuk karyawan
+ * ini → kembalikan record asli (X-Idempotent-Replay: true) tanpa menulis ulang.
+ * Menang saat request diulang karena respons hilang di tengah jalan / retry
+ * antrian offline. Key kedaluwarsa dianggap tidak ada (findIdempotentResult
+ * memfilter expires_at), jadi tidak pernah menahan double-write.
+ */
+function replayIfIdempotent(
+  reply: FastifyReply,
+  key: string | null,
+  employeeId: string,
+  endpoint: 'clock_in' | 'clock_out',
+): { record: typeof attendanceRecords.$inferSelect; scheduleStart: string } | null {
+  if (!key) return null
+  const { db } = getDb()
+  const idem = findIdempotentResult(key, employeeId, endpoint)
+  if (!idem) return null
+  const record = db.select().from(attendanceRecords).where(eq(attendanceRecords.id, idem.attendanceId)).get()
+  // Record asli pasti ada (FK cascade menghapus baris idempotensi bersamanya);
+  // defensif: bila tidak, perlakukan seperti key baru.
+  if (!record) return null
+  reply.header('X-Idempotent-Replay', 'true')
+  return { record, scheduleStart: getScheduleStart(record.employee_id, record.tanggal) ?? DEFAULT_SCHEDULE_START }
+}
+
 export default async function attendanceRoutes(app: FastifyInstance): Promise<void> {
-  app.post('/attendance/clock-in', { preHandler: requireAuth }, async (req) => {
+  app.post('/attendance/clock-in', { preHandler: requireAuth }, async (req, reply) => {
     const parsed = clockInSchema.safeParse(req.body)
     if (!parsed.success) {
       throw new ApiError(422, 'Data tidak valid', parsed.error.flatten())
@@ -277,7 +319,16 @@ export default async function attendanceRoutes(app: FastifyInstance): Promise<vo
     const user = currentUser(req)
     const { db } = getDb()
 
+    const idemKey = parseIdempotencyKey(req.headers['idempotency-key'])
     const employeeId = resolveTargetEmployee(req, body.employee_id)
+
+    // Idempotent replay (ticket #70): sebelum cek duplicate-day, karena record
+    // sudah ada untuk hari itu — replay harus mengembalikan record asli, bukan 409.
+    const replayed = replayIfIdempotent(reply, idemKey, employeeId, 'clock_in')
+    if (replayed) {
+      return { record: replayed.record, schedule_start: replayed.scheduleStart }
+    }
+
     const submissionMethod = body.submission_method ?? 'live'
     const clock = parseClientTimestamp(body.client_timestamp, submissionMethod)
     const tanggal = clock.tanggal
@@ -311,6 +362,22 @@ export default async function attendanceRoutes(app: FastifyInstance): Promise<vo
         .returning()
         .get()
 
+      // Idempotensi dicatat DI DALAM transaksi yang sama dengan write, sebelum
+      // respons dikirim. Bentrok (key sudah dipakai karyawan/endpoint lain) →
+      // transaksi batal + 422.
+      if (idemKey) {
+        try {
+          recordIdempotency(tx, {
+            key: idemKey,
+            employeeId,
+            attendanceId: inserted.id,
+            endpoint: 'clock_in',
+          })
+        } catch {
+          throw new ApiError(422, 'Idempotency-Key telah digunakan tindakan lain')
+        }
+      }
+
       if (clock.timeDriftDetected) {
         recordAudit({
           db: tx,
@@ -332,10 +399,14 @@ export default async function attendanceRoutes(app: FastifyInstance): Promise<vo
       return inserted
     })
 
+    // Write baru dengan key → 201 Created. Tanpa key tetap 200 (jalur lama,
+    // tanpa regresi). Replay memakai 200 + X-Idempotent-Replay (lihat di atas).
+    if (idemKey) reply.code(201)
+
     return { record, schedule_start: scheduleStart }
   })
 
-  app.post('/attendance/clock-out', { preHandler: requireAuth }, async (req) => {
+  app.post('/attendance/clock-out', { preHandler: requireAuth }, async (req, reply) => {
     const parsed = clockOutSchema.safeParse(req.body)
     if (!parsed.success) {
       throw new ApiError(422, 'Data tidak valid', parsed.error.flatten())
@@ -344,7 +415,16 @@ export default async function attendanceRoutes(app: FastifyInstance): Promise<vo
     const user = currentUser(req)
     const { db } = getDb()
 
+    const idemKey = parseIdempotencyKey(req.headers['idempotency-key'])
     const employeeId = resolveTargetEmployee(req, body.employee_id)
+
+    // Replay idempoten sebelum cek `existing.clock_out` — record sudah punya
+    // clock_out, replay harus mengembalikan record asli, bukan 409.
+    const replayed = replayIfIdempotent(reply, idemKey, employeeId, 'clock_out')
+    if (replayed) {
+      return { record: replayed.record }
+    }
+
     const submissionMethod = body.submission_method ?? 'live'
     const clock = parseClientTimestamp(body.client_timestamp, submissionMethod)
     const tanggal = clock.tanggal
@@ -386,6 +466,21 @@ export default async function attendanceRoutes(app: FastifyInstance): Promise<vo
         .where(eq(attendanceRecords.id, existing.id))
         .returning()
         .get()
+
+      // Idempotensi dicatat DI DALAM transaksi yang sama dengan write, sebelum
+      // respons dikirim (ticket #70).
+      if (idemKey) {
+        try {
+          recordIdempotency(tx, {
+            key: idemKey,
+            employeeId,
+            attendanceId: updated.id,
+            endpoint: 'clock_out',
+          })
+        } catch {
+          throw new ApiError(422, 'Idempotency-Key telah digunakan tindakan lain')
+        }
+      }
 
       if (clock.timeDriftDetected) {
         recordAudit({

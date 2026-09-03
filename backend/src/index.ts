@@ -3,6 +3,7 @@ import { migrate } from './db/migrate.js'
 import { getDb } from './db/index.js'
 import { runYearlyResetIfNeeded } from './lib/leave-reset.js'
 import { getSelfieRetentionDays, purgeSelfiesOlderThan } from './lib/selfie-storage.js'
+import { purgeExpired as purgeIdempotencyExpired } from './lib/attendance-idem.js'
 import { start } from './app.js'
 
 const SELFIE_PURGE_INTERVAL_MS = 24 * 60 * 60 * 1000
@@ -12,6 +13,9 @@ let purgeTimer: NodeJS.Timeout | null = null
  * Job harian retensi selfie (ticket #69): menghapus foto yang sudah lewat
  * `retention_until` (default 90 hari) + file yatim. Dipanggil sekali saat boot
  * lalu tiap 24 jam. Gagal hanya dicatat ke log — server tetap berjalan.
+ *
+ * Sekaligus memanggil purge idempotency key kedaluwarsa (ticket #70, 30 hari)
+ * pada interval yang sama.
  */
 function scheduleSelfiePurge(): void {
   const run = (): void => {
@@ -23,6 +27,14 @@ function scheduleSelfiePurge(): void {
       }
     } catch (err) {
       console.error('[karyawanku] purge selfie gagal:', err)
+    }
+    try {
+      const purged = purgeIdempotencyExpired()
+      if (purged > 0) {
+        console.log(`[karyawanku] purge idempotency: ${purged} key kedaluwarsa dihapus`)
+      }
+    } catch (err) {
+      console.error('[karyawanku] purge idempotency gagal:', err)
     }
   }
   run()

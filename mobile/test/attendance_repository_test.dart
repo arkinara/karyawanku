@@ -201,6 +201,60 @@ void main() {
 
       expect(body!['submission_method'], 'offline_queue');
     });
+
+    test('clockIn with idempotencyKey sends the Idempotency-Key header', () async {
+      Map<String, dynamic>? headers;
+      final repo = repoFor((o) async {
+        headers = o.headers;
+        return jsonResponse({'record': recordJson()});
+      });
+
+      await repo.clockIn(
+        clientTimestamp: DateTime.utc(2026, 9, 3, 0, 58),
+        idempotencyKey: 'k1',
+      );
+
+      expect(headers!['Idempotency-Key'], 'k1');
+    });
+
+    test('clockIn without a key omits the Idempotency-Key header', () async {
+      Map<String, dynamic>? headers;
+      final repo = repoFor((o) async {
+        headers = o.headers;
+        return jsonResponse({'record': recordJson()});
+      });
+
+      await repo.clockIn(clientTimestamp: DateTime.utc(2026, 9, 3, 0, 58));
+
+      expect(headers!.containsKey('Idempotency-Key'), isFalse);
+    });
+
+    test('clockOut with idempotencyKey sends the Idempotency-Key header', () async {
+      Map<String, dynamic>? headers;
+      final repo = repoFor((o) async {
+        headers = o.headers;
+        return jsonResponse({'record': recordJson()});
+      });
+
+      await repo.clockOut(
+        clientTimestamp: DateTime.utc(2026, 9, 3, 7, 0),
+        idempotencyKey: 'k2',
+      );
+
+      expect(headers!['Idempotency-Key'], 'k2');
+    });
+
+    test('clockOut without a key omits the Idempotency-Key header', () async {
+      Map<String, dynamic>? headers;
+      final repo = repoFor((o) async {
+        headers = o.headers;
+        return jsonResponse({'record': recordJson()});
+      });
+
+      await repo.clockOut(clientTimestamp: DateTime.utc(2026, 9, 3, 7, 0));
+
+      expect(headers!.containsKey('Idempotency-Key'), isFalse);
+    });
   });
 
   group('getAggregate', () {

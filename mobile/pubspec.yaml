@@ -56,9 +56,19 @@ dependencies:
   image_picker: ^1.1.2
   image: ^4.2.0
 
+  # Ticket #70 — offline attendance queue + idempotent submission. The queue
+  # persists in a device SQLite database (sqflite), connectivity drives the
+  # auto-flush, and the idempotency key is a client-generated UUID v4.
+  sqflite: ^2.3.0
+  connectivity_plus: ^6.0.0
+  uuid: ^4.5.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
+
+  # Ticket #70 — in-memory SQLite backend for the offline queue tests.
+  sqflite_common_ffi: ^2.3.0
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

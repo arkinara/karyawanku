@@ -11,11 +11,13 @@ import 'package:karyawanku_mobile/core/api/api_client.dart';
 import 'package:karyawanku_mobile/core/api/models.dart';
 import 'package:karyawanku_mobile/core/auth/auth_provider.dart';
 import 'package:karyawanku_mobile/core/auth/secure_session_store.dart';
+import 'package:karyawanku_mobile/core/connectivity/connectivity_provider.dart';
 import 'package:karyawanku_mobile/core/location/location_service.dart';
 import 'package:karyawanku_mobile/data/models.dart';
 import 'package:karyawanku_mobile/data/repositories/payslip_file_store.dart';
 import 'package:karyawanku_mobile/features/absensi/attendance_provider.dart';
 import 'package:karyawanku_mobile/features/absensi/geofence_provider.dart';
+import 'package:karyawanku_mobile/features/absensi/offline_queue_manager.dart';
 import 'package:karyawanku_mobile/features/cuti/leave_provider.dart';
 import 'package:karyawanku_mobile/features/jadwal/shift_provider.dart';
 import 'package:karyawanku_mobile/features/slip/payslip_provider.dart';
@@ -97,6 +99,25 @@ final testSession = Session(
   user: testUser,
 );
 
+/// Pin [isOnlineProvider] to a fixed verdict so no widget test touches the
+/// platform connectivity channel. Defaults online.
+Override onlineOverride([bool online = true]) =>
+    isOnlineProvider.overrideWith(() => _ReadyOnline(online));
+
+class _ReadyOnline extends OnlineNotifier {
+  _ReadyOnline(this.online);
+  final bool online;
+
+  @override
+  bool build() => online;
+}
+
+/// A queue whose store is never opened (no platform path) — shared widget
+/// tests get no offline banner without touching sqflite/path_provider.
+final closedQueueOverride = offlineQueueStoreProvider.overrideWith(
+  (ref) async => throw UnimplementedError('queue closed in shared tests'),
+);
+
 /// Wire an ApiClient + in-memory store the auth notifier reads.
 Widget testScope(
   SecureSessionStore store,
@@ -108,6 +129,8 @@ Widget testScope(
     overrides: [
       secureSessionStoreProvider.overrideWithValue(store),
       apiClientProvider.overrideWithValue(client),
+      onlineOverride(true),
+      closedQueueOverride,
       ...extra,
     ],
     child: child,
@@ -167,6 +190,8 @@ List<Override> blockedNetworkOverrides() {
   return [
     secureSessionStoreProvider.overrideWithValue(store),
     apiClientProvider.overrideWithValue(client),
+    onlineOverride(true),
+    closedQueueOverride,
   ];
 }
 

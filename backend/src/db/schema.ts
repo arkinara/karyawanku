@@ -513,6 +513,45 @@ export const selfieMeta = sqliteTable(
 )
 
 /**
+ * Kunci idempotensi submission absensi (ticket #70): satu `idempotency_key`
+ * per tindakan clock-in/out yang dihasilkan klien (UUID v4 / hex 256-bit),
+ * disimpan SEBELUM respons sukses dikirim (di dalam transaksi yang sama dengan
+ * write). Kirim ulang dengan key yang sama mengembalikan record asli tanpa
+ * menulis ulang — mencegah absensi ganda saat retry antrian offline / respons
+ * hilang di tengah jalan.
+ *
+ * `idempotency_key` adalah primary key (unik global) sehingga key milik satu
+ * karyawan TIDAK bisa dipakai karyawan lain — insert dengan key yang sudah
+ * terpakai batal (diterjemahkan menjadi 422). `endpoint` ikut dipakai saat
+ * pencarian replay sehingga key clock-in tidak bisa membalas sebagai clock-out.
+ * `expires_at` default 30 hari; key yang kedaluwarsa dianggap tidak ada
+ * (tidak pernah dipakai untuk menahan double-write) dan dibersihkan oleh job
+ * harian (`purgeExpired`).
+ */
+export const attendanceIdempotency = sqliteTable(
+  'attendance_idempotency',
+  {
+    idempotency_key: text('idempotency_key').primaryKey(),
+    employee_id: text('employee_id')
+      .notNull()
+      .references(() => employees.id, { onDelete: 'cascade' }),
+    attendance_id: text('attendance_id')
+      .notNull()
+      .references(() => attendanceRecords.id, { onDelete: 'cascade' }),
+    /** `clock_in` | `clock_out` — endpoint yang memproduksi record ini. */
+    endpoint: text('endpoint', { enum: ['clock_in', 'clock_out'] }).notNull(),
+    created_at: integer('created_at', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    /** Batas pemakaian key (30 hari sejak dibuat). Kedaluwarsa = dianggap tak ada. */
+    expires_at: integer('expires_at', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch() + 2592000)`),
+  },
+  (table) => [index('attendance_idempotency_employee_idx').on(table.employee_id)],
+)
+
+/**
  * Bookkeeping key-value untuk proses berkala (ticket #56). Key yang dikenal:
  * `last_leave_reset_year` (tahun terakhir reset tahunan cuti, ditulis oleh
  * `runYearlyResetIfNeeded`) dan `last_thr_reset_year` (dicadangkan untuk proses
@@ -550,3 +589,5 @@ export type AuditLog = typeof auditLogs.$inferSelect
 export type NewAuditLog = typeof auditLogs.$inferInsert
 export type SelfieMeta = typeof selfieMeta.$inferSelect
 export type NewSelfieMeta = typeof selfieMeta.$inferInsert
+export type AttendanceIdempotency = typeof attendanceIdempotency.$inferSelect
+export type NewAttendanceIdempotency = typeof attendanceIdempotency.$inferInsert

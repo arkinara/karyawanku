@@ -247,13 +247,17 @@ class ApiClient {
     Object? body,
     bool anonymous = false,
     Map<String, dynamic>? query,
+    Map<String, dynamic>? headers,
   }) =>
       _guard(() async {
         final res = await _dio.post<dynamic>(
           path,
           data: body,
           queryParameters: query,
-          options: Options(extra: {_Extra.anonymous: anonymous}),
+          options: Options(
+            extra: {_Extra.anonymous: anonymous},
+            headers: headers,
+          ),
         );
         return _decode<T>(res);
       });

@@ -7,11 +7,13 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/format.dart';
 import '../../core/location/location_service.dart';
 import '../../core/selfie/selfie_consent_store.dart';
+import '../../data/local/offline_queue.dart';
 import '../../data/models.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/common.dart';
 import 'attendance_provider.dart';
 import 'geofence_provider.dart';
+import 'offline_queue_manager.dart';
 import 'selfie_provider.dart';
 
 /// Attendance — clock-in direction A ("geofence card") from the design doc:
@@ -58,9 +60,11 @@ class _AbsensiScreenState extends ConsumerState<AbsensiScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // Returning to the foreground: reconcile today's record + month totals
-    // with the server (e.g. the day rolled over while the app was away).
+    // with the server (e.g. the day rolled over while the app was away) and
+    // flush any queued offline attendance (#70).
     if (state == AppLifecycleState.resumed) {
       ref.read(attendanceProvider.notifier).refresh();
+      ref.read(offlineQueueManagerProvider.notifier).flush();
     }
   }
 
@@ -109,35 +113,49 @@ class _AbsensiScreenState extends ConsumerState<AbsensiScreen>
         ),
         title: const Text('Absensi'),
       ),
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: 24),
-        children: [
-          if (loading) ...[
-            const _ClockSkeleton(key: ValueKey('attendance-loading')),
-            const _TimelineSkeleton(),
-            const _TilesSkeleton(),
-          ] else if (failed)
-            _ErrorCard(
-              message: attendance.error!,
-              onRetry: () =>
-                  ref.read(attendanceProvider.notifier).loadToday(),
-            )
-          else ...[
-            _ClockCard(
-              now: _now,
-              today: attendance.today,
-              submitting: attendance.submitting,
-              onClockIn: _handleClockIn,
-              onClockOut: () =>
-                  ref.read(attendanceProvider.notifier).clockOut(),
-              onSelfieTap: _onSelfieTap,
-            ),
-            _TodayTimeline(today: attendance.today),
-            _MonthTotals(aggregate: attendance.aggregate),
+      body: RefreshIndicator(
+        onRefresh: _onRefresh,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.only(bottom: 24),
+          children: [
+            const _OfflineQueueBanner(),
+            if (loading) ...[
+              const _ClockSkeleton(key: ValueKey('attendance-loading')),
+              const _TimelineSkeleton(),
+              const _TilesSkeleton(),
+            ] else if (failed)
+              _ErrorCard(
+                message: attendance.error!,
+                onRetry: () =>
+                    ref.read(attendanceProvider.notifier).loadToday(),
+              )
+            else ...[
+              _ClockCard(
+                now: _now,
+                today: attendance.today,
+                submitting: attendance.submitting,
+                onClockIn: _handleClockIn,
+                onClockOut: () =>
+                    ref.read(attendanceProvider.notifier).clockOut(),
+                onSelfieTap: _onSelfieTap,
+              ),
+              _TodayTimeline(today: attendance.today),
+              _MonthTotals(aggregate: attendance.aggregate),
+            ],
           ],
-        ],
+        ),
       ),
     );
+  }
+
+  /// Pull-to-refresh: reconcile today's record + monthly totals and flush any
+  /// queued offline attendance (#70).
+  Future<void> _onRefresh() async {
+    await Future.wait([
+      ref.read(attendanceProvider.notifier).refresh(),
+      ref.read(offlineQueueManagerProvider.notifier).flush(),
+    ]);
   }
 
   /// Clock-in that also flushes a captured selfie once the record exists:
@@ -150,7 +168,11 @@ class _AbsensiScreenState extends ConsumerState<AbsensiScreen>
       if (!mounted) return;
       final recordId = ref.read(attendanceProvider).today?.record?.id;
       final selfie = ref.read(selfieProvider);
-      if (recordId != null && selfie.hasCapture && !selfie.uploading) {
+      // An optimistic local record (`local-…`, still awaiting offline sync)
+      // has no server id yet — the selfie is kept and flushes with a later
+      // clock-in, never uploaded against a phantom record.
+      final isLocal = recordId != null && recordId.startsWith('local-');
+      if (recordId != null && !isLocal && selfie.hasCapture && !selfie.uploading) {
         ref.read(selfieProvider.notifier).upload(recordId);
       }
     });
@@ -812,6 +834,10 @@ class _TodayTimeline extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final record = today?.record;
+    // A `local-…` id means the action is a queued offline soft-commit still
+    // awaiting sync — the timeline marks it amber until the server record
+    // replaces it after the queue flush.
+    final pendingSync = record != null && record.id.startsWith('local-');
     final entries = <AttendanceEntry>[
       AttendanceEntry(
         label: 'Masuk',
@@ -820,9 +846,13 @@ class _TodayTimeline extends StatelessWidget {
             : Fmt.clock(record!.clockIn!.toLocal()),
         state: record?.clockIn == null
             ? AttendanceEntryState.empty
+            : pendingSync
+            ? AttendanceEntryState.pendingSync
             : AttendanceEntryState.done,
         note: record != null && record.lateMinutes > 0
             ? 'Telat ${record.lateMinutes} mnt'
+            : pendingSync
+            ? 'Menunggu kirim'
             : record?.catatan,
       ),
       AttendanceEntry(
@@ -832,6 +862,8 @@ class _TodayTimeline extends StatelessWidget {
             : Fmt.clock(record!.clockOut!.toLocal()),
         state: record?.clockOut == null
             ? AttendanceEntryState.empty
+            : pendingSync
+            ? AttendanceEntryState.pendingSync
             : AttendanceEntryState.done,
         note: record != null && record.effectiveOvertimeMinutes > 0
             ? 'Lembur ${Fmt.duration(record.effectiveOvertimeMinutes)}'
@@ -1148,6 +1180,253 @@ class _StateDot extends StatelessWidget {
             AttendanceEntryState.empty => context.colors.outlineVariant,
           },
         ),
+      ),
+    );
+  }
+}
+
+/// Live offline banner (ticket #70): reflects real connectivity and a real
+/// pending count, and disappears when the queue is empty and the device is
+/// online. Tapping opens the queue sheet.
+class _OfflineQueueBanner extends ConsumerWidget {
+  const _OfflineQueueBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final queue = ref.watch(offlineQueueManagerProvider);
+    final status = context.status;
+
+    final offline = !queue.online;
+    final pending = queue.pendingCount;
+    if (!offline && pending == 0) return const SizedBox.shrink();
+
+    final label = offline
+        ? pending > 0
+              ? 'Offline — $pending entri menunggu kirim'
+              : 'Tidak ada sinyal — absensi tetap tercatat tanpa sinyal'
+        : '$pending entri menunggu kirim';
+
+    return Semantics(
+      button: true,
+      label: label,
+      child: InkWell(
+        onTap: () => _showQueueSheet(context),
+        borderRadius: Shape.rMd,
+        child: ToneBanner(
+          live: true,
+          margin: Insets.page,
+          icon: offline ? LucideIcons.wifiOff : LucideIcons.clock,
+          background: status.warningContainer,
+          foreground: status.onWarningContainer,
+          action: pending > 0 ? 'Lihat' : null,
+          onAction: pending > 0 ? () => _showQueueSheet(context) : null,
+          child: Text(label),
+        ),
+      ),
+    );
+  }
+}
+
+void _showQueueSheet(BuildContext context) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (_) => const _QueueSheet(),
+  );
+}
+
+/// Bottom sheet listing the real queued entries — time, kind, status and a
+/// per-entry retry for permanently rejected rows. "Kirim sekarang" flushes.
+class _QueueSheet extends ConsumerWidget {
+  const _QueueSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final queue = ref.watch(offlineQueueManagerProvider);
+    final manager = ref.read(offlineQueueManagerProvider.notifier);
+    final colors = context.colors;
+    final status = context.status;
+
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * .72,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 4, 24, 4),
+                child: Row(
+                  children: [
+                    Icon(
+                      LucideIcons.inbox,
+                      size: 20,
+                      color: colors.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Antrian offline',
+                        style: context.texts.titleLarge,
+                      ),
+                    ),
+                    if (queue.hasPending)
+                      Text(
+                        '${queue.pendingCount} menunggu',
+                        style: context.texts.labelMedium?.copyWith(
+                          color: status.warning,
+                          fontFeatures: Fmt.tabular,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              if (queue.entries.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Column(
+                    children: [
+                      Icon(
+                        LucideIcons.checkCircle,
+                        size: 32,
+                        color: status.success,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Tidak ada entri antrian',
+                        style: context.texts.bodyMedium?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: queue.entries.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (context, i) {
+                      final entry = queue.entries[i];
+                      return _QueueRow(
+                        entry: entry,
+                        onRetry: entry.status ==
+                                QueuedAttendanceStatus.permanentlyFailed
+                            ? () => manager.retry(entry.id)
+                            : null,
+                      );
+                    },
+                  ),
+                ),
+              if (queue.hasPending) ...[
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+                  child: FilledButton.icon(
+                    onPressed: queue.flushing ? null : manager.flush,
+                    icon: queue.flushing
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(LucideIcons.send, size: 18),
+                    label: Text(queue.flushing ? 'Mengirim…' : 'Kirim sekarang'),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One queue row: action time + kind + status pill, plus a manual retry for
+/// permanently failed entries.
+class _QueueRow extends StatelessWidget {
+  const _QueueRow({required this.entry, this.onRetry});
+
+  final QueuedAttendance entry;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = context.status;
+    final colors = context.colors;
+
+    final (pillBackground, pillForeground) = switch (entry.status) {
+      QueuedAttendanceStatus.sent => (status.successContainer, status.onSuccessContainer),
+      QueuedAttendanceStatus.permanentlyFailed => (
+        status.dangerContainer,
+        status.onDangerContainer,
+      ),
+      QueuedAttendanceStatus.inFlight => (status.infoContainer, status.onInfoContainer),
+      QueuedAttendanceStatus.pending => (status.warningContainer, status.onWarningContainer),
+    };
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+      child: Row(
+        children: [
+          RoundToken(
+            icon: entry.kind == QueuedAttendanceKind.clockIn
+                ? LucideIcons.logIn
+                : LucideIcons.logOut,
+            background: colors.surfaceContainerHigh,
+            foreground: colors.onSurfaceVariant,
+            size: 36,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(entry.kindLabel, style: context.texts.bodyLarge),
+                Text(
+                  '${Fmt.clock(entry.actionAt.toLocal())} · ${entry.statusLabel}',
+                  style: context.texts.bodyMedium?.copyWith(
+                    color: colors.onSurfaceVariant,
+                    fontFeatures: Fmt.tabular,
+                  ),
+                ),
+                if (entry.error != null)
+                  Text(
+                    entry.error!,
+                    style: context.texts.bodySmall?.copyWith(color: status.danger),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (onRetry != null)
+            TextButton(onPressed: onRetry, child: const Text('Retry'))
+          else
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: pillBackground,
+                borderRadius: Shape.rSm,
+              ),
+              child: Text(
+                entry.statusLabel,
+                style: context.texts.labelMedium?.copyWith(
+                  color: pillForeground,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
