@@ -6,6 +6,9 @@
 	<string>KaryawanKu menggunakan lokasi selama clock-in untuk verifikasi kehadiran di area kerja.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>KaryawanKu menggunakan kamera untuk verifikasi kehadiran (selfie clock-in).</string>
+	<!-- Ticket #72 — biometric sign-in (Face ID / Touch ID). -->
+	<key>NSFaceIDUsageDescription</key>
+	<string>Buka KaryawanKu tanpa mengetik kata sandi.</string>
 	<!-- Ticket #71 — push notifications. UIBackgroundModes remote-notification
 	     membolehkan FCM menghidupkan app di background untuk menerima push;
 	     aps-environment menandai entitlements APNs (diisi saat development). -->

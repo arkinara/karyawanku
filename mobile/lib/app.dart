@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/auth/auth_provider.dart';
+import 'core/navigation.dart';
 import 'core/push/deep_link_router.dart';
 import 'core/push/push_bootstrap.dart';
 import 'features/auth/masuk_screen.dart';
@@ -26,6 +27,7 @@ class KaryawanKuApp extends StatelessWidget {
       theme: buildAppTheme(),
       darkTheme: buildAppTheme(brightness: Brightness.dark),
       themeMode: ThemeMode.system,
+      navigatorKey: rootNavigatorKey,
       home: const RootRouter(),
     );
   }
@@ -45,6 +47,10 @@ class RootRouter extends ConsumerStatefulWidget {
 class _RootRouterState extends ConsumerState<RootRouter> {
   StreamSubscription<DeepLinkTarget>? _deepLinkSub;
   DeepLinkTarget? _pendingTarget;
+
+  /// Ticket #72 — the cold-start biometric gate runs at most once. A failed
+  /// attempt falls through to MasukScreen and never retries (no loop).
+  bool _biometricGateTried = false;
 
   @override
   void initState() {
@@ -120,6 +126,18 @@ class _RootRouterState extends ConsumerState<RootRouter> {
 
     if (auth.isSignedIn) return const HomeShell();
     if (auth.loading && !auth.signingIn) return const _Splash();
+
+    // Ticket #72 — cold-start biometric gate. After restoreSession settles
+    // (signed out), attempt one silent unlock when a stored credential +
+    // enrolled, unchanged biometrics + enrolment marker are present. Success
+    // swaps to the shell; any failure stays on MasukScreen.
+    if (!_biometricGateTried) {
+      _biometricGateTried = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.read(authProvider.notifier).tryBiometricUnlock();
+      });
+    }
     return const MasukScreen();
   }
 }

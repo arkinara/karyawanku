@@ -11,11 +11,15 @@ import 'package:geolocator/geolocator.dart';
 import 'package:karyawanku_mobile/core/api/api_client.dart';
 import 'package:karyawanku_mobile/core/api/models.dart';
 import 'package:karyawanku_mobile/core/auth/auth_provider.dart';
+import 'package:karyawanku_mobile/core/auth/authenticator.dart';
+import 'package:karyawanku_mobile/core/auth/biometric_providers.dart';
+import 'package:karyawanku_mobile/core/auth/device_credential_store.dart';
 import 'package:karyawanku_mobile/core/auth/secure_session_store.dart';
 import 'package:karyawanku_mobile/core/connectivity/connectivity_provider.dart';
 import 'package:karyawanku_mobile/core/location/location_service.dart';
 import 'package:karyawanku_mobile/core/push/fcm_service.dart';
 import 'package:karyawanku_mobile/core/push/push_messaging.dart';
+import 'package:karyawanku_mobile/core/device/device_identity.dart';
 import 'package:karyawanku_mobile/data/models.dart';
 import 'package:karyawanku_mobile/data/repositories/payslip_file_store.dart';
 import 'package:karyawanku_mobile/features/absensi/attendance_provider.dart';
@@ -715,3 +719,141 @@ GeofenceState sampleGeofenceUnknown() => const GeofenceState();
 
 GeofenceState sampleGeofenceAcquiring() =>
     const GeofenceState(acquiring: true);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Ticket #72 — biometric sign-in fixtures. No test ever touches the real
+// `local_auth` plugin: everything flows through [FakeAuthenticator].
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Deterministic [Authenticator] for headless tests. `kinds` is a queue — the
+/// first N calls to `availableKind` return each entry, then the last one
+/// repeats (so a test can simulate "was fingerprint, now nothing").
+/// `willSucceed` drives the OS-prompt result; `authenticateCalls` records how
+/// many prompts fired.
+class FakeAuthenticator implements Authenticator {
+  FakeAuthenticator({List<BiometricKind>? kinds, this.willSucceed = true})
+      : kinds = kinds ?? const [];
+
+  final List<BiometricKind> kinds;
+  bool willSucceed;
+  int authenticateCalls = 0;
+  int _kindCalls = 0;
+
+  @override
+  Future<BiometricKind> availableKind() async {
+    if (kinds.isEmpty) return BiometricKind.none;
+    final index = _kindCalls < kinds.length ? _kindCalls : kinds.length - 1;
+    _kindCalls++;
+    return kinds[index];
+  }
+
+  @override
+  Future<bool> authenticate({required String reason}) async {
+    authenticateCalls++;
+    return willSucceed;
+  }
+}
+
+/// A still-valid device credential (expires 30 days out).
+DeviceCredential get testDeviceCredential => DeviceCredential(
+  deviceRefreshToken: 'device-refresh-token-1',
+  biometricKey: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+  deviceInstallId: 'install-1',
+  issuedAt: DateTime.utc(2026, 8, 1),
+  expiresAt: DateTime.utc(2026, 9, 30),
+);
+
+/// Writes a valid device credential + enrolment marker into [backend].
+Future<void> seedDeviceCredential(
+  SecureStorageBackend backend, {
+  bool enrolled = true,
+  DeviceCredential? credential,
+}) async {
+  final cred = credential ?? testDeviceCredential;
+  await backend.write(
+    DeviceCredentialStore.credentialKey,
+    jsonEncode({
+      'token': cred.deviceRefreshToken,
+      'biometric_key': cred.biometricKey,
+      'install_id': cred.deviceInstallId,
+      'issued_at': cred.issuedAt.toIso8601String(),
+      'expires_at': cred.expiresAt.toIso8601String(),
+    }),
+  );
+  if (enrolled) {
+    await backend.write(DeviceCredentialStore.markerKey, 'fingerprint');
+  }
+}
+
+/// An expired device credential envelope (same shape as [seedDeviceCredential]
+/// writes, but `expires_at` in the past).
+Future<void> seedExpiredDeviceCredential(SecureStorageBackend backend) async {
+  final expired = DateTime.now().subtract(const Duration(days: 1));
+  await backend.write(
+    DeviceCredentialStore.credentialKey,
+    jsonEncode({
+      'token': 'expired-device-token',
+      'biometric_key': 'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
+      'install_id': 'install-expired',
+      'issued_at': DateTime.now().subtract(const Duration(days: 31)).toIso8601String(),
+      'expires_at': expired.toIso8601String(),
+    }),
+  );
+  await backend.write(DeviceCredentialStore.markerKey, 'fingerprint');
+}
+
+/// `POST /auth/sign-in` body that ALSO carries a device credential (ticket
+/// #72) — what the BE returns when the request sent `X-Device-Id`.
+Map<String, dynamic> signInBodyWithDevice() => {
+  'user': testUser.toJson(),
+  'token': 'access-token-1',
+  'refresh_token': 'refresh-token-1',
+  'device_refresh_token': 'device-refresh-token-1',
+  'device_refresh_expires_at': '2026-09-30T00:00:00.000Z',
+  'device_install_id': 'install-1',
+  'device_biometric_key': testDeviceCredential.biometricKey,
+};
+
+/// `POST /auth/device-refresh` success body.
+Map<String, dynamic> deviceRefreshBody() => {
+  'access_token': 'access-token-2',
+  'refresh_token': 'refresh-token-2',
+  'user': testUser.toJson(),
+  'device_refresh_token': 'device-refresh-token-2',
+  'device_refresh_expires_at': '2026-10-30T00:00:00.000Z',
+  'device_install_id': 'install-2',
+  'device_biometric_key': 'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
+};
+
+/// Builds an [ApiClient] wired to the in-memory backend as its device-id
+/// source so `X-Device-Id` flows like on a real device.
+ApiClient buildTestClientWithDeviceId(
+  SecureStorageBackend backend,
+  SecureSessionStore store,
+  Future<ResponseBody> Function(RequestOptions options) handler,
+) {
+  return ApiClient(
+    dio: testDio(handler),
+    sessionStore: store,
+    deviceIdReader: () => backend.read(DeviceIdentity.deviceIdKey),
+  );
+}
+
+/// Shared overrides for biometric flows: one in-memory backend feeds the
+/// session store, credential store, biometric service and device identity, and
+/// a [FakeAuthenticator] drives the prompt deterministically.
+List<Override> biometricOverrides({
+  required SecureStorageBackend backend,
+  required SecureSessionStore store,
+  required ApiClient client,
+  required FakeAuthenticator authenticator,
+  List<Override> extra = const [],
+}) {
+  return [
+    secureStorageBackendProvider.overrideWithValue(backend),
+    secureSessionStoreProvider.overrideWithValue(store),
+    apiClientProvider.overrideWithValue(client),
+    authenticatorProvider.overrideWithValue(authenticator),
+    ...extra,
+  ];
+}

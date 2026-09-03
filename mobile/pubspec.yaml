@@ -71,6 +71,14 @@ dependencies:
   flutter_local_notifications: ^17.2.3
   app_links: ^6.3.2
 
+  # Ticket #72 — biometric sign-in with a device-bound session. local_auth wraps
+  # the OS biometric prompt + availability/enrolment checks; crypto derives the
+  # HMAC biometric_proof the BE verifies on /auth/device-refresh.
+  local_auth: ^2.3.0
+  local_auth_android: ^1.0.46
+  local_auth_darwin: ^1.1.2
+  crypto: ^3.0.6
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

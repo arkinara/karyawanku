@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 
 import '../auth/secure_session_store.dart';
+import '../device/device_identity.dart';
 import 'api_exception.dart';
 import 'models.dart';
 
@@ -31,9 +32,13 @@ abstract final class _Extra {
 /// if that also fails (or the retried request 401s again) the session is
 /// cleared, [onSessionExpired] fires, and the call throws [UnauthorizedException].
 class ApiClient {
-  ApiClient({Dio? dio, SecureSessionStore? sessionStore})
-      : _store = sessionStore ?? SecureSessionStore(),
+  ApiClient({
+    Dio? dio,
+    SecureSessionStore? sessionStore,
+    Future<String?> Function()? deviceIdReader,
+  })  : _store = sessionStore ?? SecureSessionStore(),
         _dio = dio ?? _buildDio() {
+    _deviceIdReader = deviceIdReader ?? _defaultDeviceIdReader;
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: _onRequest,
       onError: _onError,
@@ -58,11 +63,18 @@ class ApiClient {
 
   final Dio _dio;
   final SecureSessionStore _store;
+  late final Future<String?> Function() _deviceIdReader;
 
   /// Fired once a refresh attempt fails and the session is cleared. The auth
   /// provider wires this to reset state and bounce to the sign-in screen —
   /// the mobile analogue of the web's `kk-session-expired` redirect.
   void Function()? onSessionExpired;
+
+  /// Reads the per-install device id for the `X-Device-Id` header (ticket #72).
+  /// Goes through the injected session store's backend so widget tests (an
+  /// in-memory store) never touch the platform keychain channel. A missing or
+  /// unreadable identity simply omits the header (no device credential minted).
+  Future<String?> _defaultDeviceIdReader() => _store.readRaw(DeviceIdentity.deviceIdKey);
 
   Future<void> _onRequest(
     RequestOptions options,
@@ -75,6 +87,12 @@ class ApiClient {
     final token = await _store.getAccessToken();
     if (token != null && token.isNotEmpty) {
       options.headers['Authorization'] = 'Bearer $token';
+    }
+    // Ticket #72 — bind device credentials server-side. Anonymous calls carry
+    // it too: sign-in mints a credential when the header is present.
+    final deviceId = await _deviceIdReader();
+    if (deviceId != null && deviceId.isNotEmpty) {
+      options.headers['X-Device-Id'] = deviceId;
     }
     handler.next(options);
   }

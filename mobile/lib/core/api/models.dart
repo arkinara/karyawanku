@@ -91,19 +91,74 @@ class Session {
   final User user;
 }
 
-/// Response of `POST /auth/sign-in`.
+/// Response of `POST /auth/sign-in`. Carries the session plus — when the BE
+/// sees an `X-Device-Id` header — a long-lived device credential (ticket #72).
+/// The device fields are optional so a BE that does not mint them (or a test
+/// fixture that omits them) keeps sign-in working.
 class SignInResponse {
-  const SignInResponse({required this.session});
+  const SignInResponse({
+    required this.session,
+    this.deviceRefreshToken,
+    this.deviceBiometricKey,
+    this.deviceInstallId,
+    this.deviceRefreshExpiresAt,
+  });
 
   final Session session;
+  final String? deviceRefreshToken;
+  final String? deviceBiometricKey;
+  final String? deviceInstallId;
+  final DateTime? deviceRefreshExpiresAt;
 
   factory SignInResponse.fromJson(Map<String, dynamic> json) {
     final user = User.fromJson(json['user'] as Map<String, dynamic>);
+    final expiresRaw = json['device_refresh_expires_at'];
     return SignInResponse(
       session: Session(
         accessToken: json['token'] as String,
         refreshToken: json['refresh_token'] as String,
         user: user,
+      ),
+      deviceRefreshToken: json['device_refresh_token'] as String?,
+      deviceBiometricKey: json['device_biometric_key'] as String?,
+      deviceInstallId: json['device_install_id'] as String?,
+      deviceRefreshExpiresAt: expiresRaw is String
+          ? DateTime.tryParse(expiresRaw)
+          : null,
+    );
+  }
+}
+
+/// Response of `POST /auth/device-refresh` (ticket #72): a fresh token pair
+/// PLUS a rotated device credential.
+class DeviceRefreshResponse {
+  const DeviceRefreshResponse({
+    required this.session,
+    required this.deviceRefreshToken,
+    required this.deviceBiometricKey,
+    required this.deviceInstallId,
+    required this.deviceRefreshExpiresAt,
+  });
+
+  final Session session;
+  final String deviceRefreshToken;
+  final String deviceBiometricKey;
+  final String deviceInstallId;
+  final DateTime deviceRefreshExpiresAt;
+
+  factory DeviceRefreshResponse.fromJson(Map<String, dynamic> json) {
+    final user = User.fromJson(json['user'] as Map<String, dynamic>);
+    return DeviceRefreshResponse(
+      session: Session(
+        accessToken: json['access_token'] as String,
+        refreshToken: json['refresh_token'] as String,
+        user: user,
+      ),
+      deviceRefreshToken: json['device_refresh_token'] as String,
+      deviceBiometricKey: json['device_biometric_key'] as String,
+      deviceInstallId: json['device_install_id'] as String,
+      deviceRefreshExpiresAt: DateTime.parse(
+        json['device_refresh_expires_at'] as String,
       ),
     );
   }

@@ -134,6 +134,13 @@
       "when": 1789004000000,
       "tag": "0018_push-devices",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1789005000000,
+      "tag": "0019_device-credentials",
+      "breakpoints": true
     }
   ]
 }

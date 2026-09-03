@@ -19,7 +19,9 @@ android {
         applicationId = "id.karyawanku.karyawanku_mobile"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // Ticket #72 — local_auth_android requires minSdk >= 23 (Keystore
+        // biometric gates). Flutter's default is 21, so floor it at 23.
+        minSdk = maxOf(23, flutter.minSdkVersion)
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

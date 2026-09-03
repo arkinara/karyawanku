@@ -60,6 +60,62 @@ plaintext SharedPreferences or files. Keys: `kk_access_token`, `kk_refresh_token
 `kk_user`. A storage read failure (e.g. a restored backup on a new device) is
 treated as signed-out, not a crash.
 
+## Biometric sign-in & the device-bound session (ticket #72)
+
+"Masuk dengan sidik jari" trades the password for an OS biometric prompt backed
+by a **device-bound credential** — a long-lived `device_refresh_token` the BE
+mints on top of the normal access/refresh pair. It is a separate concept from
+the short-lived JWT session: it binds one user to one physical device via
+`device_id` (a UUID minted at first launch, `kk_device_id`, sent as the
+`X-Device-Id` header) + `device_install_id` (a UUID the BE mints per credential),
+and it expires after **30 days** — after that, password is the only way in.
+
+### How it works
+
+1. **Password sign-in** now sends `X-Device-Id`. The BE responds with the usual
+   session plus `device_refresh_token`, `device_refresh_expires_at`,
+   `device_install_id` and `device_biometric_key`. The app persists the
+   credential in `DeviceCredentialStore` (`kk_device_credential`, behind the
+   platform keystore) and asks — **exactly once** — whether to enrol biometrics.
+   Accepting writes `kk_biometric_credential_marker`; declining keeps password
+   as the only path.
+2. **Cold launch** runs a silent gate after session restore: a stored credential
+   + enrolled/unchanged biometrics + the enrolment marker → attempt an OS
+   biometric prompt → `POST /auth/device-refresh` with
+   `device_id` + `device_install_id` + `device_refresh_token` + a one-time
+   `biometric_proof` (HMAC-SHA256 of the device tuple keyed by the biometric
+   key) → new session + a **rotated** device credential. Success skips the
+   sign-in screen; any failure (cancelled prompt, revoked/expired credential,
+   biometrics changed, offline) falls through to `MasukScreen` and never loops.
+3. **The button** is hidden unless a non-expired credential exists AND
+   biometrics are enrolled + unchanged AND the marker was accepted — it is never
+   shown as a disabled stub.
+4. **Sign-out** sends the held `device_refresh_token` so the BE revokes the
+   binding, then clears `kk_device_credential` + the marker locally;
+   **sign-out-all** revokes every device credential for the user server-side.
+
+### Fallback to password (documented)
+
+- **Enrolment change** — adding/removing a fingerprint or face since enrolment
+  is detected via `BiometricService.isEnrolledChanged` (a stored snapshot hash
+  vs. the current `local_auth` set) and disables the gate.
+- **Expired credential** (30 days) — `read` returns null, gate skipped.
+- **Revoked / cross-device** — the BE returns 401; the local credential is
+  dropped and password sign-in is the only path.
+
+### Security notes
+
+- The raw `device_refresh_token` is **never stored in the BE database** — only
+  its SHA-256 hash; the raw token lives on the device behind the biometric gate
+  (`flutter_secure_storage` Keychain/EncryptedSharedPreferences).
+- `biometric_proof` is verified server-side; the client is a convenience, the
+  BE is the gate. Full OS-level `biometryCurrentSet`/`RequireBiometric`
+  invalidation (credential auto-invalidates when a fingerprint is added) needs
+  a native plugin tier `flutter_secure_storage` does not expose; until then the
+  enrolment-change check + BE binding/expiry close that gap.
+- Tests never touch `local_auth` — everything goes through the injectable
+  `Authenticator` interface and a `FakeAuthenticator` in `test/helpers.dart`.
+
 ### Running against the local BE
 
 ```
@@ -423,7 +479,7 @@ flutter run              # attached device or emulator
 flutter run -d chrome    # quickest way to compare against the design doc
 flutter run --dart-define=API_BASE_URL=http://localhost:3001  # against local BE
 flutter analyze
-flutter test                            # 369 tests
+flutter test                            # 405 tests
 flutter test test/token_parity_test.dart # mobile palette == web globals.css
 flutter test test/a11y_test.dart         # tap targets, labels, contrast x theme
 flutter test test/stress_test.dart       # text scale x width x theme matrix

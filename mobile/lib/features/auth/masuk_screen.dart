@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/auth/auth_provider.dart';
+import '../../core/auth/biometric_providers.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/common.dart';
 
@@ -66,11 +67,29 @@ class _MasukScreenState extends ConsumerState<MasukScreen> {
       );
   }
 
+  /// Biometric unlock (ticket #72). The prompt + device-refresh live in the
+  /// notifier; a success flips [authProvider] and the router swaps to the
+  /// shell. A cancelled prompt or a rejected credential stays on the password
+  /// form with a gentle note.
+  Future<void> _unlockWithBiometric() async {
+    FocusScope.of(context).unfocus();
+    final ok = await ref.read(authProvider.notifier).unlockWithBiometric();
+    if (!ok && mounted) {
+      _showError('Tidak dapat membuka dengan sidik jari. Silakan masuk dengan kata sandi.');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authProvider);
     final colors = context.colors;
     final loading = auth.signingIn;
+
+    // Ticket #72 — the biometric button is HIDDEN (not shown) unless a stored
+    // device credential exists, biometrics are enrolled + unchanged, and the
+    // enrolment marker was accepted.
+    final biometricUnlock = ref.watch(biometricUnlockProvider);
+    final biometricAvailable = biometricUnlock.value ?? false;
 
     // Surface the "sesi berakhir" notice left by a failed refresh exactly once.
     final notice = auth.notice;
@@ -184,25 +203,28 @@ class _MasukScreenState extends ConsumerState<MasukScreen> {
                       )
                     : const Text('Masuk'),
               ),
-              const SizedBox(height: 20),
-              OutlinedButton(
-                onPressed: () {},
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(LucideIcons.fingerprint, size: 20),
-                    const SizedBox(width: 10),
-                    // Flexible so the label wraps rather than splitting the
-                    // button at a large text scale.
-                    const Flexible(
-                      child: Text(
-                        'Masuk dengan sidik jari',
-                        textAlign: TextAlign.center,
+              const SizedBox(height: 12),
+              if (biometricAvailable) ...[
+                const SizedBox(height: 8),
+                OutlinedButton(
+                  onPressed: loading ? null : _unlockWithBiometric,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(LucideIcons.fingerprint, size: 20),
+                      const SizedBox(width: 10),
+                      // Flexible so the label wraps rather than splitting the
+                      // button at a large text scale.
+                      const Flexible(
+                        child: Text(
+                          'Masuk dengan sidik jari',
+                          textAlign: TextAlign.center,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
+              ],
               const SizedBox(height: 20),
               Center(
                 child: Text.rich(

@@ -665,6 +665,49 @@ export const shiftReminderLog = sqliteTable('shift_reminder_log', {
     .default(sql`(unixepoch())`),
 })
 
+/**
+ * Kredensial perangkat untuk sign-in biometrik (ticket #72). Konsep terpisah
+ * dari pasangan access/refresh pendek: `device_refresh_token` adalah token
+ * berumur panjang (30 hari) yang mengikat satu user ke satu perangkat —
+ * (device_id dari header X-Device-Id) + (device_install_id yang diterbitkan BE).
+ * Token mentah TIDAK disimpan — hanya sha256-nya (`token_hash`, UNIQUE).
+ * `biometric_key` adalah secret verifikasi per-credential yang disimpan
+ * server-side untuk memvalidasi `biometric_proof` (HMAC) pada device-refresh;
+ * token mentah + key hanya dipegang klien di balik gerbang biometrik.
+ * `revoked_at` diisi oleh sign-out / sign-out-all; `last_used_at` berotasi saat
+ * device-refresh berhasil.
+ */
+export const deviceCredentials = sqliteTable(
+  'device_credentials',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    user_id: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    business_id: text('business_id')
+      .notNull()
+      .references(() => businesses.id, { onDelete: 'cascade' }),
+    device_id: text('device_id'),
+    device_install_id: text('device_install_id').notNull(),
+    token_hash: text('token_hash').notNull(),
+    biometric_key: text('biometric_key').notNull(),
+    issued_at: integer('issued_at', { mode: 'timestamp' }).notNull(),
+    expires_at: integer('expires_at', { mode: 'timestamp' }).notNull(),
+    last_used_at: integer('last_used_at', { mode: 'timestamp' }),
+    revoked_at: integer('revoked_at', { mode: 'timestamp' }),
+  },
+  (table) => [
+    uniqueIndex('device_credentials_token_hash_unique').on(table.token_hash),
+    index('device_credentials_user_device_idx').on(
+      table.user_id,
+      table.device_id,
+      table.device_install_id,
+    ),
+  ],
+)
+
 export type Business = typeof businesses.$inferSelect
 export type NewBusiness = typeof businesses.$inferInsert
 export type User = typeof users.$inferSelect
@@ -702,3 +745,5 @@ export type ReminderSettings = typeof reminderSettings.$inferSelect
 export type NewReminderSettings = typeof reminderSettings.$inferInsert
 export type ShiftReminderLog = typeof shiftReminderLog.$inferSelect
 export type NewShiftReminderLog = typeof shiftReminderLog.$inferInsert
+export type DeviceCredential = typeof deviceCredentials.$inferSelect
+export type NewDeviceCredential = typeof deviceCredentials.$inferInsert
