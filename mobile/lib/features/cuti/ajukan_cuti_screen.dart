@@ -356,7 +356,9 @@ class _AjukanCutiScreenState extends ConsumerState<AjukanCutiScreen> {
       return;
     }
 
-    await ref.read(leaveProvider.notifier).submit(
+    await ref
+        .read(leaveProvider.notifier)
+        .submit(
           leaveTypeId: type.id,
           tanggalMulai: _start,
           tanggalSelesai: _end,
@@ -370,7 +372,9 @@ class _AjukanCutiScreenState extends ConsumerState<AjukanCutiScreen> {
       messenger.showSnackBar(SnackBar(content: Text(after.actionError!)));
       ref.read(leaveProvider.notifier).clearActionError();
     } else {
-      messenger.showSnackBar(const SnackBar(content: Text('Pengajuan terkirim')));
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Pengajuan terkirim')),
+      );
       Navigator.of(context).pop();
     }
   }

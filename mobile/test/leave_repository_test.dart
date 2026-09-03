@@ -18,28 +18,26 @@ void main() {
 
   LeaveRepository repoFor(
     Future<ResponseBody> Function(RequestOptions) handler,
-  ) =>
-      LeaveRepository(buildTestClient(store, handler));
+  ) => LeaveRepository(buildTestClient(store, handler));
 
   Map<String, dynamic> requestJson({
     String status = 'pending',
     String? catatanApprover,
-  }) =>
-      {
-        'id': 'lr-1',
-        'employee_id': 'emp-1',
-        'employee_name': 'Siti Nurhaliza',
-        'leave_type_id': 'lt-1',
-        'leave_type_name': 'Tahunan',
-        'tanggal_mulai': '2026-09-15',
-        'tanggal_selesai': '2026-09-17',
-        'alasan': 'Acara keluarga di Bandung',
-        'status': status,
-        'approver_user_id': null,
-        'catatan_approver': catatanApprover,
-        'created_at': '2026-09-13T00:00:00.000Z',
-        'decided_at': null,
-      };
+  }) => {
+    'id': 'lr-1',
+    'employee_id': 'emp-1',
+    'employee_name': 'Siti Nurhaliza',
+    'leave_type_id': 'lt-1',
+    'leave_type_name': 'Tahunan',
+    'tanggal_mulai': '2026-09-15',
+    'tanggal_selesai': '2026-09-17',
+    'alasan': 'Acara keluarga di Bandung',
+    'status': status,
+    'approver_user_id': null,
+    'catatan_approver': catatanApprover,
+    'created_at': '2026-09-13T00:00:00.000Z',
+    'decided_at': null,
+  };
 
   Map<String, dynamic> balanceJson() => {
     'id': 'lb-1',
@@ -126,31 +124,34 @@ void main() {
   });
 
   group('getBalances', () {
-    test('GETs /leave-balances with the current year and parses rows', () async {
-      String? path;
-      Map<String, dynamic>? query;
-      final repo = repoFor((o) async {
-        path = o.path;
-        query = o.queryParameters;
-        return jsonResponse({
-          'employee_id': 'emp-1',
-          'tahun': 2026,
-          'balances': [balanceJson()],
+    test(
+      'GETs /leave-balances with the current year and parses rows',
+      () async {
+        String? path;
+        Map<String, dynamic>? query;
+        final repo = repoFor((o) async {
+          path = o.path;
+          query = o.queryParameters;
+          return jsonResponse({
+            'employee_id': 'emp-1',
+            'tahun': 2026,
+            'balances': [balanceJson()],
+          });
         });
-      });
 
-      final list = await repo.getBalances();
+        final list = await repo.getBalances();
 
-      expect(path, '/leave-balances');
-      expect(query!['tahun'], DateTime.now().year);
-      expect(list, hasLength(1));
-      final balance = list.first;
-      expect(balance.label, 'Tahunan');
-      expect(balance.remaining, 8);
-      expect(balance.total, 12);
-      expect(balance.tahun, 2026);
-      expect(balance.expiry, DateTime(2026, 12, 31));
-    });
+        expect(path, '/leave-balances');
+        expect(query!['tahun'], DateTime.now().year);
+        expect(list, hasLength(1));
+        final balance = list.first;
+        expect(balance.label, 'Tahunan');
+        expect(balance.remaining, 8);
+        expect(balance.total, 12);
+        expect(balance.tahun, 2026);
+        expect(balance.expiry, DateTime(2026, 12, 31));
+      },
+    );
 
     test('returns an empty list for a missing balances key', () async {
       final repo = repoFor((o) async => jsonResponse({'tahun': 2026}));
@@ -166,7 +167,9 @@ void main() {
       String? path;
       final repo = repoFor((o) async {
         path = o.path;
-        return jsonResponse({'leave_types': [typeJson()]});
+        return jsonResponse({
+          'leave_types': [typeJson()],
+        });
       });
 
       final list = await repo.getLeaveTypes();
@@ -192,29 +195,32 @@ void main() {
   });
 
   group('submit', () {
-    test('POSTs /leave-requests with the body and parses the response', () async {
-      String? path;
-      Map<String, dynamic>? body;
-      final repo = repoFor((o) async {
-        path = o.path;
-        body = o.data as Map<String, dynamic>;
-        return jsonResponse({'request': requestJson()});
-      });
+    test(
+      'POSTs /leave-requests with the body and parses the response',
+      () async {
+        String? path;
+        Map<String, dynamic>? body;
+        final repo = repoFor((o) async {
+          path = o.path;
+          body = o.data as Map<String, dynamic>;
+          return jsonResponse({'request': requestJson()});
+        });
 
-      final created = await repo.submit(
-        leaveTypeId: 'lt-1',
-        tanggalMulai: DateTime(2026, 9, 15),
-        tanggalSelesai: DateTime(2026, 9, 17),
-        alasan: '  Acara keluarga di Bandung  ',
-      );
+        final created = await repo.submit(
+          leaveTypeId: 'lt-1',
+          tanggalMulai: DateTime(2026, 9, 15),
+          tanggalSelesai: DateTime(2026, 9, 17),
+          alasan: '  Acara keluarga di Bandung  ',
+        );
 
-      expect(path, '/leave-requests');
-      expect(body!['leave_type_id'], 'lt-1');
-      expect(body!['tanggal_mulai'], '2026-09-15');
-      expect(body!['tanggal_selesai'], '2026-09-17');
-      expect(body!['alasan'], 'Acara keluarga di Bandung');
-      expect(created.status, LeaveStatus.menunggu);
-      expect(created.days, 3);
-    });
+        expect(path, '/leave-requests');
+        expect(body!['leave_type_id'], 'lt-1');
+        expect(body!['tanggal_mulai'], '2026-09-15');
+        expect(body!['tanggal_selesai'], '2026-09-17');
+        expect(body!['alasan'], 'Acara keluarga di Bandung');
+        expect(created.status, LeaveStatus.menunggu);
+        expect(created.days, 3);
+      },
+    );
   });
 }

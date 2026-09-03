@@ -97,9 +97,7 @@ class _RootRouterState extends ConsumerState<RootRouter> {
     }
     // Cross-employee guard: a leave id that does not belong to the signed-in
     // user resolves to the not-found page, never to their data.
-    final guard = DeepLinkGuard(
-      leaveRepo: ref.read(leaveRepositoryProvider),
-    );
+    final guard = DeepLinkGuard(leaveRepo: ref.read(leaveRepositoryProvider));
     final owned = await guard.owns(target);
     if (!mounted) return;
     navigator.push(

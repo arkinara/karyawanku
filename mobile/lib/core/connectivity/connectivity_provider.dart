@@ -16,8 +16,9 @@ final connectivityProvider = Provider<Connectivity>((ref) => Connectivity());
 /// banner before the platform stream reports. The offline-queue manager
 /// listens here to flush on reconnect; the attendance provider reads the
 /// current value synchronously to decide between a direct write and the queue.
-final isOnlineProvider =
-    NotifierProvider<OnlineNotifier, bool>(OnlineNotifier.new);
+final isOnlineProvider = NotifierProvider<OnlineNotifier, bool>(
+  OnlineNotifier.new,
+);
 
 class OnlineNotifier extends Notifier<bool> {
   StreamSubscription<bool>? _sub;

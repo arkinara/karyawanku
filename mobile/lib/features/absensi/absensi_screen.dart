@@ -78,9 +78,9 @@ class _AbsensiScreenState extends ConsumerState<AbsensiScreen>
       if (next.actionError != null && previous?.actionError == null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(next.actionError!)),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(next.actionError!)));
           ref.read(attendanceProvider.notifier).clearActionError();
         });
       }
@@ -172,7 +172,10 @@ class _AbsensiScreenState extends ConsumerState<AbsensiScreen>
       // has no server id yet — the selfie is kept and flushes with a later
       // clock-in, never uploaded against a phantom record.
       final isLocal = recordId != null && recordId.startsWith('local-');
-      if (recordId != null && !isLocal && selfie.hasCapture && !selfie.uploading) {
+      if (recordId != null &&
+          !isLocal &&
+          selfie.hasCapture &&
+          !selfie.uploading) {
         ref.read(selfieProvider.notifier).upload(recordId);
       }
     });
@@ -279,7 +282,9 @@ class _AbsensiScreenState extends ConsumerState<AbsensiScreen>
       case GeofenceNotice.permanentlyDenied:
         messenger.showSnackBar(
           SnackBar(
-            content: const Text('Lokasi tidak diizinkan. Aktifkan di Pengaturan.'),
+            content: const Text(
+              'Lokasi tidak diizinkan. Aktifkan di Pengaturan.',
+            ),
             action: SnackBarAction(
               label: 'Pengaturan',
               onPressed: () =>
@@ -290,7 +295,9 @@ class _AbsensiScreenState extends ConsumerState<AbsensiScreen>
       case GeofenceNotice.serviceDisabled:
         messenger.showSnackBar(
           SnackBar(
-            content: const Text('Aktifkan layanan lokasi di pengaturan perangkat'),
+            content: const Text(
+              'Aktifkan layanan lokasi di pengaturan perangkat',
+            ),
             action: SnackBarAction(
               label: 'Buka',
               onPressed: () =>
@@ -341,7 +348,10 @@ class _ClockCard extends StatelessWidget {
     final elapsedMinutes = onShift
         ? now.difference(record!.clockIn!.toLocal()).inMinutes
         : hasClockOut
-        ? record!.clockOut!.toLocal().difference(record.clockIn!.toLocal()).inMinutes
+        ? record!.clockOut!
+              .toLocal()
+              .difference(record.clockIn!.toLocal())
+              .inMinutes
         : 0;
 
     return Container(
@@ -409,7 +419,9 @@ class _ClockCard extends StatelessWidget {
               color: onShift ? status.onSuccessContainer : colors.onSurface,
             ),
           ),
-          if (record != null && (record.lateMinutes > 0 || record.effectiveOvertimeMinutes > 0)) ...[
+          if (record != null &&
+              (record.lateMinutes > 0 ||
+                  record.effectiveOvertimeMinutes > 0)) ...[
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -435,10 +447,7 @@ class _ClockCard extends StatelessWidget {
           const SizedBox(height: 20),
           _GeofenceChip(),
           const SizedBox(height: 8),
-          _SelfieSlot(
-            attendanceId: record?.id,
-            onTap: onSelfieTap,
-          ),
+          _SelfieSlot(attendanceId: record?.id, onTap: onSelfieTap),
           const SizedBox(height: 20),
           if (primaryLabel != null)
             FilledButton.icon(
@@ -566,10 +575,7 @@ class _GeofenceChip extends ConsumerWidget {
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: background,
-            borderRadius: Shape.rMd,
-          ),
+          decoration: BoxDecoration(color: background, borderRadius: Shape.rMd),
           child: Row(
             children: [
               SizedBox(
@@ -694,10 +700,7 @@ class _SelfieSlot extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              TextButton(
-                onPressed: notifier.clear,
-                child: const Text('Batal'),
-              ),
+              TextButton(onPressed: notifier.clear, child: const Text('Batal')),
               const SizedBox(width: 12),
               FilledButton(
                 // Before the first clock-in there is no record to attach to —
@@ -708,7 +711,9 @@ class _SelfieSlot extends ConsumerWidget {
                     ? () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Selfie akan dikirim setelah Clock In'),
+                            content: Text(
+                              'Selfie akan dikirim setelah Clock In',
+                            ),
                           ),
                         );
                       }
@@ -739,11 +744,7 @@ class _SelfieSlot extends ConsumerWidget {
       content = Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            LucideIcons.camera,
-            size: 20,
-            color: colors.onSurfaceVariant,
-          ),
+          Icon(LucideIcons.camera, size: 20, color: colors.onSurfaceVariant),
           const SizedBox(height: 2),
           Text(
             'Selfie',
@@ -770,11 +771,7 @@ class _SelfieSlot extends ConsumerWidget {
           ),
           child: state.hasCapture || state.uploading || state.uploaded
               ? content
-              : InkWell(
-                  onTap: onTap,
-                  borderRadius: Shape.rMd,
-                  child: content,
-                ),
+              : InkWell(onTap: onTap, borderRadius: Shape.rMd, child: content),
         ),
       ),
     );
@@ -809,16 +806,11 @@ class _ConsentRow extends StatelessWidget {
         Container(
           width: 32,
           height: 32,
-          decoration: BoxDecoration(
-            color: background,
-            borderRadius: Shape.rSm,
-          ),
+          decoration: BoxDecoration(color: background, borderRadius: Shape.rSm),
           child: Icon(icon, size: 18, color: foreground),
         ),
         const SizedBox(width: 12),
-        Expanded(
-          child: Text(text, style: context.texts.bodyMedium),
-        ),
+        Expanded(child: Text(text, style: context.texts.bodyMedium)),
       ],
     );
   }
@@ -1095,7 +1087,11 @@ class _ClockSkeleton extends StatelessWidget {
           const SizedBox(height: 24),
           const _SkeletonBox(width: double.infinity, height: 96),
           const SizedBox(height: 24),
-          const _SkeletonBox(width: double.infinity, height: 64, radius: Shape.full),
+          const _SkeletonBox(
+            width: double.infinity,
+            height: 64,
+            radius: Shape.full,
+          ),
         ],
       ),
     );
@@ -1120,7 +1116,11 @@ class _TimelineSkeleton extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    const _SkeletonBox(width: 10, height: 10, radius: Shape.full),
+                    const _SkeletonBox(
+                      width: 10,
+                      height: 10,
+                      radius: Shape.full,
+                    ),
                     const SizedBox(width: 16),
                     const _SkeletonBox(width: 90, height: 16),
                     const Spacer(),
@@ -1319,7 +1319,8 @@ class _QueueSheet extends ConsumerWidget {
                       final entry = queue.entries[i];
                       return _QueueRow(
                         entry: entry,
-                        onRetry: entry.status ==
+                        onRetry:
+                            entry.status ==
                                 QueuedAttendanceStatus.permanentlyFailed
                             ? () => manager.retry(entry.id)
                             : null,
@@ -1340,7 +1341,9 @@ class _QueueSheet extends ConsumerWidget {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(LucideIcons.send, size: 18),
-                    label: Text(queue.flushing ? 'Mengirim…' : 'Kirim sekarang'),
+                    label: Text(
+                      queue.flushing ? 'Mengirim…' : 'Kirim sekarang',
+                    ),
                   ),
                 ),
               ],
@@ -1366,13 +1369,22 @@ class _QueueRow extends StatelessWidget {
     final colors = context.colors;
 
     final (pillBackground, pillForeground) = switch (entry.status) {
-      QueuedAttendanceStatus.sent => (status.successContainer, status.onSuccessContainer),
+      QueuedAttendanceStatus.sent => (
+        status.successContainer,
+        status.onSuccessContainer,
+      ),
       QueuedAttendanceStatus.permanentlyFailed => (
         status.dangerContainer,
         status.onDangerContainer,
       ),
-      QueuedAttendanceStatus.inFlight => (status.infoContainer, status.onInfoContainer),
-      QueuedAttendanceStatus.pending => (status.warningContainer, status.onWarningContainer),
+      QueuedAttendanceStatus.inFlight => (
+        status.infoContainer,
+        status.onInfoContainer,
+      ),
+      QueuedAttendanceStatus.pending => (
+        status.warningContainer,
+        status.onWarningContainer,
+      ),
     };
 
     return Padding(
@@ -1403,7 +1415,9 @@ class _QueueRow extends StatelessWidget {
                 if (entry.error != null)
                   Text(
                     entry.error!,
-                    style: context.texts.bodySmall?.copyWith(color: status.danger),
+                    style: context.texts.bodySmall?.copyWith(
+                      color: status.danger,
+                    ),
                   ),
               ],
             ),

@@ -21,29 +21,27 @@ void main() {
 
   AttendanceRepository repoFor(
     Future<ResponseBody> Function(RequestOptions) handler,
-  ) =>
-      AttendanceRepository(buildTestClient(store, handler));
+  ) => AttendanceRepository(buildTestClient(store, handler));
 
   Map<String, dynamic> recordJson({
     String? clockIn,
     String? clockOut,
     int lateMinutes = 0,
     int overtimeMinutes = 0,
-  }) =>
-      {
-        'id': 'att-1',
-        'employee_id': 'emp-1',
-        'tanggal': '2026-09-03',
-        'clock_in': clockIn,
-        'clock_out': clockOut,
-        'catatan': null,
-        'status': 'hadir',
-        'late_minutes': lateMinutes,
-        'overtime_minutes': overtimeMinutes,
-        'overtime_override_minutes': null,
-        'submission_method': 'live',
-        'time_drift_detected': false,
-      };
+  }) => {
+    'id': 'att-1',
+    'employee_id': 'emp-1',
+    'tanggal': '2026-09-03',
+    'clock_in': clockIn,
+    'clock_out': clockOut,
+    'catatan': null,
+    'status': 'hadir',
+    'late_minutes': lateMinutes,
+    'overtime_minutes': overtimeMinutes,
+    'overtime_override_minutes': null,
+    'submission_method': 'live',
+    'time_drift_detected': false,
+  };
 
   group('getToday', () {
     test('GETs /attendance/today and wraps the record', () async {
@@ -60,10 +58,7 @@ void main() {
       expect(today.hasClockIn, isTrue);
       expect(today.isOnShift, isTrue);
       expect(today.hasClockOut, isFalse);
-      expect(
-        today.record!.clockIn,
-        DateTime.parse('2026-09-03T00:58:00.000Z'),
-      );
+      expect(today.record!.clockIn, DateTime.parse('2026-09-03T00:58:00.000Z'));
     });
 
     test('returns an empty TodayAttendance when the record is null', () async {
@@ -113,22 +108,25 @@ void main() {
       expect(body!['submission_method'], 'live');
     });
 
-    test('clockOut POSTs to /attendance/clock-out with a live payload', () async {
-      String? path;
-      Map<String, dynamic>? body;
-      final repo = repoFor((o) async {
-        path = o.path;
-        body = (o.data as Map).cast<String, dynamic>();
-        return jsonResponse({'record': recordJson()});
-      });
+    test(
+      'clockOut POSTs to /attendance/clock-out with a live payload',
+      () async {
+        String? path;
+        Map<String, dynamic>? body;
+        final repo = repoFor((o) async {
+          path = o.path;
+          body = (o.data as Map).cast<String, dynamic>();
+          return jsonResponse({'record': recordJson()});
+        });
 
-      final ts = DateTime.utc(2026, 9, 3, 7, 0);
-      await repo.clockOut(clientTimestamp: ts);
+        final ts = DateTime.utc(2026, 9, 3, 7, 0);
+        await repo.clockOut(clientTimestamp: ts);
 
-      expect(path, '/attendance/clock-out');
-      expect(body!['client_timestamp'], '2026-09-03T07:00:00.000Z');
-      expect(body!['submission_method'], 'live');
-    });
+        expect(path, '/attendance/clock-out');
+        expect(body!['client_timestamp'], '2026-09-03T07:00:00.000Z');
+        expect(body!['submission_method'], 'live');
+      },
+    );
 
     test('clockIn attaches coordinates when the device has a fix', () async {
       Map<String, dynamic>? body;
@@ -202,20 +200,23 @@ void main() {
       expect(body!['submission_method'], 'offline_queue');
     });
 
-    test('clockIn with idempotencyKey sends the Idempotency-Key header', () async {
-      Map<String, dynamic>? headers;
-      final repo = repoFor((o) async {
-        headers = o.headers;
-        return jsonResponse({'record': recordJson()});
-      });
+    test(
+      'clockIn with idempotencyKey sends the Idempotency-Key header',
+      () async {
+        Map<String, dynamic>? headers;
+        final repo = repoFor((o) async {
+          headers = o.headers;
+          return jsonResponse({'record': recordJson()});
+        });
 
-      await repo.clockIn(
-        clientTimestamp: DateTime.utc(2026, 9, 3, 0, 58),
-        idempotencyKey: 'k1',
-      );
+        await repo.clockIn(
+          clientTimestamp: DateTime.utc(2026, 9, 3, 0, 58),
+          idempotencyKey: 'k1',
+        );
 
-      expect(headers!['Idempotency-Key'], 'k1');
-    });
+        expect(headers!['Idempotency-Key'], 'k1');
+      },
+    );
 
     test('clockIn without a key omits the Idempotency-Key header', () async {
       Map<String, dynamic>? headers;
@@ -229,20 +230,23 @@ void main() {
       expect(headers!.containsKey('Idempotency-Key'), isFalse);
     });
 
-    test('clockOut with idempotencyKey sends the Idempotency-Key header', () async {
-      Map<String, dynamic>? headers;
-      final repo = repoFor((o) async {
-        headers = o.headers;
-        return jsonResponse({'record': recordJson()});
-      });
+    test(
+      'clockOut with idempotencyKey sends the Idempotency-Key header',
+      () async {
+        Map<String, dynamic>? headers;
+        final repo = repoFor((o) async {
+          headers = o.headers;
+          return jsonResponse({'record': recordJson()});
+        });
 
-      await repo.clockOut(
-        clientTimestamp: DateTime.utc(2026, 9, 3, 7, 0),
-        idempotencyKey: 'k2',
-      );
+        await repo.clockOut(
+          clientTimestamp: DateTime.utc(2026, 9, 3, 7, 0),
+          idempotencyKey: 'k2',
+        );
 
-      expect(headers!['Idempotency-Key'], 'k2');
-    });
+        expect(headers!['Idempotency-Key'], 'k2');
+      },
+    );
 
     test('clockOut without a key omits the Idempotency-Key header', () async {
       Map<String, dynamic>? headers;
@@ -323,37 +327,43 @@ void main() {
       return file;
     }
 
-    test('uploadSelfie POSTs multipart with the file field + jpeg type', () async {
-      final file = await makeJpegFile();
-      String? path;
-      FormData? form;
-      final repo = repoFor((o) async {
-        path = o.path;
-        form = o.data as FormData?;
-        return jsonResponse({
-          'url': '/api/attendance/att-1/selfie',
-          'size_bytes': 271,
-          'retention_until': '2026-12-02T00:00:00.000Z',
+    test(
+      'uploadSelfie POSTs multipart with the file field + jpeg type',
+      () async {
+        final file = await makeJpegFile();
+        String? path;
+        FormData? form;
+        final repo = repoFor((o) async {
+          path = o.path;
+          form = o.data as FormData?;
+          return jsonResponse({
+            'url': '/api/attendance/att-1/selfie',
+            'size_bytes': 271,
+            'retention_until': '2026-12-02T00:00:00.000Z',
+          });
         });
-      });
 
-      final upload = await repo.uploadSelfie(attendanceId: 'att-1', file: file);
+        final upload = await repo.uploadSelfie(
+          attendanceId: 'att-1',
+          file: file,
+        );
 
-      expect(path, '/attendance/att-1/selfie');
-      expect(form, isNotNull);
-      final fd = form!;
-      expect(fd.files.length, 1);
-      expect(fd.files.single.key, 'file');
-      expect(fd.files.single.value.filename, 'selfie.jpg');
-      // MediaType uses identity equality; compare the mime type string.
-      expect(fd.files.single.value.contentType?.mimeType, 'image/jpeg');
-      expect(upload.url, '/api/attendance/att-1/selfie');
-      expect(upload.sizeBytes, 271);
-      expect(
-        upload.retentionUntil,
-        DateTime.parse('2026-12-02T00:00:00.000Z'),
-      );
-    });
+        expect(path, '/attendance/att-1/selfie');
+        expect(form, isNotNull);
+        final fd = form!;
+        expect(fd.files.length, 1);
+        expect(fd.files.single.key, 'file');
+        expect(fd.files.single.value.filename, 'selfie.jpg');
+        // MediaType uses identity equality; compare the mime type string.
+        expect(fd.files.single.value.contentType?.mimeType, 'image/jpeg');
+        expect(upload.url, '/api/attendance/att-1/selfie');
+        expect(upload.sizeBytes, 271);
+        expect(
+          upload.retentionUntil,
+          DateTime.parse('2026-12-02T00:00:00.000Z'),
+        );
+      },
+    );
 
     test('downloadSelfie GETs the raw image bytes', () async {
       final repo = repoFor((o) async {
@@ -362,7 +372,9 @@ void main() {
         return ResponseBody.fromBytes(
           [0xff, 0xd8, 0xff, 0xe0, 0x12, 0x34],
           200,
-          headers: {'content-type': ['image/jpeg']},
+          headers: {
+            'content-type': ['image/jpeg'],
+          },
         );
       });
 

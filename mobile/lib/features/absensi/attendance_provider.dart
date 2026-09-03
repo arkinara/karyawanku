@@ -105,7 +105,8 @@ class AttendanceNotifier extends Notifier<AttendanceState> {
     try {
       final today = await _repo.getToday();
       final current = state.today?.record;
-      final optimistic = current != null && current.id.startsWith(_localIdPrefix);
+      final optimistic =
+          current != null && current.id.startsWith(_localIdPrefix);
       if (today.record == null && optimistic) {
         state = state.copyWith(today: state.today, loading: false, error: null);
       } else {
@@ -242,7 +243,9 @@ class AttendanceNotifier extends Notifier<AttendanceState> {
       employeeId: existing?.employeeId ?? _employeeId ?? '',
       tanggal: existing?.tanggal ?? _localDate(actionAt),
       clockIn: existing?.clockIn ?? actionAt,
-      clockOut: kind == QueuedAttendanceKind.clockOut ? actionAt : existing?.clockOut,
+      clockOut: kind == QueuedAttendanceKind.clockOut
+          ? actionAt
+          : existing?.clockOut,
       catatan: existing?.catatan,
       status: existing?.status ?? AttendanceStatus.hadir,
       lateMinutes: existing?.lateMinutes ?? 0,

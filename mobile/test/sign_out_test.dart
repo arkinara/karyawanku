@@ -40,23 +40,26 @@ void main() {
     return container;
   }
 
-  test('signOut revokes the device credential server-side and clears it locally', () async {
-    await seedSignedInState();
-    String? sentDeviceToken;
-    final container = makeContainer((o) async {
-      final body = o.data as Map<String, dynamic>?;
-      sentDeviceToken = body?['device_refresh_token'] as String?;
-      return jsonResponse({'ok': true});
-    });
+  test(
+    'signOut revokes the device credential server-side and clears it locally',
+    () async {
+      await seedSignedInState();
+      String? sentDeviceToken;
+      final container = makeContainer((o) async {
+        final body = o.data as Map<String, dynamic>?;
+        sentDeviceToken = body?['device_refresh_token'] as String?;
+        return jsonResponse({'ok': true});
+      });
 
-    await container.read(authProvider.notifier).signOut();
+      await container.read(authProvider.notifier).signOut();
 
-    expect(sentDeviceToken, testDeviceCredential.deviceRefreshToken);
-    expect(await backend.read(DeviceCredentialStore.credentialKey), isNull);
-    expect(await backend.read(DeviceCredentialStore.markerKey), isNull);
-    expect(await store.getSession(), isNull);
-    expect(container.read(authProvider).isSignedIn, isFalse);
-  });
+      expect(sentDeviceToken, testDeviceCredential.deviceRefreshToken);
+      expect(await backend.read(DeviceCredentialStore.credentialKey), isNull);
+      expect(await backend.read(DeviceCredentialStore.markerKey), isNull);
+      expect(await store.getSession(), isNull);
+      expect(container.read(authProvider).isSignedIn, isFalse);
+    },
+  );
 
   test('signOutAll clears the credential and the marker too', () async {
     await seedSignedInState();
@@ -73,17 +76,20 @@ void main() {
     expect(container.read(authProvider).isSignedIn, isFalse);
   });
 
-  test('signOut clears local credential + marker even when the revoke call fails', () async {
-    await seedSignedInState();
-    final container = makeContainer((o) async {
-      return jsonErrorResponse('server exploded', status: 500);
-    });
+  test(
+    'signOut clears local credential + marker even when the revoke call fails',
+    () async {
+      await seedSignedInState();
+      final container = makeContainer((o) async {
+        return jsonErrorResponse('server exploded', status: 500);
+      });
 
-    await container.read(authProvider.notifier).signOut();
+      await container.read(authProvider.notifier).signOut();
 
-    expect(await backend.read(DeviceCredentialStore.credentialKey), isNull);
-    expect(await backend.read(DeviceCredentialStore.markerKey), isNull);
-    expect(await store.getSession(), isNull);
-    expect(container.read(authProvider).isSignedIn, isFalse);
-  });
+      expect(await backend.read(DeviceCredentialStore.credentialKey), isNull);
+      expect(await backend.read(DeviceCredentialStore.markerKey), isNull);
+      expect(await store.getSession(), isNull);
+      expect(container.read(authProvider).isSignedIn, isFalse);
+    },
+  );
 }

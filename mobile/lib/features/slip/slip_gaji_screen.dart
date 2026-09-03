@@ -48,7 +48,9 @@ class _SlipGajiScreenState extends ConsumerState<SlipGajiScreen> {
     final labels = [for (final y in years) '$y'];
     if (_filter >= labels.length + 1) _filter = 0;
 
-    final latest = payslips.payslips.isNotEmpty ? payslips.payslips.first : null;
+    final latest = payslips.payslips.isNotEmpty
+        ? payslips.payslips.first
+        : null;
 
     return Scaffold(
       body: SafeArea(
@@ -62,7 +64,9 @@ class _SlipGajiScreenState extends ConsumerState<SlipGajiScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    user == null ? 'Karyawan' : '${user.nama} · ${user.roleLabel}',
+                    user == null
+                        ? 'Karyawan'
+                        : '${user.nama} · ${user.roleLabel}',
                     style: context.texts.bodyMedium?.copyWith(
                       color: context.colors.onSurfaceVariant,
                     ),
@@ -153,9 +157,7 @@ class _HistoryList extends StatelessWidget {
         for (final slip in payslips)
           CardRow(
             leading: RoundToken(
-              icon: slip.isThr
-                  ? LucideIcons.banknote
-                  : LucideIcons.fileText,
+              icon: slip.isThr ? LucideIcons.banknote : LucideIcons.fileText,
               background: slip.isThr
                   ? context.status.warningContainer
                   : context.colors.surfaceContainerHigh,
@@ -166,9 +168,11 @@ class _HistoryList extends StatelessWidget {
             title: slip.periodLabel,
             subtitle: _historySubtitle(slip),
             trailing: Fmt.rupiah(slip.takeHome),
-            onTap: () => Navigator.of(
-              context,
-            ).push(MaterialPageRoute(builder: (_) => SlipDetailScreen(payslip: slip))),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => SlipDetailScreen(payslip: slip),
+              ),
+            ),
           ),
       ],
     );
@@ -357,10 +361,7 @@ class _LatestCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                if (payslip.isThr) ...[
-                  const SizedBox(height: 12),
-                  _ThrBadge(),
-                ],
+                if (payslip.isThr) ...[const SizedBox(height: 12), _ThrBadge()],
               ],
             ),
           ),

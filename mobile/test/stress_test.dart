@@ -41,15 +41,15 @@ void main() {
               await tester.pumpWidget(
                 MediaQuery(
                   data: MediaQueryData(textScaler: TextScaler.linear(scale)),
-child: ProviderScope(
-                      overrides: [
-                        signedInOverride,
-                        attendanceOverride(const AttendanceState()),
-                        shiftOverride(const ShiftState()),
-                        leaveOverride(sampleLeaveState()),
-                        payslipOverride(samplePayslipState()),
-                        ...blockedNetworkOverrides(),
-                      ],
+                  child: ProviderScope(
+                    overrides: [
+                      signedInOverride,
+                      attendanceOverride(const AttendanceState()),
+                      shiftOverride(const ShiftState()),
+                      leaveOverride(sampleLeaveState()),
+                      payslipOverride(samplePayslipState()),
+                      ...blockedNetworkOverrides(),
+                    ],
                     child: MaterialApp(
                       theme: buildAppTheme(brightness: brightness),
                       home: screen,

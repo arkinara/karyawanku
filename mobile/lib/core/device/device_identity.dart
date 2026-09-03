@@ -12,7 +12,12 @@ import '../auth/secure_session_store.dart';
 /// credential. It is recorded after a successful sign-in / device-refresh and
 /// dropped on `rotate()`.
 class DeviceIdentity {
-  DeviceIdentity._(this._backend, this._id, this._pushToken, {required this.isFresh});
+  DeviceIdentity._(
+    this._backend,
+    this._id,
+    this._pushToken, {
+    required this.isFresh,
+  });
 
   static const deviceIdKey = 'kk_device_id';
   static const pushTokenKey = 'kk_push_token';
@@ -27,7 +32,9 @@ class DeviceIdentity {
   /// Returns the stored identity, or mints + persists a fresh one. A storage
   /// failure degrades to a blank identity (empty `id`) — the request simply
   /// omits `X-Device-Id` and the BE never mints a device credential.
-  static Future<DeviceIdentity> ensureInitialized({SecureStorageBackend? backend}) async {
+  static Future<DeviceIdentity> ensureInitialized({
+    SecureStorageBackend? backend,
+  }) async {
     final storage = backend ?? const FlutterSecureStorageBackend();
     try {
       final existing = await storage.read(deviceIdKey);

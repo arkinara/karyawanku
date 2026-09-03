@@ -46,10 +46,10 @@ class AuthState {
   const AuthState.signingIn() : this(loading: true, signingIn: true);
 
   AuthState.signedIn(Session session)
-      : this(user: session.user, session: session);
+    : this(user: session.user, session: session);
 
   const AuthState.expired()
-      : this(notice: 'Sesi telah berakhir. Silakan masuk kembali.');
+    : this(notice: 'Sesi telah berakhir. Silakan masuk kembali.');
 
   final User? user;
   final Session? session;
@@ -66,7 +66,9 @@ class AuthState {
   bool get isSignedIn => session != null;
 }
 
-final authProvider = NotifierProvider<AuthNotifier, AuthState>(AuthNotifier.new);
+final authProvider = NotifierProvider<AuthNotifier, AuthState>(
+  AuthNotifier.new,
+);
 
 /// Owns the session lifecycle: sign-in stores the token pair + user in secure
 /// storage, cold start restores and verifies it, sign-out revokes then clears
@@ -182,7 +184,10 @@ class AuthNotifier extends Notifier<AuthState> {
     final biometricKey = response.deviceBiometricKey;
     final installId = response.deviceInstallId;
     final expiresAt = response.deviceRefreshExpiresAt;
-    if (token == null || biometricKey == null || installId == null || expiresAt == null) {
+    if (token == null ||
+        biometricKey == null ||
+        installId == null ||
+        expiresAt == null) {
       // Partial device envelope — nothing to persist.
       return;
     }

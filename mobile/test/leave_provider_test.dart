@@ -26,22 +26,21 @@ ProviderContainer makeContainer(SecureSessionStore store, ApiClient client) {
 Map<String, dynamic> requestJson({
   String id = 'lr-1',
   String status = 'pending',
-}) =>
-    {
-      'id': id,
-      'employee_id': 'emp-1',
-      'employee_name': 'Siti Nurhaliza',
-      'leave_type_id': 'lt-1',
-      'leave_type_name': 'Tahunan',
-      'tanggal_mulai': '2026-09-15',
-      'tanggal_selesai': '2026-09-17',
-      'alasan': 'Acara keluarga di Bandung',
-      'status': status,
-      'approver_user_id': null,
-      'catatan_approver': null,
-      'created_at': '2026-09-13T00:00:00.000Z',
-      'decided_at': null,
-    };
+}) => {
+  'id': id,
+  'employee_id': 'emp-1',
+  'employee_name': 'Siti Nurhaliza',
+  'leave_type_id': 'lt-1',
+  'leave_type_name': 'Tahunan',
+  'tanggal_mulai': '2026-09-15',
+  'tanggal_selesai': '2026-09-17',
+  'alasan': 'Acara keluarga di Bandung',
+  'status': status,
+  'approver_user_id': null,
+  'catatan_approver': null,
+  'created_at': '2026-09-13T00:00:00.000Z',
+  'decided_at': null,
+};
 
 Map<String, dynamic> balanceJson() => {
   'id': 'lb-1',
@@ -152,9 +151,7 @@ void main() {
           expect((o.data as Map)['tanggal_selesai'], '2026-09-17');
           expect((o.data as Map)['alasan'], 'Acara keluarga di Bandung');
           posted = true;
-          return jsonResponse({
-            'request': requestJson(id: 'lr-new'),
-          });
+          return jsonResponse({'request': requestJson(id: 'lr-new')});
         }
         if (o.path == '/leave-requests' && o.method == 'GET') {
           return jsonResponse({
@@ -202,7 +199,10 @@ void main() {
 
       final state = container.read(leaveProvider);
       expect(state.submitting, isFalse);
-      expect(state.actionError, 'Sisa kuota cuti tidak mencukupi (sisa 2 hari)');
+      expect(
+        state.actionError,
+        'Sisa kuota cuti tidak mencukupi (sisa 2 hari)',
+      );
 
       notifier.clearActionError();
       expect(container.read(leaveProvider).actionError, isNull);

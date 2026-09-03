@@ -66,8 +66,9 @@ class SelfieState {
       permission: permission ?? this.permission,
       consentGranted: consentGranted ?? this.consentGranted,
       capturedFile: clearCapture ? null : capturedFile ?? this.capturedFile,
-      compressedBytes:
-          clearCapture ? null : compressedBytes ?? this.compressedBytes,
+      compressedBytes: clearCapture
+          ? null
+          : compressedBytes ?? this.compressedBytes,
       uploading: uploading ?? this.uploading,
       error: clearError ? null : error ?? this.error,
       // `lastUpload` is sticky (the retention hint stays visible) until a new
@@ -157,7 +158,10 @@ class SelfieNotifier extends Notifier<SelfieState> {
     } on ApiException catch (e) {
       state = state.copyWith(uploading: false, error: e.message);
     } catch (_) {
-      state = state.copyWith(uploading: false, error: 'Gagal mengunggah selfie');
+      state = state.copyWith(
+        uploading: false,
+        error: 'Gagal mengunggah selfie',
+      );
     }
   }
 }

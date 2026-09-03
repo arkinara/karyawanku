@@ -37,7 +37,7 @@ class FlutterSecureStorageBackend implements SecureStorageBackend {
 /// backup on a new device — is treated as signed-out, never as a crash.
 class SecureSessionStore {
   SecureSessionStore({SecureStorageBackend? backend})
-      : _backend = backend ?? const FlutterSecureStorageBackend();
+    : _backend = backend ?? const FlutterSecureStorageBackend();
 
   /// Process-wide singleton backed by the platform Keychain /
   /// EncryptedSharedPreferences.
@@ -74,7 +74,11 @@ class SecureSessionStore {
         return null;
       }
       final user = User.fromJson(jsonDecode(userRaw) as Map<String, dynamic>);
-      return Session(accessToken: accessToken, refreshToken: refreshToken, user: user);
+      return Session(
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+        user: user,
+      );
     } catch (_) {
       // Corrupt or unreachable storage ⇒ signed-out, never a crash.
       return null;
@@ -92,6 +96,17 @@ class SecureSessionStore {
   Future<String?> getRefreshToken() async {
     try {
       return await _backend.read(refreshTokenKey);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Raw key read through the same backend (used by the ApiClient for the
+  /// device identity header). Reading through the store's injected backend is
+  /// what keeps widget tests off the platform channel.
+  Future<String?> readRaw(String key) async {
+    try {
+      return await _backend.read(key);
     } catch (_) {
       return null;
     }

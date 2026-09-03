@@ -14,7 +14,7 @@ import 'push_messaging.dart';
 /// exception.
 class FCMService {
   FCMService({PushMessaging? messaging})
-      : _messaging = messaging ?? FirebasePushMessaging();
+    : _messaging = messaging ?? FirebasePushMessaging();
 
   /// Process-wide singleton. Tests inject a `FakeMessaging` via the provider
   /// override, never the real plugin.

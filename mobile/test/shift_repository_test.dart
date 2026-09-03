@@ -17,8 +17,7 @@ void main() {
 
   ShiftRepository repoFor(
     Future<ResponseBody> Function(RequestOptions) handler,
-  ) =>
-      ShiftRepository(buildTestClient(store, handler));
+  ) => ShiftRepository(buildTestClient(store, handler));
 
   Map<String, dynamic> shiftJson() => {
     'id': 's-1',
@@ -80,10 +79,7 @@ void main() {
         query = o.queryParameters;
         return jsonResponse({
           'items': [
-            {
-              ...assignmentJson(tanggal: '2026-01-05'),
-              'shift': null,
-            },
+            {...assignmentJson(tanggal: '2026-01-05'), 'shift': null},
           ],
         });
       });
@@ -112,22 +108,27 @@ void main() {
   });
 
   group('getUpcoming', () {
-    test('GETs /shift-assignments/upcoming with days and parses assignments', () async {
-      String? path;
-      Map<String, dynamic>? query;
-      final repo = repoFor((o) async {
-        path = o.path;
-        query = o.queryParameters;
-        return jsonResponse({'assignments': [assignmentJson()]});
-      });
+    test(
+      'GETs /shift-assignments/upcoming with days and parses assignments',
+      () async {
+        String? path;
+        Map<String, dynamic>? query;
+        final repo = repoFor((o) async {
+          path = o.path;
+          query = o.queryParameters;
+          return jsonResponse({
+            'assignments': [assignmentJson()],
+          });
+        });
 
-      final list = await repo.getUpcoming(days: 3);
+        final list = await repo.getUpcoming(days: 3);
 
-      expect(path, '/shift-assignments/upcoming');
-      expect(query!['days'], 3);
-      expect(list, hasLength(1));
-      expect(list.first.employeeName, 'Siti Nurhaliza');
-    });
+        expect(path, '/shift-assignments/upcoming');
+        expect(query!['days'], 3);
+        expect(list, hasLength(1));
+        expect(list.first.employeeName, 'Siti Nurhaliza');
+      },
+    );
 
     test('defaults days to 3', () async {
       Map<String, dynamic>? query;

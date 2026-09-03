@@ -64,8 +64,9 @@ class ShiftState {
   }
 }
 
-final shiftProvider =
-    NotifierProvider<ShiftNotifier, ShiftState>(ShiftNotifier.new);
+final shiftProvider = NotifierProvider<ShiftNotifier, ShiftState>(
+  ShiftNotifier.new,
+);
 
 /// Owns the roster for the visible ranges. Ranges are memoized by their
 /// `(start, end)` tuple, so paging back to an already-loaded month is a
@@ -99,10 +100,7 @@ class ShiftNotifier extends Notifier<ShiftState> {
     if (_fetchedRanges.contains(key)) return;
     state = state.copyWith(loading: true, clearError: true);
     try {
-      final assignments = await _repo.getAssignments(
-        start: start,
-        end: end,
-      );
+      final assignments = await _repo.getAssignments(start: start, end: end);
       final byDate = Map<DateTime, ShiftAssignment>.from(
         state.assignmentsByDate,
       );

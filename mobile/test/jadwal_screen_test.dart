@@ -104,9 +104,7 @@ void main() {
   ) async {
     final today = DateTime.now();
     final state = ShiftState(
-      assignmentsByDate: {
-        keyOf(today): testShiftAssignment(tanggal: today),
-      },
+      assignmentsByDate: {keyOf(today): testShiftAssignment(tanggal: today)},
     );
     await tester.pumpWidget(jadwal(state));
     await tester.pumpAndSettle();
@@ -117,9 +115,7 @@ void main() {
 
   testWidgets('leave-blocked day renders the Cuti rest state', (tester) async {
     final today = DateTime.now();
-    final state = ShiftState(
-      leaveBlockedDates: {keyOf(today)},
-    );
+    final state = ShiftState(leaveBlockedDates: {keyOf(today)});
     await tester.pumpWidget(jadwal(state));
     await tester.pumpAndSettle();
 
@@ -154,7 +150,10 @@ void main() {
       findsOneWidget,
     );
     // Paging triggered a fresh loadMonth for the newly displayed range.
-    expect(notifier.calls.where((c) => c == 'month').length, greaterThan(before));
+    expect(
+      notifier.calls.where((c) => c == 'month').length,
+      greaterThan(before),
+    );
 
     await tester.tap(find.byTooltip('Bulan sebelumnya'));
     await tester.pumpAndSettle();

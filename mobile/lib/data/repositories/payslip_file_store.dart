@@ -20,15 +20,10 @@ class PayslipFileStore {
     final dir = await getApplicationDocumentsDirectory();
     final folder = Directory('${dir.path}${Platform.pathSeparator}payslips');
     await folder.create(recursive: true);
-    final file = File(
-      '${folder.path}${Platform.pathSeparator}$fileName',
-    );
+    final file = File('${folder.path}${Platform.pathSeparator}$fileName');
     await file.writeAsBytes(bytes, flush: true);
     await SharePlus.instance.share(
-      ShareParams(
-        files: [XFile(file.path)],
-        text: 'Slip gaji KaryawanKu',
-      ),
+      ShareParams(files: [XFile(file.path)], text: 'Slip gaji KaryawanKu'),
     );
     return file.path;
   }

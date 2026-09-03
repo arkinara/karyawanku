@@ -6,20 +6,17 @@ import '../../core/api/api_exception.dart';
 import '../../data/models.dart';
 import '../../data/repositories/notification_prefs_repository.dart';
 
-final notificationPrefsRepositoryProvider = Provider<NotificationPrefsRepository>(
-  (ref) => NotificationPrefsRepository(ref.watch(apiClientProvider)),
-);
+final notificationPrefsRepositoryProvider =
+    Provider<NotificationPrefsRepository>(
+      (ref) => NotificationPrefsRepository(ref.watch(apiClientProvider)),
+    );
 
 /// Lead times the Jadwal dropdown offers (must match the BE validation).
 const reminderLeadOptions = [15, 30, 60];
 
 @immutable
 class NotificationPrefsState {
-  const NotificationPrefsState({
-    this.prefs,
-    this.loading = false,
-    this.error,
-  });
+  const NotificationPrefsState({this.prefs, this.loading = false, this.error});
 
   /// Null before the first successful load — the UI shows defaults
   /// (enabled, 30 minutes) and stays usable offline.
@@ -43,8 +40,8 @@ class NotificationPrefsState {
 
 final notificationPrefsProvider =
     NotifierProvider<NotificationPrefsNotifier, NotificationPrefsState>(
-  NotificationPrefsNotifier.new,
-);
+      NotificationPrefsNotifier.new,
+    );
 
 /// Owns the shift-reminder preference (ticket #71). The server is the source
 /// of truth; failures degrade to the previous state / defaults and are

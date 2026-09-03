@@ -76,7 +76,9 @@ void main() {
       final today = DateTime.now();
       final client = buildTestClient(store, (o) async {
         if (o.path == '/shift-assignments') {
-          return jsonResponse({'items': [assignmentJson(today)]});
+          return jsonResponse({
+            'items': [assignmentJson(today)],
+          });
         }
         return jsonErrorResponse('nope', status: 404);
       });
@@ -112,27 +114,30 @@ void main() {
       expect(requests, 1);
     });
 
-    test('paging away and back to the cached month stays at two requests', () async {
-      var requests = 0;
-      final client = buildTestClient(store, (o) async {
-        if (o.path == '/shift-assignments') {
-          requests++;
-          return jsonResponse({'items': <Map<String, dynamic>>[]});
-        }
-        return jsonErrorResponse('nope', status: 404);
-      });
-      final container = makeContainer(store, client);
-      final notifier = container.read(shiftProvider.notifier);
-      final now = DateTime.now();
-      final month = DateTime(now.year, now.month);
-      final next = DateTime(now.year, now.month + 1);
+    test(
+      'paging away and back to the cached month stays at two requests',
+      () async {
+        var requests = 0;
+        final client = buildTestClient(store, (o) async {
+          if (o.path == '/shift-assignments') {
+            requests++;
+            return jsonResponse({'items': <Map<String, dynamic>>[]});
+          }
+          return jsonErrorResponse('nope', status: 404);
+        });
+        final container = makeContainer(store, client);
+        final notifier = container.read(shiftProvider.notifier);
+        final now = DateTime.now();
+        final month = DateTime(now.year, now.month);
+        final next = DateTime(now.year, now.month + 1);
 
-      await notifier.loadMonth(month);
-      await notifier.loadMonth(next);
-      await notifier.loadMonth(month);
+        await notifier.loadMonth(month);
+        await notifier.loadMonth(next);
+        await notifier.loadMonth(month);
 
-      expect(requests, 2);
-    });
+        expect(requests, 2);
+      },
+    );
 
     test('a failed range is NOT cached, so retry refetches', () async {
       var fail = true;
@@ -169,7 +174,9 @@ void main() {
         if (o.path == '/shift-assignments') {
           requestedStart = o.queryParameters['start'] as String;
           requestedEnd = o.queryParameters['end'] as String;
-          return jsonResponse({'items': [assignmentJson(now)]});
+          return jsonResponse({
+            'items': [assignmentJson(now)],
+          });
         }
         return jsonErrorResponse('nope', status: 404);
       });
@@ -179,11 +186,11 @@ void main() {
       final monday = now.subtract(Duration(days: now.weekday - 1));
       await notifier.loadWeek(monday);
 
-      expect(requestedStart, date(DateTime(monday.year, monday.month, monday.day)));
       expect(
-        requestedEnd,
-        date(monday.add(const Duration(days: 6))),
+        requestedStart,
+        date(DateTime(monday.year, monday.month, monday.day)),
       );
+      expect(requestedEnd, date(monday.add(const Duration(days: 6))));
       expect(
         container
             .read(shiftProvider)
@@ -200,7 +207,9 @@ void main() {
       final client = buildTestClient(store, (o) async {
         if (o.path == '/shift-assignments/upcoming') {
           expect(o.queryParameters['days'], 3);
-          return jsonResponse({'assignments': [assignmentJson(tomorrow)]});
+          return jsonResponse({
+            'assignments': [assignmentJson(tomorrow)],
+          });
         }
         return jsonErrorResponse('nope', status: 404);
       });
@@ -211,11 +220,10 @@ void main() {
 
       final state = container.read(shiftProvider);
       expect(state.upcoming, hasLength(1));
-      expect(state.upcoming.first.tanggal, DateTime(
-        tomorrow.year,
-        tomorrow.month,
-        tomorrow.day,
-      ));
+      expect(
+        state.upcoming.first.tanggal,
+        DateTime(tomorrow.year, tomorrow.month, tomorrow.day),
+      );
     });
   });
 
@@ -278,7 +286,9 @@ void main() {
     final container = makeContainer(store, client);
     final notifier = container.read(shiftProvider.notifier);
 
-    await notifier.loadMonth(DateTime(DateTime.now().year, DateTime.now().month));
+    await notifier.loadMonth(
+      DateTime(DateTime.now().year, DateTime.now().month),
+    );
     expect(container.read(shiftProvider).error, isNotNull);
 
     notifier.clearError();

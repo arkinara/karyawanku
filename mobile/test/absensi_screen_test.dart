@@ -31,25 +31,24 @@ Map<String, dynamic> todayJson({
   String? clockOut,
   int lateMinutes = 0,
   int overtimeMinutes = 0,
-}) =>
-    {
-      'record': clockIn == null
-          ? null
-          : {
-              'id': 'att-1',
-              'employee_id': 'emp-1',
-              'tanggal': '2026-09-03',
-              'clock_in': clockIn,
-              'clock_out': clockOut,
-              'catatan': null,
-              'status': 'hadir',
-              'late_minutes': lateMinutes,
-              'overtime_minutes': overtimeMinutes,
-              'overtime_override_minutes': null,
-              'submission_method': 'live',
-              'time_drift_detected': false,
-            },
-    };
+}) => {
+  'record': clockIn == null
+      ? null
+      : {
+          'id': 'att-1',
+          'employee_id': 'emp-1',
+          'tanggal': '2026-09-03',
+          'clock_in': clockIn,
+          'clock_out': clockOut,
+          'catatan': null,
+          'status': 'hadir',
+          'late_minutes': lateMinutes,
+          'overtime_minutes': overtimeMinutes,
+          'overtime_override_minutes': null,
+          'submission_method': 'live',
+          'time_drift_detected': false,
+        },
+};
 
 Map<String, dynamic> aggregateJson() => {
   'hadir': 21,
@@ -116,9 +115,7 @@ class _TempSelfieFileStore implements SelfieFileStore {
 
   @override
   Future<File> writeCompressed(Uint8List bytes, {required String name}) async {
-    final file = File(
-      '${Directory.systemTemp.path}/$name',
-    );
+    final file = File('${Directory.systemTemp.path}/$name');
     await file.writeAsBytes(bytes, flush: true);
     return file;
   }
@@ -149,8 +146,7 @@ class _LiveGeofence extends GeofenceNotifier {
   GeofenceStatus evaluate({
     required Position user,
     required Geofence geofence,
-  }) =>
-      GeofenceStatus.inside;
+  }) => GeofenceStatus.inside;
 
   @override
   void clearNotice() {}
@@ -177,8 +173,7 @@ class _RecordingGeofence extends GeofenceNotifier {
   GeofenceStatus evaluate({
     required Position user,
     required Geofence geofence,
-  }) =>
-      GeofenceStatus.inside;
+  }) => GeofenceStatus.inside;
 
   @override
   void clearNotice() {}
@@ -280,9 +275,7 @@ void main() {
       }
       if (o.path == '/attendance/today') {
         return jsonResponse(
-          todayJson(
-            clockIn: clockedIn ? '2026-09-03T00:58:00.000Z' : null,
-          ),
+          todayJson(clockIn: clockedIn ? '2026-09-03T00:58:00.000Z' : null),
         );
       }
       return jsonResponse(aggregateJson());
@@ -372,7 +365,11 @@ void main() {
     testWidgets('inside: green chip with distance', (tester) async {
       tallViewport(tester);
       await tester.pumpWidget(
-        screen(store, todayClient(), geofence: sampleGeofenceInside(distance: 0)),
+        screen(
+          store,
+          todayClient(),
+          geofence: sampleGeofenceInside(distance: 0),
+        ),
       );
       await tester.pumpAndSettle();
 
@@ -383,7 +380,11 @@ void main() {
     testWidgets('outside: red chip with distance', (tester) async {
       tallViewport(tester);
       await tester.pumpWidget(
-        screen(store, todayClient(), geofence: sampleGeofenceOutside(distance: 25)),
+        screen(
+          store,
+          todayClient(),
+          geofence: sampleGeofenceOutside(distance: 25),
+        ),
       );
       await tester.pumpAndSettle();
 
@@ -413,7 +414,9 @@ void main() {
       expect(find.byIcon(LucideIcons.mapPinMinus), findsOneWidget);
     });
 
-    testWidgets('acquiring: spinner instead of a stale verdict', (tester) async {
+    testWidgets('acquiring: spinner instead of a stale verdict', (
+      tester,
+    ) async {
       tallViewport(tester);
       await tester.pumpWidget(
         screen(store, todayClient(), geofence: sampleGeofenceAcquiring()),
@@ -530,9 +533,7 @@ void main() {
           }
           if (o.path == '/attendance/today') {
             return jsonResponse(
-              todayJson(
-                clockIn: clockedIn ? '2026-09-03T00:58:00.000Z' : null,
-              ),
+              todayJson(clockIn: clockedIn ? '2026-09-03T00:58:00.000Z' : null),
             );
           }
           return jsonResponse(aggregateJson());
@@ -578,7 +579,8 @@ void main() {
       // SKIP: `Image.memory(real_jpeg_bytes)` codec never resolves in headless
       // flutter_test, so the preview hangs forever. The widget path itself is
       // covered by [selfie_provider_test] + [selfie_service_test].
-      skip: true, // Headless flutter_test: Image.memory codec + permission_handler
+      skip:
+          true, // Headless flutter_test: Image.memory codec + permission_handler
       // platform channel do not resolve.
     );
 
@@ -699,9 +701,7 @@ void main() {
           }
           if (o.path == '/attendance/today') {
             return jsonResponse(
-              todayJson(
-                clockIn: clockedIn ? '2026-09-03T00:58:00.000Z' : null,
-              ),
+              todayJson(clockIn: clockedIn ? '2026-09-03T00:58:00.000Z' : null),
             );
           }
           return jsonResponse(aggregateJson());
@@ -730,7 +730,8 @@ void main() {
       // SKIP: same headless flutter_test image-codec issue as the preview test;
       // the underlying upload-and-flush flow is covered by repository + provider
       // unit tests against an in-memory client.
-      skip: true, // Headless flutter_test: Image.memory codec + permission_handler
+      skip:
+          true, // Headless flutter_test: Image.memory codec + permission_handler
       // platform channel do not resolve.
     );
   });
@@ -742,7 +743,11 @@ void main() {
 
     /// A screen with a REAL SQLite queue (in-memory ffi) and a fixed
     /// connectivity verdict, so the banner/sheet read live queue state.
-    Widget queueScreen(OfflineQueue queue, ApiClient client, {required bool online}) {
+    Widget queueScreen(
+      OfflineQueue queue,
+      ApiClient client, {
+      required bool online,
+    }) {
       return testScope(
         store,
         client,
@@ -758,7 +763,9 @@ void main() {
 
     ApiClient offlineTodayClient() => buildTestClient(store, (o) async {
       if (o.path == '/attendance/today') return jsonResponse(todayJson());
-      if (o.path == '/attendance/aggregate/emp-1') return jsonResponse(aggregateJson());
+      if (o.path == '/attendance/aggregate/emp-1') {
+        return jsonResponse(aggregateJson());
+      }
       return jsonErrorResponse('nope', status: 404);
     });
 
@@ -789,7 +796,10 @@ void main() {
         await tester.pumpWidget(
           queueScreen(queue, offlineTodayClient(), online: false),
         );
-        await pumpUntil(tester, find.textContaining('Offline — 1 entri menunggu kirim'));
+        await pumpUntil(
+          tester,
+          find.textContaining('Offline — 1 entri menunggu kirim'),
+        );
       },
       // SKIP: OfflineQueue manager runs a live Timer.periodic; headless
       // flutter_test pumpUntil hangs on real-async work. Queue manager itself
@@ -832,9 +842,14 @@ void main() {
         await tester.pumpWidget(
           queueScreen(queue, offlineTodayClient(), online: false),
         );
-        await pumpUntil(tester, find.textContaining('Offline — 1 entri menunggu kirim'));
+        await pumpUntil(
+          tester,
+          find.textContaining('Offline — 1 entri menunggu kirim'),
+        );
 
-        await tester.tap(find.textContaining('Offline — 1 entri menunggu kirim'));
+        await tester.tap(
+          find.textContaining('Offline — 1 entri menunggu kirim'),
+        );
         await tester.pumpAndSettle();
 
         expect(find.text('Antrian offline'), findsOneWidget);

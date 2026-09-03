@@ -31,8 +31,9 @@ class GeofenceRepository {
   /// the endpoint 404s (not implemented / not configured) or fails.
   Future<Geofence> getGeofence(String businessId) async {
     try {
-      final data =
-          await _api.get<Map<String, dynamic>>('/businesses/$businessId/geofence');
+      final data = await _api.get<Map<String, dynamic>>(
+        '/businesses/$businessId/geofence',
+      );
       final geofence = Geofence.fromJson(data);
       if (geofence.isConfigured) return geofence;
       return mockGeofence;

@@ -20,9 +20,12 @@ Map<String, dynamic> signInBody() => {
   'refresh_token': 'refresh-token-1',
 };
 
-Future<void> pumpApp(WidgetTester tester, InMemoryBackend backend,
-    SecureSessionStore store,
-    Future<ResponseBody> Function(RequestOptions options) handler) async {
+Future<void> pumpApp(
+  WidgetTester tester,
+  InMemoryBackend backend,
+  SecureSessionStore store,
+  Future<ResponseBody> Function(RequestOptions options) handler,
+) async {
   final client = buildTestClient(store, handler);
   await tester.pumpWidget(
     testScope(
@@ -66,7 +69,9 @@ void main() {
     store = SecureSessionStore(backend: backend);
   });
 
-  testWidgets('cold start with no session lands on MasukScreen', (tester) async {
+  testWidgets('cold start with no session lands on MasukScreen', (
+    tester,
+  ) async {
     await pumpApp(tester, backend, store, (o) async {
       return jsonErrorResponse('nope', status: 404);
     });
@@ -147,21 +152,22 @@ void main() {
     expect(await store.getSession(), isNull);
   });
 
-  testWidgets('offline sign-in shows the connection error, not a validation one', (
-    tester,
-  ) async {
-    await pumpApp(tester, backend, store, (o) async {
-      throw Exception('connection refused');
-    });
-    await tester.pumpAndSettle();
+  testWidgets(
+    'offline sign-in shows the connection error, not a validation one',
+    (tester) async {
+      await pumpApp(tester, backend, store, (o) async {
+        throw Exception('connection refused');
+      });
+      await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField).at(0), 'siti@usaha.com');
-    await tester.enterText(find.byType(TextField).at(1), 'rahasia123');
-    await tester.tap(find.widgetWithText(FilledButton, 'Masuk'));
-    await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).at(0), 'siti@usaha.com');
+      await tester.enterText(find.byType(TextField).at(1), 'rahasia123');
+      await tester.tap(find.widgetWithText(FilledButton, 'Masuk'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Tidak terhubung ke server'), findsOneWidget);
-  });
+      expect(find.text('Tidak terhubung ke server'), findsOneWidget);
+    },
+  );
 
   group('biometric button (ticket #72)', () {
     late InMemoryBackend backend;
@@ -263,7 +269,9 @@ void main() {
       expect(await store.getAccessToken(), 'access-token-2');
     });
 
-    testWidgets('cancelled prompt returns to the password screen', (tester) async {
+    testWidgets('cancelled prompt returns to the password screen', (
+      tester,
+    ) async {
       await seedDeviceCredential(backend);
       await backend.write(DeviceIdentity.deviceIdKey, 'device-1');
       final auth = FakeAuthenticator(
@@ -321,38 +329,44 @@ void main() {
       expect(find.text('Masuk untuk melanjutkan.'), findsNothing);
     });
 
-    testWidgets('first password sign-in asks to enrol; Aktifkan writes the marker', (
-      tester,
-    ) async {
-      final auth = FakeAuthenticator(kinds: [BiometricKind.fingerprint]);
+    testWidgets(
+      'first password sign-in asks to enrol; Aktifkan writes the marker',
+      (tester) async {
+        final auth = FakeAuthenticator(kinds: [BiometricKind.fingerprint]);
 
-      await pumpBiometricApp(
-        tester,
-        backend: backend,
-        store: store,
-        authenticator: auth,
-        handler: (o) async {
-          if (o.path == '/auth/sign-in') return jsonResponse(signInBodyWithDevice());
-          return jsonErrorResponse('nope', status: 404);
-        },
-      );
-      await tester.pumpAndSettle();
+        await pumpBiometricApp(
+          tester,
+          backend: backend,
+          store: store,
+          authenticator: auth,
+          handler: (o) async {
+            if (o.path == '/auth/sign-in') {
+              return jsonResponse(signInBodyWithDevice());
+            }
+            return jsonErrorResponse('nope', status: 404);
+          },
+        );
+        await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextField).at(0), 'siti@usaha.com');
-      await tester.enterText(find.byType(TextField).at(1), 'rahasia123');
-      await tester.tap(find.widgetWithText(FilledButton, 'Masuk'));
-      // Sign-in is awaited while the enrol dialog is up, so the form spinner
-      // animates the whole time — pump a few frames instead of settling.
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
+        await tester.enterText(find.byType(TextField).at(0), 'siti@usaha.com');
+        await tester.enterText(find.byType(TextField).at(1), 'rahasia123');
+        await tester.tap(find.widgetWithText(FilledButton, 'Masuk'));
+        // Sign-in is awaited while the enrol dialog is up, so the form spinner
+        // animates the whole time — pump a few frames instead of settling.
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
 
-      expect(find.text('Masuk dengan sidik jari?'), findsOneWidget);
-      await tester.tap(find.text('Aktifkan'));
-      await tester.pumpAndSettle();
+        expect(find.text('Masuk dengan sidik jari?'), findsOneWidget);
+        await tester.tap(find.text('Aktifkan'));
+        await tester.pumpAndSettle();
 
-      expect(find.byType(HomeShell), findsOneWidget);
-      expect(await backend.read(DeviceCredentialStore.credentialKey), isNotNull);
-      expect(await backend.read(DeviceCredentialStore.markerKey), isNotNull);
-    });
+        expect(find.byType(HomeShell), findsOneWidget);
+        expect(
+          await backend.read(DeviceCredentialStore.credentialKey),
+          isNotNull,
+        );
+        expect(await backend.read(DeviceCredentialStore.markerKey), isNotNull);
+      },
+    );
   });
 }

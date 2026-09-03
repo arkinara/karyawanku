@@ -55,8 +55,7 @@ class User {
     'role': role.name,
     'employee_id': employeeId,
     'status': status,
-    if (createdAt != null)
-      'created_at': createdAt!.toIso8601String(),
+    if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
   };
 
   /// Monogram used by the avatar, e.g. `Siti Nurhaliza` → `SN`.
@@ -166,7 +165,10 @@ class DeviceRefreshResponse {
 
 /// Response of `POST /auth/refresh`.
 class RefreshResponse {
-  const RefreshResponse({required this.accessToken, required this.refreshToken});
+  const RefreshResponse({
+    required this.accessToken,
+    required this.refreshToken,
+  });
 
   final String accessToken;
   final String refreshToken;

@@ -38,9 +38,22 @@ This repo uses the `product-ux-dev-qa-workflow` skill:
 4. QA per-ticket (OpenCode + MiniMax-M3 primary, Sonnet 5 failover)
 5. Push directly to `main` — no feature branches
 
-CI (`.github/workflows/ci.yml`) runs on every push to `main` and every PR to `main`: both packages
-typecheck, test, and lint in parallel; the frontend also builds. A red suite is visible immediately —
-there is no other gate.
+CI (`.github/workflows/ci.yml`) runs on every push to `main` and every PR to `main`: backend,
+frontend, and mobile run in parallel. A red suite is visible immediately — there is no other gate.
+
+### Mobile
+
+Pinned to the Flutter SDK in `mobile/.flutter-version` (3.47.0) via `subosito/flutter-action@v2`
+(`channel: 3.47.0`, never `stable`), with `~/.pub-cache` cached off `mobile/pubspec.lock`:
+
+- `dart format --set-exit-if-changed lib test`
+- `flutter analyze`
+- `flutter test --reporter=expanded`
+- `flutter build apk --release`
+
+The Android release APK is uploaded as a CI artifact (14-day retention). The iOS release build is
+omitted from CI — it needs a provisioning profile + signing identity that GitHub-hosted runners do
+not have, so the build matrix for the mobile app focuses on Android.
 
 ## Linting & formatting
 

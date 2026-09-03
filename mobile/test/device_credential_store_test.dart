@@ -40,14 +40,20 @@ void main() {
     expect(await store.read(enforceBiometric: false), isNull);
   });
 
-  test('read(enforceBiometric: true) prompts first; a failed prompt returns null', () async {
-    final auth = FakeAuthenticator(willSucceed: false);
-    final store = DeviceCredentialStore(backend: backend, authenticator: auth);
-    await seedDeviceCredential(backend);
+  test(
+    'read(enforceBiometric: true) prompts first; a failed prompt returns null',
+    () async {
+      final auth = FakeAuthenticator(willSucceed: false);
+      final store = DeviceCredentialStore(
+        backend: backend,
+        authenticator: auth,
+      );
+      await seedDeviceCredential(backend);
 
-    expect(await store.read(enforceBiometric: true), isNull);
-    expect(auth.authenticateCalls, 1);
-  });
+      expect(await store.read(enforceBiometric: true), isNull);
+      expect(auth.authenticateCalls, 1);
+    },
+  );
 
   test('read(enforceBiometric: true) succeeds after a good prompt', () async {
     final auth = FakeAuthenticator(willSucceed: true);
@@ -71,29 +77,32 @@ void main() {
     expect(await store.hasBiometricMarker(), isFalse);
   });
 
-  test('deviceBiometricProof is deterministic and bound to the device tuple', () {
-    final a = deviceBiometricProof(
-      biometricKey: 'key',
-      deviceId: 'dev-1',
-      deviceInstallId: 'install-1',
-    );
-    final b = deviceBiometricProof(
-      biometricKey: 'key',
-      deviceId: 'dev-1',
-      deviceInstallId: 'install-1',
-    );
-    final wrongDevice = deviceBiometricProof(
-      biometricKey: 'key',
-      deviceId: 'dev-2',
-      deviceInstallId: 'install-1',
-    );
-    final wrongKey = deviceBiometricProof(
-      biometricKey: 'other',
-      deviceId: 'dev-1',
-      deviceInstallId: 'install-1',
-    );
-    expect(a, b);
-    expect(a, isNot(wrongDevice));
-    expect(a, isNot(wrongKey));
-  });
+  test(
+    'deviceBiometricProof is deterministic and bound to the device tuple',
+    () {
+      final a = deviceBiometricProof(
+        biometricKey: 'key',
+        deviceId: 'dev-1',
+        deviceInstallId: 'install-1',
+      );
+      final b = deviceBiometricProof(
+        biometricKey: 'key',
+        deviceId: 'dev-1',
+        deviceInstallId: 'install-1',
+      );
+      final wrongDevice = deviceBiometricProof(
+        biometricKey: 'key',
+        deviceId: 'dev-2',
+        deviceInstallId: 'install-1',
+      );
+      final wrongKey = deviceBiometricProof(
+        biometricKey: 'other',
+        deviceId: 'dev-1',
+        deviceInstallId: 'install-1',
+      );
+      expect(a, b);
+      expect(a, isNot(wrongDevice));
+      expect(a, isNot(wrongKey));
+    },
+  );
 }

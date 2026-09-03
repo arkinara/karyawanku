@@ -20,8 +20,7 @@ void main() {
 
   PayslipRepository repoFor(
     Future<ResponseBody> Function(RequestOptions) handler,
-  ) =>
-      PayslipRepository(buildTestClient(store, handler));
+  ) => PayslipRepository(buildTestClient(store, handler));
 
   Map<String, dynamic> rowJson({
     String id = 'ps-1',
@@ -30,19 +29,18 @@ void main() {
     int takeHome = 4235000,
     bool? isThr,
     String? category,
-  }) =>
-      {
-        'id': id,
-        'pdf_url': '/api/payslips/$id/download',
-        'created_at': '2026-08-31T02:00:00.000Z',
-        'periode': periode,
-        'status': status,
-        'employee': {'id': 'emp-1', 'nama_lengkap': 'Siti Nurhaliza'},
-        'payroll_item_id': 'pi-1',
-        'take_home': takeHome,
-        'is_thr': ?isThr,
-        'category': ?category,
-      };
+  }) => {
+    'id': id,
+    'pdf_url': '/api/payslips/$id/download',
+    'created_at': '2026-08-31T02:00:00.000Z',
+    'periode': periode,
+    'status': status,
+    'employee': {'id': 'emp-1', 'nama_lengkap': 'Siti Nurhaliza'},
+    'payroll_item_id': 'pi-1',
+    'take_home': takeHome,
+    'is_thr': ?isThr,
+    'category': ?category,
+  };
 
   Map<String, dynamic> detailJson() => {
     'id': 'ps-1',
@@ -52,7 +50,11 @@ void main() {
     'breakdown': {
       'earnings': [
         {'nama_komponen': 'Gaji Pokok', 'nominal': 4200000, 'formula': null},
-        {'nama_komponen': 'Tunjangan Makan', 'nominal': 500000, 'formula': null},
+        {
+          'nama_komponen': 'Tunjangan Makan',
+          'nominal': 500000,
+          'formula': null,
+        },
       ],
       'deductions': [
         {
@@ -77,38 +79,41 @@ void main() {
   };
 
   group('getPayslips', () {
-    test('GETs /payslips with page/limit and parses the summary rows', () async {
-      String? path;
-      Map<String, dynamic>? query;
-      final repo = repoFor((o) async {
-        path = o.path;
-        query = o.queryParameters;
-        return jsonResponse({
-          'items': [
-            rowJson(id: 'ps-1', periode: '2026-08'),
-            rowJson(id: 'ps-2', periode: '2026-07', takeHome: 4180000),
-          ],
-          'total': 2,
-          'page': 1,
-          'limit': 50,
-          'has_more': false,
+    test(
+      'GETs /payslips with page/limit and parses the summary rows',
+      () async {
+        String? path;
+        Map<String, dynamic>? query;
+        final repo = repoFor((o) async {
+          path = o.path;
+          query = o.queryParameters;
+          return jsonResponse({
+            'items': [
+              rowJson(id: 'ps-1', periode: '2026-08'),
+              rowJson(id: 'ps-2', periode: '2026-07', takeHome: 4180000),
+            ],
+            'total': 2,
+            'page': 1,
+            'limit': 50,
+            'has_more': false,
+          });
         });
-      });
 
-      final list = await repo.getPayslips();
+        final list = await repo.getPayslips();
 
-      expect(path, '/payslips');
-      expect(query!['limit'], 50);
-      expect(query!['page'], 1);
-      expect(list, hasLength(2));
-      expect(list.first.id, 'ps-1');
-      expect(list.first.periode, '2026-08');
-      expect(list.first.periodLabel, 'Agustus 2026');
-      expect(list.first.takeHome, 4235000);
-      expect(list.first.employeeName, 'Siti Nurhaliza');
-      expect(list.first.paid, isTrue);
-      expect(list.first.isThr, isFalse);
-    });
+        expect(path, '/payslips');
+        expect(query!['limit'], 50);
+        expect(query!['page'], 1);
+        expect(list, hasLength(2));
+        expect(list.first.id, 'ps-1');
+        expect(list.first.periode, '2026-08');
+        expect(list.first.periodLabel, 'Agustus 2026');
+        expect(list.first.takeHome, 4235000);
+        expect(list.first.employeeName, 'Siti Nurhaliza');
+        expect(list.first.paid, isTrue);
+        expect(list.first.isThr, isFalse);
+      },
+    );
 
     test('converts offset to a 1-indexed page', () async {
       Map<String, dynamic>? query;
@@ -198,15 +203,15 @@ void main() {
   group('downloadPayslip', () {
     test('GETs /payslips/:id/download and returns the raw PDF bytes', () async {
       String? path;
-      final bytes = Uint8List.fromList(
-        List.generate(32, (i) => i),
-      );
+      final bytes = Uint8List.fromList(List.generate(32, (i) => i));
       final repo = repoFor((o) async {
         path = o.path;
         return ResponseBody.fromBytes(
           bytes,
           200,
-          headers: {'content-type': ['application/pdf']},
+          headers: {
+            'content-type': ['application/pdf'],
+          },
         );
       });
 

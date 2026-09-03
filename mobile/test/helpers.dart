@@ -77,7 +77,9 @@ ResponseBody jsonResponse(Map<String, dynamic> body, [int status = 200]) {
   return ResponseBody.fromString(
     jsonEncode(body),
     status,
-    headers: {'content-type': ['application/json']},
+    headers: {
+      'content-type': ['application/json'],
+    },
   );
 }
 
@@ -87,7 +89,9 @@ ResponseBody jsonErrorResponse(
   int status = 400,
   Map<String, dynamic>? details,
 }) {
-  return jsonResponse({'error': {'message': message, 'details': details}}, status);
+  return jsonResponse({
+    'error': {'message': message, 'details': details},
+  }, status);
 }
 
 /// A signed-in user that mirrors what `publicUser` returns.
@@ -328,7 +332,8 @@ LeaveState sampleLeaveState() => LeaveState(
       end: DateTime(2026, 7, 28),
       days: 1,
       reason: 'Keperluan pribadi',
-      decisionNote: 'Catatan: shift sedang kekurangan orang, ajukan minggu depan.',
+      decisionNote:
+          'Catatan: shift sedang kekurangan orang, ajukan minggu depan.',
       submittedAt: DateTime(2026, 7, 27),
     ),
   ],
@@ -518,27 +523,10 @@ class _ReadyPayslip extends PayslipNotifier {
 /// widget tests so the payslip screens render their real content.
 PayslipState samplePayslipState() => PayslipState(
   payslips: [
-    testPayslip(
-      id: 'ps-1',
-      periode: '2026-08',
-      takeHome: 4235000,
-    ),
-    testPayslip(
-      id: 'ps-2',
-      periode: '2026-07',
-      takeHome: 4180000,
-    ),
-    testPayslip(
-      id: 'ps-3',
-      periode: '2026-03',
-      takeHome: 4200000,
-      isThr: true,
-    ),
-    testPayslip(
-      id: 'ps-4',
-      periode: '2025-12',
-      takeHome: 4100000,
-    ),
+    testPayslip(id: 'ps-1', periode: '2026-08', takeHome: 4235000),
+    testPayslip(id: 'ps-2', periode: '2026-07', takeHome: 4180000),
+    testPayslip(id: 'ps-3', periode: '2026-03', takeHome: 4200000, isThr: true),
+    testPayslip(id: 'ps-4', periode: '2025-12', takeHome: 4100000),
   ],
   latest: testPayslip(),
   // Pre-loaded detail so shared widget tests (a11y, stress) render the full
@@ -571,7 +559,11 @@ Geofence testGeofence({
   double workLng = 106.8456,
   double radiusMeters = 100,
 }) {
-  return Geofence(workLat: workLat, workLng: workLng, radiusMeters: radiusMeters);
+  return Geofence(
+    workLat: workLat,
+    workLng: workLng,
+    radiusMeters: radiusMeters,
+  );
 }
 
 /// A device fix fixture (geolocator `Position`). [accuracy] drives the
@@ -677,8 +669,7 @@ class _ReadyGeofence extends GeofenceNotifier {
   GeofenceStatus evaluate({
     required Position user,
     required Geofence geofence,
-  }) =>
-      GeofenceStatus.inside;
+  }) => GeofenceStatus.inside;
 
   @override
   void clearNotice() {}
@@ -697,10 +688,7 @@ GeofenceState sampleGeofenceInside({int distance = 0}) => GeofenceState(
 GeofenceState sampleGeofenceOutside({int distance = 25}) => GeofenceState(
   permission: LocationPermissionStatus.granted,
   service: LocationServiceStatus.enabled,
-  userLocation: testPosition(
-    latitude: -6.2,
-    longitude: 106.86,
-  ),
+  userLocation: testPosition(latitude: -6.2, longitude: 106.86),
   geofence: testGeofence(),
   status: GeofenceStatus.outside,
   distanceMeters: distance,
@@ -717,8 +705,7 @@ GeofenceState sampleGeofenceLowAccuracy({int accuracy = 65}) => GeofenceState(
 
 GeofenceState sampleGeofenceUnknown() => const GeofenceState();
 
-GeofenceState sampleGeofenceAcquiring() =>
-    const GeofenceState(acquiring: true);
+GeofenceState sampleGeofenceAcquiring() => const GeofenceState(acquiring: true);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Ticket #72 — biometric sign-in fixtures. No test ever touches the real
@@ -732,7 +719,7 @@ GeofenceState sampleGeofenceAcquiring() =>
 /// many prompts fired.
 class FakeAuthenticator implements Authenticator {
   FakeAuthenticator({List<BiometricKind>? kinds, this.willSucceed = true})
-      : kinds = kinds ?? const [];
+    : kinds = kinds ?? const [];
 
   final List<BiometricKind> kinds;
   bool willSucceed;
@@ -757,7 +744,8 @@ class FakeAuthenticator implements Authenticator {
 /// A still-valid device credential (expires 30 days out).
 DeviceCredential get testDeviceCredential => DeviceCredential(
   deviceRefreshToken: 'device-refresh-token-1',
-  biometricKey: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+  biometricKey:
+      'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
   deviceInstallId: 'install-1',
   issuedAt: DateTime.utc(2026, 8, 1),
   expiresAt: DateTime.utc(2026, 9, 30),
@@ -793,9 +781,12 @@ Future<void> seedExpiredDeviceCredential(SecureStorageBackend backend) async {
     DeviceCredentialStore.credentialKey,
     jsonEncode({
       'token': 'expired-device-token',
-      'biometric_key': 'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
+      'biometric_key':
+          'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
       'install_id': 'install-expired',
-      'issued_at': DateTime.now().subtract(const Duration(days: 31)).toIso8601String(),
+      'issued_at': DateTime.now()
+          .subtract(const Duration(days: 31))
+          .toIso8601String(),
       'expires_at': expired.toIso8601String(),
     }),
   );
@@ -822,7 +813,8 @@ Map<String, dynamic> deviceRefreshBody() => {
   'device_refresh_token': 'device-refresh-token-2',
   'device_refresh_expires_at': '2026-10-30T00:00:00.000Z',
   'device_install_id': 'install-2',
-  'device_biometric_key': 'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
+  'device_biometric_key':
+      'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
 };
 
 /// Builds an [ApiClient] wired to the in-memory backend as its device-id

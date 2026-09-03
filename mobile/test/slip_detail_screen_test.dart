@@ -118,7 +118,9 @@ void main() {
         return ResponseBody.fromBytes(
           pdf,
           200,
-          headers: {'content-type': ['application/pdf']},
+          headers: {
+            'content-type': ['application/pdf'],
+          },
         );
       }
       return jsonErrorResponse('nope', status: 404);

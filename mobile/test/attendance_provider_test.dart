@@ -28,21 +28,20 @@ Map<String, dynamic> recordJson({
   String? clockOut,
   int lateMinutes = 0,
   int overtimeMinutes = 0,
-}) =>
-    {
-      'id': 'att-1',
-      'employee_id': 'emp-1',
-      'tanggal': '2026-09-03',
-      'clock_in': clockIn,
-      'clock_out': clockOut,
-      'catatan': null,
-      'status': 'hadir',
-      'late_minutes': lateMinutes,
-      'overtime_minutes': overtimeMinutes,
-      'overtime_override_minutes': null,
-      'submission_method': 'live',
-      'time_drift_detected': false,
-    };
+}) => {
+  'id': 'att-1',
+  'employee_id': 'emp-1',
+  'tanggal': '2026-09-03',
+  'clock_in': clockIn,
+  'clock_out': clockOut,
+  'catatan': null,
+  'status': 'hadir',
+  'late_minutes': lateMinutes,
+  'overtime_minutes': overtimeMinutes,
+  'overtime_override_minutes': null,
+  'submission_method': 'live',
+  'time_drift_detected': false,
+};
 
 Map<String, dynamic> aggregateJson() => {
   'hadir': 21,
@@ -194,7 +193,10 @@ void main() {
 
       final state = container.read(attendanceProvider);
       expect(state.submitting, isFalse);
-      expect(state.actionError, 'Anda sudah melakukan clock-in pada tanggal ini');
+      expect(
+        state.actionError,
+        'Anda sudah melakukan clock-in pada tanggal ini',
+      );
 
       // The message is one-shot: clearing it resets the state for the next
       // snackbar.
@@ -205,7 +207,10 @@ void main() {
     test('no-shift rejection (422) surfaces as actionError', () async {
       final client = buildTestClient(store, (o) async {
         if (o.path == '/attendance/clock-in') {
-          return jsonErrorResponse('Belum ada shift untuk hari ini', status: 422);
+          return jsonErrorResponse(
+            'Belum ada shift untuk hari ini',
+            status: 422,
+          );
         }
         return jsonErrorResponse('nope', status: 404);
       });
@@ -255,7 +260,10 @@ void main() {
     test('clock-out without a clock-in surfaces the BE message', () async {
       final client = buildTestClient(store, (o) async {
         if (o.path == '/attendance/clock-out') {
-          return jsonErrorResponse('Belum ada clock-in untuk tanggal ini', status: 409);
+          return jsonErrorResponse(
+            'Belum ada clock-in untuk tanggal ini',
+            status: 409,
+          );
         }
         return jsonErrorResponse('nope', status: 404);
       });

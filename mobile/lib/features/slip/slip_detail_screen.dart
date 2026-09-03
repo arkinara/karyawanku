@@ -125,7 +125,10 @@ class _DetailBody extends StatelessWidget {
     }
 
     if (detail == null) {
-      return _ErrorState(message: error ?? 'Gagal memuat rincian', onRetry: onRetry);
+      return _ErrorState(
+        message: error ?? 'Gagal memuat rincian',
+        onRetry: onRetry,
+      );
     }
 
     final breakdown = detail!.breakdown;

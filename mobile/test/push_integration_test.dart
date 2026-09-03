@@ -49,7 +49,11 @@ void main() {
         if (o.path == '/auth/sign-in') return jsonResponse(signInBody());
         if (o.path == '/devices') {
           return jsonResponse({
-            'device': {'id': 'dev-1', 'token': 'fcm-device-token', 'platform': 'android'},
+            'device': {
+              'id': 'dev-1',
+              'token': 'fcm-device-token',
+              'platform': 'android',
+            },
           }, 201);
         }
         return jsonResponse({'ok': true});
@@ -64,48 +68,58 @@ void main() {
       expect(calls, contains('POST /devices'));
     });
 
-    test('denied notification permission → no device register, sign-in intact', () async {
-      fake.permissionGranted = false;
-      final calls = <String>[];
-      final client = buildTestClient(store, (o) async {
-        calls.add(o.path);
-        if (o.path == '/auth/sign-in') return jsonResponse(signInBody());
-        return jsonResponse({'ok': true});
-      });
-      final container = makeContainer(client);
-
-      await container.read(authProvider.notifier).signIn('a@b.c', 'x');
-      await pumpEventQueue();
-
-      expect(container.read(authProvider).isSignedIn, isTrue);
-      expect(calls.where((c) => c == '/devices'), isEmpty);
-    });
-
-    test('sign-out deletes the registered device before clearing the session', () async {
-      final deletes = <String>[];
-      final client = buildTestClient(store, (o) async {
-        if (o.path == '/auth/sign-in') return jsonResponse(signInBody());
-        if (o.path == '/devices') {
-          return jsonResponse({
-            'device': {'id': 'dev-1', 'token': 'fcm-device-token', 'platform': 'android'},
-          }, 201);
-        }
-        if (o.path.startsWith('/devices/')) {
-          deletes.add(o.path);
+    test(
+      'denied notification permission → no device register, sign-in intact',
+      () async {
+        fake.permissionGranted = false;
+        final calls = <String>[];
+        final client = buildTestClient(store, (o) async {
+          calls.add(o.path);
+          if (o.path == '/auth/sign-in') return jsonResponse(signInBody());
           return jsonResponse({'ok': true});
-        }
-        return jsonResponse({'ok': true});
-      });
-      final container = makeContainer(client);
-      final notifier = container.read(authProvider.notifier);
+        });
+        final container = makeContainer(client);
 
-      await notifier.signIn('siti@usaha.com', 'rahasia123');
-      await pumpEventQueue();
-      await notifier.signOut();
+        await container.read(authProvider.notifier).signIn('a@b.c', 'x');
+        await pumpEventQueue();
 
-      expect(deletes, ['/devices/dev-1']);
-      expect(container.read(authProvider).isSignedIn, isFalse);
-    });
+        expect(container.read(authProvider).isSignedIn, isTrue);
+        expect(calls.where((c) => c == '/devices'), isEmpty);
+      },
+    );
+
+    test(
+      'sign-out deletes the registered device before clearing the session',
+      () async {
+        final deletes = <String>[];
+        final client = buildTestClient(store, (o) async {
+          if (o.path == '/auth/sign-in') return jsonResponse(signInBody());
+          if (o.path == '/devices') {
+            return jsonResponse({
+              'device': {
+                'id': 'dev-1',
+                'token': 'fcm-device-token',
+                'platform': 'android',
+              },
+            }, 201);
+          }
+          if (o.path.startsWith('/devices/')) {
+            deletes.add(o.path);
+            return jsonResponse({'ok': true});
+          }
+          return jsonResponse({'ok': true});
+        });
+        final container = makeContainer(client);
+        final notifier = container.read(authProvider.notifier);
+
+        await notifier.signIn('siti@usaha.com', 'rahasia123');
+        await pumpEventQueue();
+        await notifier.signOut();
+
+        expect(deletes, ['/devices/dev-1']);
+        expect(container.read(authProvider).isSignedIn, isFalse);
+      },
+    );
 
     test('FCM token refresh re-registers the new token', () async {
       final registrations = <Map<String, dynamic>>[];

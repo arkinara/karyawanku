@@ -76,10 +76,11 @@ class _JadwalScreenState extends ConsumerState<JadwalScreen> {
     });
 
     final selectedAssignment = state.assignmentsByDate[_key(_selected)];
-    final upcoming = state.assignmentsByDate.entries
-        .where((e) => e.key.isAfter(_key(_selected)))
-        .toList()
-      ..sort((a, b) => a.key.compareTo(b.key));
+    final upcoming =
+        state.assignmentsByDate.entries
+            .where((e) => e.key.isAfter(_key(_selected)))
+            .toList()
+          ..sort((a, b) => a.key.compareTo(b.key));
     final upcomingAssignments = upcoming.take(4).map((e) => e.value).toList();
 
     return Scaffold(
@@ -419,11 +420,7 @@ class _ReminderToggleState extends ConsumerState<_ReminderToggle> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(
-            LucideIcons.bell,
-            size: 20,
-            color: colors.onPrimaryContainer,
-          ),
+          Icon(LucideIcons.bell, size: 20, color: colors.onPrimaryContainer),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -454,10 +451,7 @@ class _ReminderToggleState extends ConsumerState<_ReminderToggle> {
               ],
             ),
           ),
-          Switch(
-            value: enabled,
-            onChanged: (v) => _save(() => _setEnabled(v)),
-          ),
+          Switch(value: enabled, onChanged: (v) => _save(() => _setEnabled(v))),
         ],
       ),
     );
@@ -542,11 +536,13 @@ class _UpcomingRow extends StatelessWidget {
             )
           : RoundToken(
               label: Fmt.day2(date),
-              background: shift != null &&
+              background:
+                  shift != null &&
                       shiftKindOf(shift.namaShift) == ShiftKind.siang
                   ? context.status.infoContainer
                   : context.colors.primaryContainer,
-              foreground: shift != null &&
+              foreground:
+                  shift != null &&
                       shiftKindOf(shift.namaShift) == ShiftKind.siang
                   ? context.status.onInfoContainer
                   : context.colors.onPrimaryContainer,
@@ -660,7 +656,8 @@ class _MonthGrid extends StatelessWidget {
                 day: day,
                 assignment: assignmentOn(day),
                 leaveBlocked: leaveBlockedOn(day),
-                selected: day.year == selected.year &&
+                selected:
+                    day.year == selected.year &&
                     day.month == selected.month &&
                     day.day == selected.day,
                 onTap: () => onSelect(day),

@@ -12,7 +12,7 @@ import '../auth/secure_session_store.dart';
 /// - "Bisa dihapus" — deletability.
 class SelfieConsentStore {
   SelfieConsentStore({SecureStorageBackend? backend})
-      : _backend = backend ?? const FlutterSecureStorageBackend();
+    : _backend = backend ?? const FlutterSecureStorageBackend();
 
   static const consentKey = 'kk_selfie_consent';
 

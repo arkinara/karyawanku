@@ -39,7 +39,8 @@ void main() {
 
   Future<OfflineQueue> freshQueue() {
     // Unique in-memory URI per queue — `:memory:` is cached per isolate.
-    final memDb = 'file:kk-manager-${DateTime.now().microsecondsSinceEpoch}?mode=memory&cache=shared';
+    final memDb =
+        'file:kk-manager-${DateTime.now().microsecondsSinceEpoch}?mode=memory&cache=shared';
     return OfflineQueue.open(factory: databaseFactoryFfi, path: memDb);
   }
 
@@ -86,20 +87,19 @@ void main() {
       kind: QueuedAttendanceKind.clockIn,
     );
     var called = 0;
-    final container = makeContainer(
-      queue,
-      (o) async {
-        called++;
-        return jsonResponse({'record': <String, dynamic>{}});
-      },
-      onlineInitially: false,
-    );
+    final container = makeContainer(queue, (o) async {
+      called++;
+      return jsonResponse({'record': <String, dynamic>{}});
+    }, onlineInitially: false);
     final manager = container.read(offlineQueueManagerProvider.notifier);
 
     await manager.flush();
 
     expect(called, 0);
-    expect((await queue.pending()).single.status, QueuedAttendanceStatus.pending);
+    expect(
+      (await queue.pending()).single.status,
+      QueuedAttendanceStatus.pending,
+    );
   });
 
   test('flushes pending entries on the online event', () async {
@@ -114,25 +114,24 @@ void main() {
     String? seenKey;
     String? seenMethod;
     String? seenTimestamp;
-    final container = makeContainer(
-      queue,
-      (o) async {
-        expect(o.path, '/attendance/clock-in');
-        seenKey = (o.headers['Idempotency-Key'] as String?) ?? '';
-        final body = (o.data as Map).cast<String, dynamic>();
-        seenMethod = body['submission_method'] as String?;
-        seenTimestamp = body['client_timestamp'] as String?;
-        return jsonResponse({'record': <String, dynamic>{}});
-      },
-      onlineInitially: false,
-    );
+    final container = makeContainer(queue, (o) async {
+      expect(o.path, '/attendance/clock-in');
+      seenKey = (o.headers['Idempotency-Key'] as String?) ?? '';
+      final body = (o.data as Map).cast<String, dynamic>();
+      seenMethod = body['submission_method'] as String?;
+      seenTimestamp = body['client_timestamp'] as String?;
+      return jsonResponse({'record': <String, dynamic>{}});
+    }, onlineInitially: false);
     container.read(offlineQueueManagerProvider.notifier); // start the manager
     await Future<void>.delayed(Duration.zero);
 
     // Going online triggers the manager's listener → flush.
     online.setOnline(true);
 
-    await waitUntil(() async => (await queue.all()).single.status == QueuedAttendanceStatus.sent);
+    await waitUntil(
+      () async =>
+          (await queue.all()).single.status == QueuedAttendanceStatus.sent,
+    );
 
     expect(seenKey, 'k-1');
     expect(seenMethod, 'offline_queue');
@@ -148,14 +147,11 @@ void main() {
       kind: QueuedAttendanceKind.clockIn,
     );
     var sent = false;
-    final container = makeContainer(
-      queue,
-      (o) async {
-        expect(o.path, '/attendance/clock-in');
-        sent = true;
-        return jsonResponse({'record': <String, dynamic>{}});
-      },
-    );
+    final container = makeContainer(queue, (o) async {
+      expect(o.path, '/attendance/clock-in');
+      sent = true;
+      return jsonResponse({'record': <String, dynamic>{}});
+    });
     final manager = container.read(offlineQueueManagerProvider.notifier);
     await Future<void>.delayed(Duration.zero);
 
@@ -163,7 +159,10 @@ void main() {
     await manager.flush();
 
     expect(sent, isTrue);
-    await waitUntil(() async => (await queue.all()).single.status == QueuedAttendanceStatus.sent);
+    await waitUntil(
+      () async =>
+          (await queue.all()).single.status == QueuedAttendanceStatus.sent,
+    );
   });
 
   test('4xx marks the entry permanently failed (never auto-retried)', () async {
@@ -175,8 +174,10 @@ void main() {
     );
     final container = makeContainer(
       queue,
-      (o) async =>
-          jsonErrorResponse('Anda sudah melakukan clock-in pada tanggal ini', status: 409),
+      (o) async => jsonErrorResponse(
+        'Anda sudah melakukan clock-in pada tanggal ini',
+        status: 409,
+      ),
     );
     final manager = container.read(offlineQueueManagerProvider.notifier);
 
@@ -208,43 +209,43 @@ void main() {
     expect(await queue.pending(), hasLength(1));
   });
 
-  test('respects exponential backoff: gate after failure, reset on success', () async {
-    final queue = await freshQueue();
-    await queue.enqueue(
-      idempotencyKey: 'k-1',
-      actionAt: DateTime(2026, 9, 3, 7, 45),
-      kind: QueuedAttendanceKind.clockIn,
-    );
-    var calls = 0;
-    final container = makeContainer(
-      queue,
-      (o) async {
+  test(
+    'respects exponential backoff: gate after failure, reset on success',
+    () async {
+      final queue = await freshQueue();
+      await queue.enqueue(
+        idempotencyKey: 'k-1',
+        actionAt: DateTime(2026, 9, 3, 7, 45),
+        kind: QueuedAttendanceKind.clockIn,
+      );
+      var calls = 0;
+      final container = makeContainer(queue, (o) async {
         calls++;
         if (calls == 1) return jsonErrorResponse('server 500', status: 500);
         return jsonResponse({'record': <String, dynamic>{}});
-      },
-    );
-    final manager = container.read(offlineQueueManagerProvider.notifier);
+      });
+      final manager = container.read(offlineQueueManagerProvider.notifier);
 
-    // First flush fails → backoff doubles 2 → 4. No gate on the first attempt.
-    await manager.flush();
-    expect(delays.where((d) => d == 4), isEmpty);
+      // First flush fails → backoff doubles 2 → 4. No gate on the first attempt.
+      await manager.flush();
+      expect(delays.where((d) => d == 4), isEmpty);
 
-    // Second flush is gated by the doubled backoff, then succeeds.
-    await manager.flush();
-    expect(delays.where((d) => d == 4), isNotEmpty);
-    expect((await queue.all()).single.status, QueuedAttendanceStatus.sent);
+      // Second flush is gated by the doubled backoff, then succeeds.
+      await manager.flush();
+      expect(delays.where((d) => d == 4), isNotEmpty);
+      expect((await queue.all()).single.status, QueuedAttendanceStatus.sent);
 
-    // Success resets the window: a new entry flushes without a 4s gate.
-    await queue.enqueue(
-      idempotencyKey: 'k-2',
-      actionAt: DateTime(2026, 9, 3, 17, 0),
-      kind: QueuedAttendanceKind.clockOut,
-    );
-    await manager.flush();
-    expect(delays.where((d) => d == 4), hasLength(1));
-    expect((await queue.all()).last.status, QueuedAttendanceStatus.sent);
-  });
+      // Success resets the window: a new entry flushes without a 4s gate.
+      await queue.enqueue(
+        idempotencyKey: 'k-2',
+        actionAt: DateTime(2026, 9, 3, 17, 0),
+        kind: QueuedAttendanceKind.clockOut,
+      );
+      await manager.flush();
+      expect(delays.where((d) => d == 4), hasLength(1));
+      expect((await queue.all()).last.status, QueuedAttendanceStatus.sent);
+    },
+  );
 
   test('retry() requeues a permanently failed entry', () async {
     final queue = await freshQueue();
@@ -255,18 +256,18 @@ void main() {
     );
     await queue.markFailed('k-1', 'Sudah clock-in', permanent: true);
     var sent = false;
-    final container = makeContainer(
-      queue,
-      (o) async {
-        sent = true;
-        return jsonResponse({'record': <String, dynamic>{}});
-      },
-    );
+    final container = makeContainer(queue, (o) async {
+      sent = true;
+      return jsonResponse({'record': <String, dynamic>{}});
+    });
     final manager = container.read(offlineQueueManagerProvider.notifier);
 
     await manager.retry('k-1');
 
     expect(sent, isTrue);
-    await waitUntil(() async => (await queue.all()).single.status == QueuedAttendanceStatus.sent);
+    await waitUntil(
+      () async =>
+          (await queue.all()).single.status == QueuedAttendanceStatus.sent,
+    );
   });
 }

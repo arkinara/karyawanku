@@ -36,12 +36,10 @@ class _CutiScreenState extends ConsumerState<CutiScreen> {
     final leave = ref.watch(leaveProvider);
 
     final visible = switch (_filter) {
-      1 => leave.requests
-          .where((r) => r.status == LeaveStatus.menunggu)
-          .toList(),
-      2 => leave.requests
-          .where((r) => r.status != LeaveStatus.menunggu)
-          .toList(),
+      1 =>
+        leave.requests.where((r) => r.status == LeaveStatus.menunggu).toList(),
+      2 =>
+        leave.requests.where((r) => r.status != LeaveStatus.menunggu).toList(),
       _ => leave.requests,
     };
 

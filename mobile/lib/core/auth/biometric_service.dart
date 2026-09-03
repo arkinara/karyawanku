@@ -15,9 +15,11 @@ import 'secure_session_store.dart';
 /// - [markBiometricEnrolled] — writes the binding marker + biometric snapshot
 ///   under the `kk_biometric_credential_marker` key.
 class BiometricService {
-  BiometricService({required Authenticator authenticator, SecureStorageBackend? backend})
-      : _auth = authenticator,
-        _backend = backend ?? const FlutterSecureStorageBackend();
+  BiometricService({
+    required Authenticator authenticator,
+    SecureStorageBackend? backend,
+  }) : _auth = authenticator,
+       _backend = backend ?? const FlutterSecureStorageBackend();
 
   static const snapshotKey = 'kk_biometric_snapshot';
   static const enrolAskedKey = 'kk_biometric_enrol_asked';

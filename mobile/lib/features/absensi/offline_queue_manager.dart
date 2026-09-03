@@ -75,7 +75,9 @@ final offlineQueueManagerProvider =
 /// flush. [delay] is injectable so tests run on a fake clock.
 class OfflineQueueManager extends Notifier<OfflineQueueState> {
   OfflineQueueManager({Future<void> Function(int seconds)? delay})
-    : _delay = delay ?? ((seconds) => Future<void>.delayed(Duration(seconds: seconds)));
+    : _delay =
+          delay ??
+          ((seconds) => Future<void>.delayed(Duration(seconds: seconds)));
 
   static const minBackoffSeconds = 2;
   static const maxBackoffSeconds = 60;

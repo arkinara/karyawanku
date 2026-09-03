@@ -18,21 +18,21 @@ void main() {
 
   NotificationPrefsRepository repoFor(
     Future<ResponseBody> Function(RequestOptions) handler,
-  ) =>
-      NotificationPrefsRepository(buildTestClient(store, handler));
+  ) => NotificationPrefsRepository(buildTestClient(store, handler));
 
-  Map<String, dynamic> prefsJson({
-    bool enabled = true,
-    int lead = 30,
-  }) =>
-      {'shift_reminders_enabled': enabled, 'reminder_lead_minutes': lead};
+  Map<String, dynamic> prefsJson({bool enabled = true, int lead = 30}) => {
+    'shift_reminders_enabled': enabled,
+    'reminder_lead_minutes': lead,
+  };
 
   group('getMy', () {
     test('GETs /notification-prefs/me and parses the prefs', () async {
       String? path;
       final repo = repoFor((o) async {
         path = o.path;
-        return jsonResponse({'preferences': prefsJson(enabled: false, lead: 60)});
+        return jsonResponse({
+          'preferences': prefsJson(enabled: false, lead: 60),
+        });
       });
 
       final prefs = await repo.getMy();

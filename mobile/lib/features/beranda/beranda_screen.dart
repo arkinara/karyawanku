@@ -150,8 +150,7 @@ class _UpcomingRow extends StatelessWidget {
             : context.colors.onPrimaryContainer,
       ),
       title: shift?.label ?? 'Libur',
-      subtitle:
-          '${Fmt.dayNames[date.weekday - 1]} · ${shift?.range ?? ''}',
+      subtitle: '${Fmt.dayNames[date.weekday - 1]} · ${shift?.range ?? ''}',
     );
   }
 }
@@ -162,10 +161,9 @@ class _Header extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authProvider).user;
-    final firstName = (user?.nama.trim().split(RegExp(r'\s+')).firstOrNull) ??
-        'Siti';
-    final greeting =
-        user == null ? Mock.greeting : 'Selamat pagi, $firstName';
+    final firstName =
+        (user?.nama.trim().split(RegExp(r'\s+')).firstOrNull) ?? 'Siti';
+    final greeting = user == null ? Mock.greeting : 'Selamat pagi, $firstName';
     final unread = ref.watch(notificationsProvider).unread;
 
     return Padding(
@@ -198,7 +196,9 @@ class _Header extends ConsumerWidget {
                 ref.read(notificationsProvider.notifier).markAllRead();
                 _openNotificationSheet(context, ref);
               },
-              tooltip: unread > 0 ? 'Notifikasi ($unread belum dibaca)' : 'Notifikasi',
+              tooltip: unread > 0
+                  ? 'Notifikasi ($unread belum dibaca)'
+                  : 'Notifikasi',
               icon: Badge(
                 isLabelVisible: unread > 0,
                 label: Text('$unread'),
@@ -250,10 +250,7 @@ Future<void> _openNotificationSheet(BuildContext context, WidgetRef ref) async {
               children: [
                 Padding(
                   padding: Insets.page.copyWith(top: 0),
-                  child: Text(
-                    'Notifikasi',
-                    style: context.texts.titleMedium,
-                  ),
+                  child: Text('Notifikasi', style: context.texts.titleMedium),
                 ),
                 for (final event in state.recent)
                   _NotificationRow(
@@ -467,10 +464,7 @@ class _ShiftHeroState extends ConsumerState<_ShiftHero> {
                 fontFeatures: Fmt.tabular,
               ),
             ),
-            if (cta != null) ...[
-              const SizedBox(height: 20),
-              cta,
-            ],
+            if (cta != null) ...[const SizedBox(height: 20), cta],
           ],
         ),
       ),

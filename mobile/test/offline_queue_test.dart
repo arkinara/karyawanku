@@ -58,7 +58,10 @@ void main() {
 
       await queue.markInFlight('k-1');
       expect(await queue.pending(), hasLength(1));
-      expect((await queue.pending()).first.status, QueuedAttendanceStatus.inFlight);
+      expect(
+        (await queue.pending()).first.status,
+        QueuedAttendanceStatus.inFlight,
+      );
 
       await queue.markSent('k-1');
       expect(await queue.pending(), isEmpty);
@@ -66,78 +69,89 @@ void main() {
       expect(all.single.status, QueuedAttendanceStatus.sent);
     });
 
-    test('markFailed permanent stops retries; transient keeps pending', () async {
-      final queue = await OfflineQueue.open(
-        factory: databaseFactoryFfi,
-        path: memDb(),
-      );
-      await queue.enqueue(
-        idempotencyKey: 'k-1',
-        actionAt: DateTime(2026, 9, 3, 7, 45),
-        kind: QueuedAttendanceKind.clockIn,
-      );
-      await queue.enqueue(
-        idempotencyKey: 'k-2',
-        actionAt: DateTime(2026, 9, 3, 17, 0),
-        kind: QueuedAttendanceKind.clockOut,
-      );
+    test(
+      'markFailed permanent stops retries; transient keeps pending',
+      () async {
+        final queue = await OfflineQueue.open(
+          factory: databaseFactoryFfi,
+          path: memDb(),
+        );
+        await queue.enqueue(
+          idempotencyKey: 'k-1',
+          actionAt: DateTime(2026, 9, 3, 7, 45),
+          kind: QueuedAttendanceKind.clockIn,
+        );
+        await queue.enqueue(
+          idempotencyKey: 'k-2',
+          actionAt: DateTime(2026, 9, 3, 17, 0),
+          kind: QueuedAttendanceKind.clockOut,
+        );
 
-      await queue.markFailed('k-1', 'Sudah clock-in', permanent: true);
-      await queue.markFailed('k-2', 'server 500', permanent: false);
+        await queue.markFailed('k-1', 'Sudah clock-in', permanent: true);
+        await queue.markFailed('k-2', 'server 500', permanent: false);
 
-      final all = await queue.all();
-      final byId = {for (final e in all) e.id: e};
-      expect(byId['k-1']!.status, QueuedAttendanceStatus.permanentlyFailed);
-      expect(byId['k-1']!.error, 'Sudah clock-in');
-      expect(byId['k-2']!.status, QueuedAttendanceStatus.pending);
-      expect(byId['k-2']!.error, 'server 500');
-      // Only the transient entry is still pending → retried.
-      expect((await queue.pending()).single.id, 'k-2');
-    });
+        final all = await queue.all();
+        final byId = {for (final e in all) e.id: e};
+        expect(byId['k-1']!.status, QueuedAttendanceStatus.permanentlyFailed);
+        expect(byId['k-1']!.error, 'Sudah clock-in');
+        expect(byId['k-2']!.status, QueuedAttendanceStatus.pending);
+        expect(byId['k-2']!.error, 'server 500');
+        // Only the transient entry is still pending → retried.
+        expect((await queue.pending()).single.id, 'k-2');
+      },
+    );
 
-    test('markPending requeues a permanently failed entry for manual retry',
-        () async {
-      final queue = await OfflineQueue.open(
-        factory: databaseFactoryFfi,
-        path: memDb(),
-      );
-      await queue.enqueue(
-        idempotencyKey: 'k-1',
-        actionAt: DateTime(2026, 9, 3, 7, 45),
-        kind: QueuedAttendanceKind.clockIn,
-      );
-      await queue.markFailed('k-1', 'Sudah clock-in', permanent: true);
+    test(
+      'markPending requeues a permanently failed entry for manual retry',
+      () async {
+        final queue = await OfflineQueue.open(
+          factory: databaseFactoryFfi,
+          path: memDb(),
+        );
+        await queue.enqueue(
+          idempotencyKey: 'k-1',
+          actionAt: DateTime(2026, 9, 3, 7, 45),
+          kind: QueuedAttendanceKind.clockIn,
+        );
+        await queue.markFailed('k-1', 'Sudah clock-in', permanent: true);
 
-      await queue.markPending('k-1');
+        await queue.markPending('k-1');
 
-      final pending = await queue.pending();
-      expect(pending.single.status, QueuedAttendanceStatus.pending);
-      expect(pending.single.error, isNull);
-    });
+        final pending = await queue.pending();
+        expect(pending.single.status, QueuedAttendanceStatus.pending);
+        expect(pending.single.error, isNull);
+      },
+    );
 
-    test('survives a restart: reopening the same DB file keeps entries', () async {
-      final dir = await Directory.systemTemp.createTemp('kk_queue_');
-      addTearDown(() => dir.delete(recursive: true));
-      final path = '${dir.path}/offline.db';
+    test(
+      'survives a restart: reopening the same DB file keeps entries',
+      () async {
+        final dir = await Directory.systemTemp.createTemp('kk_queue_');
+        addTearDown(() => dir.delete(recursive: true));
+        final path = '${dir.path}/offline.db';
 
-      final first = await OfflineQueue.open(factory: databaseFactoryFfi, path: path);
-      await first.enqueue(
-        idempotencyKey: 'k-persist',
-        actionAt: DateTime(2026, 9, 3, 7, 45),
-        kind: QueuedAttendanceKind.clockIn,
-      );
-      await first.close();
+        final first = await OfflineQueue.open(
+          factory: databaseFactoryFfi,
+          path: path,
+        );
+        await first.enqueue(
+          idempotencyKey: 'k-persist',
+          actionAt: DateTime(2026, 9, 3, 7, 45),
+          kind: QueuedAttendanceKind.clockIn,
+        );
+        await first.close();
 
-      // "App restart": a brand-new queue instance over the same file.
-      final reopened = await OfflineQueue.open(
-        factory: databaseFactoryFfi,
-        path: path,
-      );
-      final pending = await reopened.pending();
-      expect(pending, hasLength(1));
-      expect(pending.single.id, 'k-persist');
-      expect(pending.single.kind, QueuedAttendanceKind.clockIn);
-      await reopened.close();
-    });
+        // "App restart": a brand-new queue instance over the same file.
+        final reopened = await OfflineQueue.open(
+          factory: databaseFactoryFfi,
+          path: path,
+        );
+        final pending = await reopened.pending();
+        expect(pending, hasLength(1));
+        expect(pending.single.id, 'k-persist');
+        expect(pending.single.kind, QueuedAttendanceKind.clockIn);
+        await reopened.close();
+      },
+    );
   });
 }

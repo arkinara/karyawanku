@@ -21,11 +21,7 @@ class DeviceRepository {
     try {
       final data = await _api.post<Map<String, dynamic>>(
         '/devices',
-        body: {
-          'token': token,
-          'platform': platform,
-          'app_version': appVersion,
-        },
+        body: {'token': token, 'platform': platform, 'app_version': appVersion},
       );
       final device = data['device'];
       if (device is Map<String, dynamic>) {

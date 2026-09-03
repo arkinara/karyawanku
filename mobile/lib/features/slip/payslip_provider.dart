@@ -90,8 +90,9 @@ class PayslipState {
   }
 }
 
-final payslipProvider =
-    NotifierProvider<PayslipNotifier, PayslipState>(PayslipNotifier.new);
+final payslipProvider = NotifierProvider<PayslipNotifier, PayslipState>(
+  PayslipNotifier.new,
+);
 
 /// Owns the payslip list, the opened detail and the download lifecycle.
 class PayslipNotifier extends Notifier<PayslipState> {
@@ -158,7 +159,10 @@ class PayslipNotifier extends Notifier<PayslipState> {
     try {
       final bytes = await _repo.downloadPayslip(id, fileName: fileName);
       await _files.saveAndShare(bytes, fileName);
-      state = state.copyWith(downloading: false, message: 'Slip gaji tersimpan');
+      state = state.copyWith(
+        downloading: false,
+        message: 'Slip gaji tersimpan',
+      );
     } on ApiException catch (e) {
       state = state.copyWith(downloading: false, message: e.message);
     } catch (_) {

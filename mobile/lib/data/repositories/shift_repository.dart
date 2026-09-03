@@ -20,11 +20,7 @@ class ShiftRepository {
   }) async {
     final data = await _api.get<Map<String, dynamic>>(
       '/shift-assignments',
-      query: {
-        'start': _date(start),
-        'end': _date(end),
-        'limit': 100,
-      },
+      query: {'start': _date(start), 'end': _date(end), 'limit': 100},
     );
     return _parseItems(data);
   }

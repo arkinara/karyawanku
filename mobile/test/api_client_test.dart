@@ -40,7 +40,11 @@ void main() {
       final client = buildTestClient(store, (options) async {
         if (options.path == '/auth/sign-in') {
           sentAuth = options.headers['Authorization'] as String?;
-          return jsonResponse({'user': testUser.toJson(), 'token': 'a', 'refresh_token': 'r'});
+          return jsonResponse({
+            'user': testUser.toJson(),
+            'token': 'a',
+            'refresh_token': 'r',
+          });
         }
         return jsonErrorResponse('nope', status: 404);
       });
@@ -89,31 +93,34 @@ void main() {
       expect(await store.getRefreshToken(), 'refresh-token-2');
     });
 
-    test('a failing refresh signs out and throws UnauthorizedException', () async {
-      await store.saveSession(testSession);
-      var expired = 0;
+    test(
+      'a failing refresh signs out and throws UnauthorizedException',
+      () async {
+        await store.saveSession(testSession);
+        var expired = 0;
 
-      final client = buildTestClient(store, (options) async {
-        if (options.path == '/auth/me') {
-          return jsonErrorResponse('token expired', status: 401);
-        }
-        if (options.path == '/auth/refresh') {
-          return jsonErrorResponse('refresh invalid', status: 401);
-        }
-        return jsonErrorResponse('nope', status: 404);
-      });
-      client.onSessionExpired = () => expired++;
+        final client = buildTestClient(store, (options) async {
+          if (options.path == '/auth/me') {
+            return jsonErrorResponse('token expired', status: 401);
+          }
+          if (options.path == '/auth/refresh') {
+            return jsonErrorResponse('refresh invalid', status: 401);
+          }
+          return jsonErrorResponse('nope', status: 404);
+        });
+        client.onSessionExpired = () => expired++;
 
-      await expectLater(
-        client.get<Map<String, dynamic>>('/auth/me'),
-        throwsA(isA<UnauthorizedException>()),
-      );
+        await expectLater(
+          client.get<Map<String, dynamic>>('/auth/me'),
+          throwsA(isA<UnauthorizedException>()),
+        );
 
-      expect(expired, 1);
-      // Local session wiped — a revoked session cannot be resurrected.
-      expect(await store.getAccessToken(), isNull);
-      expect(await store.getRefreshToken(), isNull);
-    });
+        expect(expired, 1);
+        // Local session wiped — a revoked session cannot be resurrected.
+        expect(await store.getAccessToken(), isNull);
+        expect(await store.getRefreshToken(), isNull);
+      },
+    );
 
     test('a second 401 on the retried request signs out too', () async {
       await store.saveSession(testSession);
@@ -159,43 +166,50 @@ void main() {
         throwsA(
           isA<ApiException>()
               .having((e) => e.status, 'status', 401)
-              .having((e) => e.message, 'message', 'Email atau kata sandi salah')
+              .having(
+                (e) => e.message,
+                'message',
+                'Email atau kata sandi salah',
+              )
               .having((e) => e.details, 'details', isNotNull),
         ),
       );
     });
 
-    test('BE validation envelope parses into ApiException with details', () async {
-      final client = buildTestClient(store, (options) async {
-        return jsonErrorResponse(
-          'Data masuk tidak valid',
-          status: 400,
-          details: {
-            'fieldErrors': {
-              'email': ['Format email tidak valid'],
+    test(
+      'BE validation envelope parses into ApiException with details',
+      () async {
+        final client = buildTestClient(store, (options) async {
+          return jsonErrorResponse(
+            'Data masuk tidak valid',
+            status: 400,
+            details: {
+              'fieldErrors': {
+                'email': ['Format email tidak valid'],
+              },
             },
-          },
-        );
-      });
+          );
+        });
 
-      await expectLater(
-        client.post<Map<String, dynamic>>(
-          '/auth/sign-in',
-          body: {'email': 'bad', 'password': 'y'},
-          anonymous: true,
-        ),
-        throwsA(
-          isA<ApiException>()
-              .having((e) => e.status, 'status', 400)
-              .having((e) => e.message, 'message', 'Data masuk tidak valid')
-              .having(
-                (e) => e.details,
-                'details',
-                isA<Map<String, dynamic>>(),
-              ),
-        ),
-      );
-    });
+        await expectLater(
+          client.post<Map<String, dynamic>>(
+            '/auth/sign-in',
+            body: {'email': 'bad', 'password': 'y'},
+            anonymous: true,
+          ),
+          throwsA(
+            isA<ApiException>()
+                .having((e) => e.status, 'status', 400)
+                .having((e) => e.message, 'message', 'Data masuk tidak valid')
+                .having(
+                  (e) => e.details,
+                  'details',
+                  isA<Map<String, dynamic>>(),
+                ),
+          ),
+        );
+      },
+    );
 
     test('non-JSON error body keeps a friendly status message', () async {
       final client = buildTestClient(store, (options) async {

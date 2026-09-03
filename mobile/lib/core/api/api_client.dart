@@ -36,13 +36,12 @@ class ApiClient {
     Dio? dio,
     SecureSessionStore? sessionStore,
     Future<String?> Function()? deviceIdReader,
-  })  : _store = sessionStore ?? SecureSessionStore(),
-        _dio = dio ?? _buildDio() {
+  }) : _store = sessionStore ?? SecureSessionStore(),
+       _dio = dio ?? _buildDio() {
     _deviceIdReader = deviceIdReader ?? _defaultDeviceIdReader;
-    _dio.interceptors.add(InterceptorsWrapper(
-      onRequest: _onRequest,
-      onError: _onError,
-    ));
+    _dio.interceptors.add(
+      InterceptorsWrapper(onRequest: _onRequest, onError: _onError),
+    );
   }
 
   /// Process-wide singleton — screens and providers import this, never a
@@ -74,7 +73,8 @@ class ApiClient {
   /// Goes through the injected session store's backend so widget tests (an
   /// in-memory store) never touch the platform keychain channel. A missing or
   /// unreadable identity simply omits the header (no device credential minted).
-  Future<String?> _defaultDeviceIdReader() => _store.readRaw(DeviceIdentity.deviceIdKey);
+  Future<String?> _defaultDeviceIdReader() =>
+      _store.readRaw(DeviceIdentity.deviceIdKey);
 
   Future<void> _onRequest(
     RequestOptions options,
@@ -266,19 +266,15 @@ class ApiClient {
     bool anonymous = false,
     Map<String, dynamic>? query,
     Map<String, dynamic>? headers,
-  }) =>
-      _guard(() async {
-        final res = await _dio.post<dynamic>(
-          path,
-          data: body,
-          queryParameters: query,
-          options: Options(
-            extra: {_Extra.anonymous: anonymous},
-            headers: headers,
-          ),
-        );
-        return _decode<T>(res);
-      });
+  }) => _guard(() async {
+    final res = await _dio.post<dynamic>(
+      path,
+      data: body,
+      queryParameters: query,
+      options: Options(extra: {_Extra.anonymous: anonymous}, headers: headers),
+    );
+    return _decode<T>(res);
+  });
 
   Future<T> patch<T>(String path, {Object? body}) => _guard(() async {
     final res = await _dio.patch<dynamic>(

@@ -55,17 +55,15 @@ class QueuedAttendance {
   final double? accuracyM;
 
   /// BE endpoint this entry maps to: `clock_in` / `clock_out`.
-  String get endpoint => kind == QueuedAttendanceKind.clockIn
-      ? 'clock_in'
-      : 'clock_out';
+  String get endpoint =>
+      kind == QueuedAttendanceKind.clockIn ? 'clock_in' : 'clock_out';
 
   bool get isPending =>
       status == QueuedAttendanceStatus.pending ||
       status == QueuedAttendanceStatus.inFlight;
 
-  String get kindLabel => kind == QueuedAttendanceKind.clockIn
-      ? 'Clock In'
-      : 'Clock Out';
+  String get kindLabel =>
+      kind == QueuedAttendanceKind.clockIn ? 'Clock In' : 'Clock Out';
 
   String get statusLabel => switch (status) {
     QueuedAttendanceStatus.pending => 'Pending',

@@ -21,26 +21,31 @@ Widget beranda(
       attendanceOverride(state),
       shiftOverride(shift),
     ],
-    child: MaterialApp(home: Scaffold(body: BerandaScreen(onOpenTab: onOpenTab ?? (_) {}))),
+    child: MaterialApp(
+      home: Scaffold(body: BerandaScreen(onOpenTab: onOpenTab ?? (_) {})),
+    ),
   );
 }
 
 void main() {
-  testWidgets('before clock-in the hero invites the action, not a stale duration', (
-    tester,
-  ) async {
-    await tester.pumpWidget(beranda(const AttendanceState()));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'before clock-in the hero invites the action, not a stale duration',
+    (tester) async {
+      await tester.pumpWidget(beranda(const AttendanceState()));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Belum Clock In'), findsWidgets);
-    expect(find.text('Clock In'), findsOneWidget);
-    // No fake duration may appear before a clock-in exists.
-    expect(find.text('5j 43m'), findsNothing);
-  });
+      expect(find.text('Belum Clock In'), findsWidgets);
+      expect(find.text('Clock In'), findsOneWidget);
+      // No fake duration may appear before a clock-in exists.
+      expect(find.text('5j 43m'), findsNothing);
+    },
+  );
 
   testWidgets('hero CTA opens the Absensi tab', (tester) async {
     int? opened;
-    await tester.pumpWidget(beranda(const AttendanceState(), onOpenTab: (i) => opened = i));
+    await tester.pumpWidget(
+      beranda(const AttendanceState(), onOpenTab: (i) => opened = i),
+    );
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Clock In'));
@@ -63,10 +68,7 @@ void main() {
     expect(find.text('SEDANG BEKERJA'), findsOneWidget);
     expect(find.text('5j 43m'), findsOneWidget);
     expect(find.text('Belum Clock In'), findsNothing);
-    expect(
-      find.textContaining('Masuk ${Fmt.clock(clockIn)}'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('Masuk ${Fmt.clock(clockIn)}'), findsOneWidget);
   });
 
   testWidgets('clocked out hero shows the total between server times', (

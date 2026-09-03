@@ -91,7 +91,11 @@ class _RequestDetail extends StatelessWidget {
       children: [
         Text(request.kindLabel, style: context.texts.headlineSmall),
         const SizedBox(height: 6),
-        StatusPill(label: request.statusLabel, background: context.colors.primaryContainer, foreground: context.colors.onPrimaryContainer),
+        StatusPill(
+          label: request.statusLabel,
+          background: context.colors.primaryContainer,
+          foreground: context.colors.onPrimaryContainer,
+        ),
         const SizedBox(height: 16),
         Text(
           range,
@@ -156,7 +160,10 @@ class _DeepLinkError extends StatelessWidget {
             ),
             if (!notFound) ...[
               const SizedBox(height: 16),
-              FilledButton.tonal(onPressed: onRetry, child: const Text('Coba lagi')),
+              FilledButton.tonal(
+                onPressed: onRetry,
+                child: const Text('Coba lagi'),
+              ),
             ],
           ],
         ),

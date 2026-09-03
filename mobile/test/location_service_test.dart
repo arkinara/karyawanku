@@ -15,7 +15,8 @@ LocationService buildService({
   Future<bool> Function()? serviceStatusChecker,
 }) {
   return LocationService(
-    permissionFetcher: permissionFetcher ?? () async => PermissionStatus.granted,
+    permissionFetcher:
+        permissionFetcher ?? () async => PermissionStatus.granted,
     permissionRequester:
         permissionRequester ?? () async => PermissionStatus.granted,
     positionFetcher: positionFetcher ?? () async => testPosition(),

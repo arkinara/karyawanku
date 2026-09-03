@@ -90,3 +90,76 @@ jobs:
       - name: Build
         working-directory: frontend
         run: npm run build
+
+  # Mobile — Flutter format + analyze + test + Android release build.
+  #
+  # Version pin: `channel: 3.47.0` matches the local dev SDK (see
+  # mobile/.flutter-version). Deliberately NOT `channel: stable` — a drifting
+  # SDK would break the format/analyze/test gate and surprise local devs.
+  #
+  # Pub cache: keyed off mobile/pubspec.lock so unchanged deps reuse the cache
+  # instead of re-resolving on every run.
+  #
+  # Token parity: mobile/test/token_parity_test.dart reads
+  # frontend/src/app/globals.css. It MUST fire on web-only PRs too, so this job
+  # deliberately has NO `paths:` filter — a web token change that drifts the
+  # mobile palette fails CI even when no mobile file changed. It also relies on
+  # the full checkout (actions/checkout@v4 clones the whole repo, no sparse
+  # checkout), which keeps ../frontend present for the cross-package test.
+  #
+  # Build target: Android release APK. iOS release builds need a provisioning
+  # profile + signing identity that GitHub-hosted runners do not have, so the
+  # iOS step is disabled (see README) and Android is the CI build verification.
+  mobile:
+    name: Mobile (format + analyze + test + Android release build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter 3.47.0
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 3.47.0
+          cache: true
+          cache-key: flutter-3.47.0-pub-${{ hashFiles('mobile/pubspec.lock') }}
+
+      - name: Show Flutter version
+        working-directory: mobile
+        run: flutter --version
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Format check
+        working-directory: mobile
+        run: dart format --set-exit-if-changed lib test
+
+      - name: Analyze
+        working-directory: mobile
+        run: flutter analyze
+
+      - name: Test
+        working-directory: mobile
+        run: flutter test --reporter=expanded
+
+      - name: Android release build
+        working-directory: mobile
+        run: flutter build apk --release
+
+      - name: Upload Android release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-android-release
+          path: mobile/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      # iOS release builds require an environment-specific provisioning profile
+      # (not available on GitHub-hosted runners). Disabled — see README "Mobile".
+      - name: iOS release build (skipped in CI)
+        if: false
+        run: |
+          echo "iOS release build omitted: requires a provisioning profile +"
+          echo "signing identity that GitHub-hosted runners do not have."
+          echo "Android release APK (above) is the CI build verification."

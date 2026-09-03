@@ -15,7 +15,11 @@ ShiftKind shiftKindOf(String namaShift) => switch (namaShift) {
 /// `YYYY-MM-DD` -> `DateTime(y, m, d)` (date-only, no time component).
 DateTime parseDateOnly(String raw) {
   final parts = raw.split('-');
-  return DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+  return DateTime(
+    int.parse(parts[0]),
+    int.parse(parts[1]),
+    int.parse(parts[2]),
+  );
 }
 
 enum LeaveStatus { menunggu, disetujui, ditolak }
@@ -60,8 +64,7 @@ class Shift {
   final bool aktif;
 
   /// `Shift Pagi`, `Shift Siang`, … — `Libur` has no prefix.
-  String get label =>
-      namaShift == 'Libur' ? 'Libur' : 'Shift $namaShift';
+  String get label => namaShift == 'Libur' ? 'Libur' : 'Shift $namaShift';
 
   /// `07:00 – 15:00`
   String get range => '$jamMulai – $jamSelesai';
@@ -111,9 +114,7 @@ class ShiftAssignment {
       employeeId: json['employee_id'] as String,
       employeeName: json['employee_name'] as String?,
       shiftId: json['shift_id'] as String,
-      shift: rawShift is Map<String, dynamic>
-          ? Shift.fromJson(rawShift)
-          : null,
+      shift: rawShift is Map<String, dynamic> ? Shift.fromJson(rawShift) : null,
       tanggal: parseDateOnly(json['tanggal'] as String),
       published: json['published'] as bool? ?? false,
     );
@@ -424,8 +425,9 @@ class Payslip {
       employeeName:
           (json['employee'] is Map<String, dynamic>
                   ? json['employee'] as Map<String, dynamic>
-                  : const <String, dynamic>{})['nama_lengkap'] as String? ??
-              'Karyawan',
+                  : const <String, dynamic>{})['nama_lengkap']
+              as String? ??
+          'Karyawan',
       takeHome: (json['take_home'] as num?)?.toInt() ?? 0,
       createdAt: switch (json['created_at']) {
         final String raw => DateTime.tryParse(raw),
@@ -466,10 +468,9 @@ class PayslipDetail {
   int get totalDeductions => breakdown.totals.totalDeductions;
 
   factory PayslipDetail.fromJson(Map<String, dynamic> json) {
-    final employee =
-        json['employee'] is Map<String, dynamic>
-            ? json['employee'] as Map<String, dynamic>
-            : const <String, dynamic>{};
+    final employee = json['employee'] is Map<String, dynamic>
+        ? json['employee'] as Map<String, dynamic>
+        : const <String, dynamic>{};
     return PayslipDetail(
       id: json['id'] as String,
       periode: json['periode'] as String? ?? '',
@@ -567,8 +568,8 @@ class AttendanceRecord {
       ),
       lateMinutes: (json['late_minutes'] as num?)?.toInt() ?? 0,
       overtimeMinutes: (json['overtime_minutes'] as num?)?.toInt() ?? 0,
-      overtimeOverrideMinutes:
-          (json['overtime_override_minutes'] as num?)?.toInt(),
+      overtimeOverrideMinutes: (json['overtime_override_minutes'] as num?)
+          ?.toInt(),
       submissionMethod: json['submission_method'] as String? ?? 'live',
       timeDriftDetected: json['time_drift_detected'] as bool? ?? false,
     );

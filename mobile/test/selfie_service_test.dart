@@ -26,11 +26,14 @@ SelfieService buildService({
     ImageSource source, {
     int? imageQuality,
     CameraDevice? preferredCameraDevice,
-  })? pickImage,
+  })?
+  pickImage,
 }) {
   return SelfieService(
-    permissionRequester: permissionRequester ?? () async => PermissionStatus.granted,
-    pickImage: pickImage ??
+    permissionRequester:
+        permissionRequester ?? () async => PermissionStatus.granted,
+    pickImage:
+        pickImage ??
         (source, {imageQuality, preferredCameraDevice}) async => null,
   );
 }
@@ -38,11 +41,10 @@ SelfieService buildService({
 void main() {
   group('captureSelfie', () {
     test('returns null when the user cancels the camera sheet', () async {
-      final service = buildService(pickImage: (
-        source, {
-        imageQuality,
-        preferredCameraDevice,
-      }) async => null);
+      final service = buildService(
+        pickImage: (source, {imageQuality, preferredCameraDevice}) async =>
+            null,
+      );
 
       final file = await service.captureSelfie();
 
@@ -52,13 +54,12 @@ void main() {
     test('prefers the front camera and returns a File', () async {
       final fileOnDisk = await makeJpegFile();
       CameraDevice? requestedDevice;
-      final service = buildService(pickImage: (source, {
-        imageQuality,
-        preferredCameraDevice,
-      }) async {
-        requestedDevice = preferredCameraDevice;
-        return XFile(fileOnDisk.path);
-      });
+      final service = buildService(
+        pickImage: (source, {imageQuality, preferredCameraDevice}) async {
+          requestedDevice = preferredCameraDevice;
+          return XFile(fileOnDisk.path);
+        },
+      );
 
       final file = await service.captureSelfie();
 

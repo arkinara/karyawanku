@@ -19,10 +19,7 @@ final geofenceRepositoryProvider = Provider<GeofenceRepository>(
 
 /// One-shot reason the geofence state needs a settings detour. Surfaced as a
 /// snackbar with a settings button — never a second futile re-prompt.
-enum GeofenceNotice {
-  permanentlyDenied,
-  serviceDisabled,
-}
+enum GeofenceNotice { permanentlyDenied, serviceDisabled }
 
 /// Live geofence state for the Absensi chip. `status` is [GeofenceStatus]:
 /// inside / outside / unknown / lowAccuracy. `unknown` is an honest "we do not
@@ -91,8 +88,9 @@ class GeofenceState {
   }
 }
 
-final geofenceProvider =
-    NotifierProvider<GeofenceNotifier, GeofenceState>(GeofenceNotifier.new);
+final geofenceProvider = NotifierProvider<GeofenceNotifier, GeofenceState>(
+  GeofenceNotifier.new,
+);
 
 /// Owns permission, service and the latest fix, and evaluates the chip state.
 ///
@@ -213,7 +211,10 @@ class GeofenceNotifier extends Notifier<GeofenceState> {
   }
 
   /// Pure evaluation: a user fix against a geofence config → status.
-  GeofenceStatus evaluate({required Position user, required Geofence geofence}) {
+  GeofenceStatus evaluate({
+    required Position user,
+    required Geofence geofence,
+  }) {
     return _service.evaluate(
       workLat: geofence.workLat,
       workLng: geofence.workLng,
@@ -222,11 +223,7 @@ class GeofenceNotifier extends Notifier<GeofenceState> {
     );
   }
 
-  int? _displayMeters(
-    GeofenceStatus status,
-    Position user,
-    Geofence geofence,
-  ) {
+  int? _displayMeters(GeofenceStatus status, Position user, Geofence geofence) {
     switch (status) {
       case GeofenceStatus.lowAccuracy:
         return user.accuracy <= 0 ? null : user.accuracy.round();

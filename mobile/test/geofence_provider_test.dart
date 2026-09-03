@@ -36,7 +36,8 @@ LocationService buildService({
   Future<bool> Function()? serviceStatusChecker,
 }) {
   return LocationService(
-    permissionFetcher: permissionFetcher ?? () async => PermissionStatus.granted,
+    permissionFetcher:
+        permissionFetcher ?? () async => PermissionStatus.granted,
     permissionRequester:
         permissionRequester ?? () async => PermissionStatus.granted,
     positionFetcher: positionFetcher ?? () async => testPosition(),
@@ -121,7 +122,8 @@ void main() {
 
     test('an off-site fix evaluates outside with a real distance', () async {
       final service = buildService(
-        positionFetcher: () async => testPosition(latitude: -6.2, longitude: 106.86),
+        positionFetcher: () async =>
+            testPosition(latitude: -6.2, longitude: 106.86),
       );
       final container = makeContainer(
         store: store,
@@ -137,43 +139,49 @@ void main() {
       expect(state.distanceMeters, greaterThan(1000));
     });
 
-    test('a coarse fix evaluates lowAccuracy and reports the accuracy', () async {
-      final service = buildService(
-        positionFetcher: () async => testPosition(accuracy: 65),
-      );
-      final container = makeContainer(
-        store: store,
-        client: geofenceClient(store, geofenceJson()),
-        service: service,
-      );
-      final notifier = container.read(geofenceProvider.notifier);
+    test(
+      'a coarse fix evaluates lowAccuracy and reports the accuracy',
+      () async {
+        final service = buildService(
+          positionFetcher: () async => testPosition(accuracy: 65),
+        );
+        final container = makeContainer(
+          store: store,
+          client: geofenceClient(store, geofenceJson()),
+          service: service,
+        );
+        final notifier = container.read(geofenceProvider.notifier);
 
-      await notifier.refresh();
+        await notifier.refresh();
 
-      final state = container.read(geofenceProvider);
-      expect(state.status, GeofenceStatus.lowAccuracy);
-      expect(state.distanceMeters, 65);
-    });
+        final state = container.read(geofenceProvider);
+        expect(state.status, GeofenceStatus.lowAccuracy);
+        expect(state.distanceMeters, 65);
+      },
+    );
 
-    test('a timed-out fix yields unknown and keeps clock-in unblocked', () async {
-      final service = buildService(
-        positionFetcher: () => Completer<Position>().future,
-      );
-      final container = makeContainer(
-        store: store,
-        client: geofenceClient(store, geofenceJson()),
-        service: service,
-      );
-      final notifier = container.read(geofenceProvider.notifier);
+    test(
+      'a timed-out fix yields unknown and keeps clock-in unblocked',
+      () async {
+        final service = buildService(
+          positionFetcher: () => Completer<Position>().future,
+        );
+        final container = makeContainer(
+          store: store,
+          client: geofenceClient(store, geofenceJson()),
+          service: service,
+        );
+        final notifier = container.read(geofenceProvider.notifier);
 
-      await notifier.refresh();
+        await notifier.refresh();
 
-      final state = container.read(geofenceProvider);
-      expect(state.status, GeofenceStatus.unknown);
-      expect(state.userLocation, isNull);
-      expect(state.acquiring, isFalse);
-      expect(state.notice, isNull);
-    });
+        final state = container.read(geofenceProvider);
+        expect(state.status, GeofenceStatus.unknown);
+        expect(state.userLocation, isNull);
+        expect(state.acquiring, isFalse);
+        expect(state.notice, isNull);
+      },
+    );
 
     test('service disabled surfaces a settings notice, not outside', () async {
       final service = buildService(serviceStatusChecker: () async => false);
@@ -193,25 +201,28 @@ void main() {
       expect(state.notice, GeofenceNotice.serviceDisabled);
     });
 
-    test('permission denied yields unknown without a settings notice', () async {
-      final service = buildService(
-        permissionFetcher: () async => PermissionStatus.denied,
-      );
-      final container = makeContainer(
-        store: store,
-        client: geofenceClient(store, geofenceJson()),
-        service: service,
-      );
-      final notifier = container.read(geofenceProvider.notifier);
+    test(
+      'permission denied yields unknown without a settings notice',
+      () async {
+        final service = buildService(
+          permissionFetcher: () async => PermissionStatus.denied,
+        );
+        final container = makeContainer(
+          store: store,
+          client: geofenceClient(store, geofenceJson()),
+          service: service,
+        );
+        final notifier = container.read(geofenceProvider.notifier);
 
-      await notifier.refresh();
+        await notifier.refresh();
 
-      final state = container.read(geofenceProvider);
-      expect(state.permission, LocationPermissionStatus.denied);
-      expect(state.status, GeofenceStatus.unknown);
-      expect(state.userLocation, isNull);
-      expect(state.notice, isNull);
-    });
+        final state = container.read(geofenceProvider);
+        expect(state.permission, LocationPermissionStatus.denied);
+        expect(state.status, GeofenceStatus.unknown);
+        expect(state.userLocation, isNull);
+        expect(state.notice, isNull);
+      },
+    );
 
     test('permanently denied yields unknown; the notice comes from '
         'ensurePermission, not refresh (no duplicate snackbar)', () async {
@@ -234,23 +245,26 @@ void main() {
       expect(state.notice, isNull);
     });
 
-    test('falls back to the dev mock geofence when the endpoint 404s', () async {
-      final service = buildService();
-      final container = makeContainer(
-        store: store,
-        client: geofenceClient(store, null),
-        service: service,
-      );
-      final notifier = container.read(geofenceProvider.notifier);
+    test(
+      'falls back to the dev mock geofence when the endpoint 404s',
+      () async {
+        final service = buildService();
+        final container = makeContainer(
+          store: store,
+          client: geofenceClient(store, null),
+          service: service,
+        );
+        final notifier = container.read(geofenceProvider.notifier);
 
-      await notifier.refresh();
+        await notifier.refresh();
 
-      final state = container.read(geofenceProvider);
-      expect(state.geofence, isNotNull);
-      expect(state.geofence!.isMock, isTrue);
-      // The mock point == the fix, so the chip reads on-site.
-      expect(state.status, GeofenceStatus.inside);
-    });
+        final state = container.read(geofenceProvider);
+        expect(state.geofence, isNotNull);
+        expect(state.geofence!.isMock, isTrue);
+        // The mock point == the fix, so the chip reads on-site.
+        expect(state.status, GeofenceStatus.inside);
+      },
+    );
 
     test('keeps the cached geofence when the config fetch fails', () async {
       final repo = _SequencedGeofenceRepo();
@@ -258,7 +272,9 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           secureSessionStoreProvider.overrideWithValue(store),
-          apiClientProvider.overrideWithValue(geofenceClient(store, geofenceJson())),
+          apiClientProvider.overrideWithValue(
+            geofenceClient(store, geofenceJson()),
+          ),
           signedInEmployeeOverride,
           locationServiceProvider.overrideWithValue(service),
           geofenceRepositoryProvider.overrideWithValue(repo),
@@ -329,27 +345,30 @@ void main() {
       );
     });
 
-    test('permanently denied sets the settings notice after requesting', () async {
-      final service = buildService(
-        permissionFetcher: () async => PermissionStatus.permanentlyDenied,
-        permissionRequester: () async => PermissionStatus.permanentlyDenied,
-      );
-      final container = makeContainer(
-        store: store,
-        client: geofenceClient(store, geofenceJson()),
-        service: service,
-      );
-      final notifier = container.read(geofenceProvider.notifier);
+    test(
+      'permanently denied sets the settings notice after requesting',
+      () async {
+        final service = buildService(
+          permissionFetcher: () async => PermissionStatus.permanentlyDenied,
+          permissionRequester: () async => PermissionStatus.permanentlyDenied,
+        );
+        final container = makeContainer(
+          store: store,
+          client: geofenceClient(store, geofenceJson()),
+          service: service,
+        );
+        final notifier = container.read(geofenceProvider.notifier);
 
-      await notifier.ensurePermission();
-      expect(
-        container.read(geofenceProvider).notice,
-        GeofenceNotice.permanentlyDenied,
-      );
+        await notifier.ensurePermission();
+        expect(
+          container.read(geofenceProvider).notice,
+          GeofenceNotice.permanentlyDenied,
+        );
 
-      notifier.clearNotice();
-      expect(container.read(geofenceProvider).notice, isNull);
-    });
+        notifier.clearNotice();
+        expect(container.read(geofenceProvider).notice, isNull);
+      },
+    );
   });
 
   group('evaluate (pure)', () {

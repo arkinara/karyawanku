@@ -55,9 +55,11 @@ class DeviceCredential {
 /// `BiometricService.isEnrolledChanged` on the biometric snapshot plus the
 /// BE-side binding/expiry checks (see mobile/README.md, ticket #72).
 class DeviceCredentialStore {
-  DeviceCredentialStore({SecureStorageBackend? backend, Authenticator? authenticator})
-      : _backend = backend ?? const FlutterSecureStorageBackend(),
-        _authenticator = authenticator;
+  DeviceCredentialStore({
+    SecureStorageBackend? backend,
+    Authenticator? authenticator,
+  }) : _backend = backend ?? const FlutterSecureStorageBackend(),
+       _authenticator = authenticator;
 
   static const credentialKey = 'kk_device_credential';
   static const markerKey = 'kk_biometric_credential_marker';

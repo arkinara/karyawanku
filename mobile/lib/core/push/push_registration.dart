@@ -24,8 +24,8 @@ final deviceRepositoryProvider = Provider<DeviceRepository>(
 /// Registration is best-effort and never blocks or fails sign-in.
 class PushRegistration {
   PushRegistration({required FCMService fcm, required DeviceRepository devices})
-      : _fcm = fcm,
-        _devices = devices;
+    : _fcm = fcm,
+      _devices = devices;
 
   final FCMService _fcm;
   final DeviceRepository _devices;

@@ -101,9 +101,9 @@ class EmployeeAvatar extends ConsumerWidget {
       label: 'Profil $name',
       button: true,
       child: InkWell(
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const ProfileScreen()),
-        ),
+        onTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const ProfileScreen())),
         borderRadius: BorderRadius.circular(size / 2),
         child: RoundToken(
           label: initials,

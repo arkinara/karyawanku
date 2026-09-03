@@ -33,7 +33,12 @@ LeaveState formSeed({int annualRemaining = 8, int annualTotal = 12}) =>
           total: annualTotal,
           tahun: 2026,
         ),
-        const LeaveBalance(label: 'Sakit', remaining: 10, total: 12, tahun: 2026),
+        const LeaveBalance(
+          label: 'Sakit',
+          remaining: 10,
+          total: 12,
+          tahun: 2026,
+        ),
         const LeaveBalance(label: 'Izin', remaining: 3, total: 4, tahun: 2026),
       ],
       leaveTypes: const [
@@ -146,7 +151,10 @@ void main() {
   ) async {
     final notifier = SeededLeave(formSeed());
     await tester.pumpWidget(
-      host(notifier, (o) async => jsonResponse({'items': <Map<String, dynamic>>[]})),
+      host(
+        notifier,
+        (o) async => jsonResponse({'items': <Map<String, dynamic>>[]}),
+      ),
     );
     await openForm(tester);
 
@@ -279,12 +287,18 @@ void main() {
   ) async {
     final notifier = SeededLeave(formSeed(annualRemaining: 2));
     await tester.pumpWidget(
-      host(notifier, (o) async => jsonResponse({'items': <Map<String, dynamic>>[]})),
+      host(
+        notifier,
+        (o) async => jsonResponse({'items': <Map<String, dynamic>>[]}),
+      ),
     );
     await openForm(tester);
 
     // Default range is 3 days > the 2 remaining → over-balance guard on.
-    expect(find.textContaining('melebihi sisa Tahunan (2 hari)'), findsOneWidget);
+    expect(
+      find.textContaining('melebihi sisa Tahunan (2 hari)'),
+      findsOneWidget,
+    );
 
     final button = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Kirim Pengajuan'),
@@ -307,10 +321,7 @@ void main() {
     );
     await openForm(tester);
 
-    expect(
-      find.textContaining('bentrok dengan Shift Pagi'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('bentrok dengan Shift Pagi'), findsOneWidget);
     expect(find.textContaining('cari pengganti shift'), findsOneWidget);
   });
 }

@@ -54,7 +54,9 @@ void main() {
       RemoteMessage? seen;
       final sub = service.onMessage.listen((m) => seen = m);
 
-      final message = fakeRemoteMessage(data: {'kind': 'leave', 'requestId': 'r-1'});
+      final message = fakeRemoteMessage(
+        data: {'kind': 'leave', 'requestId': 'r-1'},
+      );
       fake.sendMessage(message);
       await Future<void>.delayed(Duration.zero);
 
@@ -78,10 +80,9 @@ void main() {
 
     test('getInitialMessage returns the cold-start message', () async {
       final fake = FakeMessaging()
-        ..initialMessage = fakeRemoteMessage(data: {
-          'kind': 'shift_reminder',
-          'assignmentId': 'sa-1',
-        });
+        ..initialMessage = fakeRemoteMessage(
+          data: {'kind': 'shift_reminder', 'assignmentId': 'sa-1'},
+        );
       final service = testFCMService(fake);
 
       final message = await service.getInitialMessage();
@@ -109,8 +110,7 @@ class _ThrowingMessaging implements PushMessaging {
       throw UnimplementedError('no firebase');
 
   @override
-  Stream<String> get onTokenRefresh =>
-      throw UnimplementedError('no firebase');
+  Stream<String> get onTokenRefresh => throw UnimplementedError('no firebase');
 
   @override
   Future<RemoteMessage?> getInitialMessage() async =>

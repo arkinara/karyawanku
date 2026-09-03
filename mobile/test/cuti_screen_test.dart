@@ -155,7 +155,10 @@ void main() {
     await tester.pumpWidget(cuti(state));
     await tester.pumpAndSettle();
 
-    expect(find.text('Shift sedang kekurangan orang, ajukan minggu depan.'), findsOneWidget);
+    expect(
+      find.text('Shift sedang kekurangan orang, ajukan minggu depan.'),
+      findsOneWidget,
+    );
     // The hardcoded placeholder is gone.
     expect(find.textContaining('menunggu Pak Darmawan'), findsNothing);
   });

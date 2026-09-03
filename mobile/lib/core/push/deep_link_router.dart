@@ -105,9 +105,9 @@ class DeepLinkRouter {
     required FCMService fcm,
     required LocalNotifications local,
     AppLinks? appLinks,
-  })  : _fcm = fcm,
-        _local = local,
-        _appLinks = appLinks;
+  }) : _fcm = fcm,
+       _local = local,
+       _appLinks = appLinks;
 
   final FCMService _fcm;
   final LocalNotifications _local;
@@ -132,9 +132,9 @@ class DeepLinkRouter {
     final links = _appLinks;
     if (links != null) {
       try {
-        _appLinksSub ??= links.uriLinkStream
-            .handleError((Object _) {})
-            .listen((uri) {
+        _appLinksSub ??= links.uriLinkStream.handleError((Object _) {}).listen((
+          uri,
+        ) {
           final target = parseDeepLink(uri);
           if (target != null) _targets.add(target);
         });

@@ -55,26 +55,32 @@ void main() {
       expect(await store.getRefreshToken(), 'refresh-token-1');
     });
 
-    test('wrong credentials surface the BE message and stay signed out', () async {
-      final client = buildTestClient(store, (o) async {
-        return jsonErrorResponse('Email atau kata sandi salah', status: 401);
-      });
-      final container = makeContainer(store, client);
-      final notifier = container.read(authProvider.notifier);
+    test(
+      'wrong credentials surface the BE message and stay signed out',
+      () async {
+        final client = buildTestClient(store, (o) async {
+          return jsonErrorResponse('Email atau kata sandi salah', status: 401);
+        });
+        final container = makeContainer(store, client);
+        final notifier = container.read(authProvider.notifier);
 
-      await expectLater(
-        notifier.signIn('siti@usaha.com', 'salah'),
-        throwsA(
-          isA<ApiException>()
-              .having((e) => e.message, 'message', 'Email atau kata sandi salah'),
-        ),
-      );
+        await expectLater(
+          notifier.signIn('siti@usaha.com', 'salah'),
+          throwsA(
+            isA<ApiException>().having(
+              (e) => e.message,
+              'message',
+              'Email atau kata sandi salah',
+            ),
+          ),
+        );
 
-      final state = container.read(authProvider);
-      expect(state.isSignedIn, isFalse);
-      expect(state.loading, isFalse);
-      expect(await store.getSession(), isNull);
-    });
+        final state = container.read(authProvider);
+        expect(state.isSignedIn, isFalse);
+        expect(state.loading, isFalse);
+        expect(await store.getSession(), isNull);
+      },
+    );
 
     test('offline sign-in throws NetworkException', () async {
       final client = buildTestClient(store, (o) async {
@@ -152,32 +158,37 @@ void main() {
       expect(state.user?.nama, 'Siti Nurhaliza');
     });
 
-    test('restore refreshes an expired token and persists the new pair', () async {
-      await store.saveSession(testSession);
-      var meCalls = 0;
-      final client = buildTestClient(store, (o) async {
-        if (o.path == '/auth/refresh') {
-          return jsonResponse({
-            'access_token': 'access-token-2',
-            'refresh_token': 'refresh-token-2',
-          });
-        }
-        meCalls++;
-        if (meCalls == 1) return jsonErrorResponse('token expired', status: 401);
-        return jsonResponse({'user': testUser.toJson()});
-      });
-      final container = makeContainer(store, client);
-      final notifier = container.read(authProvider.notifier);
+    test(
+      'restore refreshes an expired token and persists the new pair',
+      () async {
+        await store.saveSession(testSession);
+        var meCalls = 0;
+        final client = buildTestClient(store, (o) async {
+          if (o.path == '/auth/refresh') {
+            return jsonResponse({
+              'access_token': 'access-token-2',
+              'refresh_token': 'refresh-token-2',
+            });
+          }
+          meCalls++;
+          if (meCalls == 1) {
+            return jsonErrorResponse('token expired', status: 401);
+          }
+          return jsonResponse({'user': testUser.toJson()});
+        });
+        final container = makeContainer(store, client);
+        final notifier = container.read(authProvider.notifier);
 
-      await notifier.restoreSession();
+        await notifier.restoreSession();
 
-      final state = container.read(authProvider);
-      expect(state.isSignedIn, isTrue);
-      // The live (refreshed) pair is what survives, not the stale one.
-      expect(state.session?.accessToken, 'access-token-2');
-      expect(await store.getAccessToken(), 'access-token-2');
-      expect(await store.getRefreshToken(), 'refresh-token-2');
-    });
+        final state = container.read(authProvider);
+        expect(state.isSignedIn, isTrue);
+        // The live (refreshed) pair is what survives, not the stale one.
+        expect(state.session?.accessToken, 'access-token-2');
+        expect(await store.getAccessToken(), 'access-token-2');
+        expect(await store.getRefreshToken(), 'refresh-token-2');
+      },
+    );
 
     test('revoked session (refresh fails) signs out with a notice', () async {
       await store.saveSession(testSession);

@@ -60,10 +60,7 @@ class _MasukScreenState extends ConsumerState<MasukScreen> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          behavior: SnackBarBehavior.floating,
-        ),
+        SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
       );
   }
 
@@ -75,7 +72,9 @@ class _MasukScreenState extends ConsumerState<MasukScreen> {
     FocusScope.of(context).unfocus();
     final ok = await ref.read(authProvider.notifier).unlockWithBiometric();
     if (!ok && mounted) {
-      _showError('Tidak dapat membuka dengan sidik jari. Silakan masuk dengan kata sandi.');
+      _showError(
+        'Tidak dapat membuka dengan sidik jari. Silakan masuk dengan kata sandi.',
+      );
     }
   }
 

@@ -20,7 +20,9 @@ ProviderContainer makeContainer(
     overrides: [
       secureSessionStoreProvider.overrideWithValue(store),
       apiClientProvider.overrideWithValue(client),
-      payslipFileStoreProvider.overrideWithValue(files ?? FakePayslipFileStore()),
+      payslipFileStoreProvider.overrideWithValue(
+        files ?? FakePayslipFileStore(),
+      ),
       signedInEmployeeOverride,
     ],
   );
@@ -32,17 +34,16 @@ Map<String, dynamic> rowJson({
   String id = 'ps-1',
   String periode = '2026-08',
   int takeHome = 4235000,
-}) =>
-    {
-      'id': id,
-      'pdf_url': '/api/payslips/$id/download',
-      'created_at': '2026-08-31T02:00:00.000Z',
-      'periode': periode,
-      'status': 'disetujui',
-      'employee': {'id': 'emp-1', 'nama_lengkap': 'Siti Nurhaliza'},
-      'payroll_item_id': 'pi-1',
-      'take_home': takeHome,
-    };
+}) => {
+  'id': id,
+  'pdf_url': '/api/payslips/$id/download',
+  'created_at': '2026-08-31T02:00:00.000Z',
+  'periode': periode,
+  'status': 'disetujui',
+  'employee': {'id': 'emp-1', 'nama_lengkap': 'Siti Nurhaliza'},
+  'payroll_item_id': 'pi-1',
+  'take_home': takeHome,
+};
 
 Map<String, dynamic> detailJson() => {
   'id': 'ps-1',
@@ -203,23 +204,29 @@ void main() {
       expect(container.read(payslipProvider).message, 'Slip gaji tersimpan');
     });
 
-    test('BE download failure surfaces its message as a snackbar error', () async {
-      final files = FakePayslipFileStore();
-      final client = buildTestClient(store, (o) async {
-        return jsonErrorResponse('File slip gaji tidak ditemukan', status: 404);
-      });
-      final container = makeContainer(store, client, files: files);
-      final notifier = container.read(payslipProvider.notifier);
+    test(
+      'BE download failure surfaces its message as a snackbar error',
+      () async {
+        final files = FakePayslipFileStore();
+        final client = buildTestClient(store, (o) async {
+          return jsonErrorResponse(
+            'File slip gaji tidak ditemukan',
+            status: 404,
+          );
+        });
+        final container = makeContainer(store, client, files: files);
+        final notifier = container.read(payslipProvider.notifier);
 
-      await notifier.download('ps-1');
+        await notifier.download('ps-1');
 
-      expect(files.saved, isEmpty);
-      expect(container.read(payslipProvider).downloading, isFalse);
-      expect(
-        container.read(payslipProvider).message,
-        'File slip gaji tidak ditemukan',
-      );
-    });
+        expect(files.saved, isEmpty);
+        expect(container.read(payslipProvider).downloading, isFalse);
+        expect(
+          container.read(payslipProvider).message,
+          'File slip gaji tidak ditemukan',
+        );
+      },
+    );
 
     test('a failed device write never reports success', () async {
       final files = FakePayslipFileStore()..throwOnSave = Exception('disk');
@@ -238,18 +245,21 @@ void main() {
       );
     });
 
-    test('the message is one-shot: clearing resets it for the next action', () async {
-      final files = FakePayslipFileStore();
-      final client = buildTestClient(store, (o) async {
-        return ResponseBody.fromBytes(Uint8List.fromList([1]), 200);
-      });
-      final container = makeContainer(store, client, files: files);
-      final notifier = container.read(payslipProvider.notifier);
+    test(
+      'the message is one-shot: clearing resets it for the next action',
+      () async {
+        final files = FakePayslipFileStore();
+        final client = buildTestClient(store, (o) async {
+          return ResponseBody.fromBytes(Uint8List.fromList([1]), 200);
+        });
+        final container = makeContainer(store, client, files: files);
+        final notifier = container.read(payslipProvider.notifier);
 
-      await notifier.download('ps-1');
-      notifier.clearMessage();
+        await notifier.download('ps-1');
+        notifier.clearMessage();
 
-      expect(container.read(payslipProvider).message, isNull);
-    });
+        expect(container.read(payslipProvider).message, isNull);
+      },
+    );
   });
 }

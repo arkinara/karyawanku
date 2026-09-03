@@ -35,16 +35,15 @@ class SelfieException implements Exception {
 /// platform channels (no emulator/simulator on CI). Defaults are the real
 /// `permission_handler` / `image_picker` calls.
 typedef CameraPermissionRequester = Future<ph.PermissionStatus> Function();
-typedef PickImageFn = Future<XFile?> Function(
-  ImageSource source, {
-  int? imageQuality,
-  CameraDevice? preferredCameraDevice,
-});
+typedef PickImageFn =
+    Future<XFile?> Function(
+      ImageSource source, {
+      int? imageQuality,
+      CameraDevice? preferredCameraDevice,
+    });
 
 /// Single [SelfieService] shared by the provider and by tests.
-final selfieServiceProvider = Provider<SelfieService>(
-  (ref) => SelfieService(),
-);
+final selfieServiceProvider = Provider<SelfieService>((ref) => SelfieService());
 
 /// Front-camera selfie capture for clock-in verification (ticket #69).
 ///
@@ -57,7 +56,8 @@ class SelfieService {
   SelfieService({
     CameraPermissionRequester? permissionRequester,
     PickImageFn? pickImage,
-  }) : _permissionRequester = permissionRequester ?? _defaultPermissionRequester,
+  }) : _permissionRequester =
+           permissionRequester ?? _defaultPermissionRequester,
        _pickImage = pickImage ?? _defaultPickImage;
 
   final CameraPermissionRequester _permissionRequester;
@@ -118,9 +118,7 @@ class SelfieService {
   Future<bool> isAcceptable(File file) async {
     final ext = file.path.toLowerCase();
     final imageExtension =
-        ext.endsWith('.jpg') ||
-        ext.endsWith('.jpeg') ||
-        ext.endsWith('.png');
+        ext.endsWith('.jpg') || ext.endsWith('.jpeg') || ext.endsWith('.png');
     if (!imageExtension) return false;
     final size = await file.length();
     return size <= kMaxSourceBytes;

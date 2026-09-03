@@ -46,8 +46,8 @@ class NotificationsState {
 
 final notificationsProvider =
     NotifierProvider<NotificationsNotifier, NotificationsState>(
-  NotificationsNotifier.new,
-);
+      NotificationsNotifier.new,
+    );
 
 /// Local unread counter + recent events. Subscribes to foreground FCM messages
 /// once; the subscription is disposed with the container so widget tests (that

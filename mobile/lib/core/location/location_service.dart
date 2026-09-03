@@ -57,7 +57,8 @@ class LocationService {
     PositionFetcher? positionFetcher,
     ServiceStatusChecker? serviceStatusChecker,
   }) : _permissionFetcher = permissionFetcher ?? _defaultPermissionFetcher,
-       _permissionRequester = permissionRequester ?? _defaultPermissionRequester,
+       _permissionRequester =
+           permissionRequester ?? _defaultPermissionRequester,
        _positionFetcher = positionFetcher ?? _defaultPositionFetcher,
        _serviceStatusChecker =
            serviceStatusChecker ?? _defaultServiceStatusChecker;

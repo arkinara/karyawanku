@@ -10,10 +10,7 @@ import 'helpers.dart';
 
 Widget slipGaji(PayslipState state) {
   return ProviderScope(
-    overrides: [
-      signedInOverride,
-      payslipOverride(state),
-    ],
+    overrides: [signedInOverride, payslipOverride(state)],
     child: const MaterialApp(home: SlipGajiScreen()),
   );
 }
@@ -27,24 +24,25 @@ void main() {
     addTearDown(tester.view.reset);
   }
 
-  testWidgets('renders the hero from the latest payslip and history from the list', (
-    tester,
-  ) async {
-    tallView(tester);
-    await tester.pumpWidget(slipGaji(samplePayslipState()));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'renders the hero from the latest payslip and history from the list',
+    (tester) async {
+      tallView(tester);
+      await tester.pumpWidget(slipGaji(samplePayslipState()));
+      await tester.pumpAndSettle();
 
-    // Hero: newest payslip promoted to the tonal card.
-    expect(find.text('Terbaru · Agustus 2026'), findsOneWidget);
-    expect(find.text('Rp 4.235.000'), findsOneWidget);
+      // Hero: newest payslip promoted to the tonal card.
+      expect(find.text('Terbaru · Agustus 2026'), findsOneWidget);
+      expect(find.text('Rp 4.235.000'), findsOneWidget);
 
-    // History rows: the rest of the server list.
-    expect(find.text('Juli 2026'), findsOneWidget);
-    expect(find.text('Maret 2026'), findsOneWidget);
-    expect(find.text('Desember 2025'), findsOneWidget);
-    // The THR row is flagged from the server, shown with a badge.
-    expect(find.textContaining('THR'), findsOneWidget);
-  });
+      // History rows: the rest of the server list.
+      expect(find.text('Juli 2026'), findsOneWidget);
+      expect(find.text('Maret 2026'), findsOneWidget);
+      expect(find.text('Desember 2025'), findsOneWidget);
+      // The THR row is flagged from the server, shown with a badge.
+      expect(find.textContaining('THR'), findsOneWidget);
+    },
+  );
 
   testWidgets('year chips are derived from the years present in the data', (
     tester,

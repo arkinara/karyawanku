@@ -88,62 +88,89 @@ void main() {
       final guard = DeepLinkGuard(leaveRepo: repo);
 
       expect(
-        await guard.owns(const DeepLinkTarget(kind: DeepLinkKind.leave, id: 'lr-1')),
+        await guard.owns(
+          const DeepLinkTarget(kind: DeepLinkKind.leave, id: 'lr-1'),
+        ),
         isTrue,
       );
     });
 
-    test('cross-employee leave id (403) → false → resolves to 404 page', () async {
-      final repo = LeaveRepository(
-        buildTestClient(
-          store,
-          (o) async =>
-              jsonErrorResponse('Anda hanya dapat melihat pengajuan Anda sendiri.', status: 403),
-        ),
-      );
-      final guard = DeepLinkGuard(leaveRepo: repo);
+    test(
+      'cross-employee leave id (403) → false → resolves to 404 page',
+      () async {
+        final repo = LeaveRepository(
+          buildTestClient(
+            store,
+            (o) async => jsonErrorResponse(
+              'Anda hanya dapat melihat pengajuan Anda sendiri.',
+              status: 403,
+            ),
+          ),
+        );
+        final guard = DeepLinkGuard(leaveRepo: repo);
 
-      expect(
-        await guard.owns(const DeepLinkTarget(kind: DeepLinkKind.leave, id: 'lr-other')),
-        isFalse,
-      );
-    });
+        expect(
+          await guard.owns(
+            const DeepLinkTarget(kind: DeepLinkKind.leave, id: 'lr-other'),
+          ),
+          isFalse,
+        );
+      },
+    );
 
     test('unknown leave id (404) → false', () async {
       final repo = LeaveRepository(
         buildTestClient(
           store,
-          (o) async => jsonErrorResponse('Pengajuan cuti tidak ditemukan', status: 404),
+          (o) async =>
+              jsonErrorResponse('Pengajuan cuti tidak ditemukan', status: 404),
         ),
       );
       final guard = DeepLinkGuard(leaveRepo: repo);
 
       expect(
-        await guard.owns(const DeepLinkTarget(kind: DeepLinkKind.leave, id: 'lr-missing')),
+        await guard.owns(
+          const DeepLinkTarget(kind: DeepLinkKind.leave, id: 'lr-missing'),
+        ),
         isFalse,
       );
     });
 
-    test('shift targets always owned (roster is employee-scoped server-side)', () async {
-      final repo = LeaveRepository(buildTestClient(store, (o) async => jsonResponse({})));
-      final guard = DeepLinkGuard(leaveRepo: repo);
+    test(
+      'shift targets always owned (roster is employee-scoped server-side)',
+      () async {
+        final repo = LeaveRepository(
+          buildTestClient(store, (o) async => jsonResponse({})),
+        );
+        final guard = DeepLinkGuard(leaveRepo: repo);
 
-      expect(
-        await guard.owns(const DeepLinkTarget(kind: DeepLinkKind.shift, id: 'sa-1')),
-        isTrue,
-      );
-    });
+        expect(
+          await guard.owns(
+            const DeepLinkTarget(kind: DeepLinkKind.shift, id: 'sa-1'),
+          ),
+          isTrue,
+        );
+      },
+    );
 
-    test('a 5xx (transient) is not treated as not-owned — screen shows its error state', () async {
-      final repo = LeaveRepository(
-        buildTestClient(store, (o) async => jsonErrorResponse('exploded', status: 500)),
-      );
-      final guard = DeepLinkGuard(leaveRepo: repo);
+    test(
+      'a 5xx (transient) is not treated as not-owned — screen shows its error state',
+      () async {
+        final repo = LeaveRepository(
+          buildTestClient(
+            store,
+            (o) async => jsonErrorResponse('exploded', status: 500),
+          ),
+        );
+        final guard = DeepLinkGuard(leaveRepo: repo);
 
-      expect(
-        await guard.owns(const DeepLinkTarget(kind: DeepLinkKind.leave, id: 'lr-1')),
-        isTrue,
-      );
-    });
+        expect(
+          await guard.owns(
+            const DeepLinkTarget(kind: DeepLinkKind.leave, id: 'lr-1'),
+          ),
+          isTrue,
+        );
+      },
+    );
   });
 }
