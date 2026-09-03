@@ -1,41 +1,49 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/format.dart';
-import '../../data/mock_data.dart';
 import '../../data/models.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/common.dart';
 import 'ajukan_cuti_screen.dart';
+import 'leave_provider.dart';
 
 /// Leave. Balances first (the number staff actually came to check), then the
-/// request history filtered by status.
-class CutiScreen extends StatefulWidget {
+/// request history filtered by status. Both come from the BE for the
+/// signed-in employee — the server resolves the employee from the JWT.
+class CutiScreen extends ConsumerStatefulWidget {
   const CutiScreen({super.key});
 
   @override
-  State<CutiScreen> createState() => _CutiScreenState();
+  ConsumerState<CutiScreen> createState() => _CutiScreenState();
 }
 
-class _CutiScreenState extends State<CutiScreen> {
+class _CutiScreenState extends ConsumerState<CutiScreen> {
   static const _filters = ['Semua', 'Menunggu', 'Selesai'];
   int _filter = 0;
 
-  List<LeaveRequest> get _visible => switch (_filter) {
-    1 =>
-      Mock.leaveRequests
-          .where((r) => r.status == LeaveStatus.menunggu)
-          .toList(),
-    2 =>
-      Mock.leaveRequests
-          .where((r) => r.status != LeaveStatus.menunggu)
-          .toList(),
-    _ => Mock.leaveRequests,
-  };
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(leaveProvider.notifier).loadAll();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final visible = _visible;
+    final leave = ref.watch(leaveProvider);
+
+    final visible = switch (_filter) {
+      1 => leave.requests
+          .where((r) => r.status == LeaveStatus.menunggu)
+          .toList(),
+      2 => leave.requests
+          .where((r) => r.status != LeaveStatus.menunggu)
+          .toList(),
+      _ => leave.requests,
+    };
 
     return Scaffold(
       appBar: AppBar(
@@ -54,22 +62,34 @@ class _CutiScreenState extends State<CutiScreen> {
       body: ListView(
         padding: const EdgeInsets.only(bottom: 96),
         children: [
-          _Balances(),
-          const SizedBox(height: 20),
-          ChipRow(
-            labels: _filters,
-            selectedIndex: _filter,
-            onSelected: (i) => setState(() => _filter = i),
-          ),
-          const SizedBox(height: 16),
-          if (visible.isEmpty)
-            _EmptyState(filter: _filters[_filter])
-          else
-            for (final request in visible)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                child: _RequestCard(request),
-              ),
+          if (leave.error != null)
+            _ErrorState(
+              message: leave.error!,
+              onRetry: () => ref.read(leaveProvider.notifier).loadAll(),
+            ),
+          if (leave.loading && leave.balances.isEmpty && leave.requests.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 48),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else ...[
+            _Balances(balances: leave.balances),
+            const SizedBox(height: 20),
+            ChipRow(
+              labels: _filters,
+              selectedIndex: _filter,
+              onSelected: (i) => setState(() => _filter = i),
+            ),
+            const SizedBox(height: 16),
+            if (visible.isEmpty)
+              _EmptyState(filter: _filters[_filter])
+            else
+              for (final request in visible)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                  child: _RequestCard(request),
+                ),
+          ],
         ],
       ),
     );
@@ -82,14 +102,58 @@ class _CutiScreenState extends State<CutiScreen> {
   }
 }
 
-/// Three balance tiles. They fall to a column once the labels no longer fit
-/// side by side.
+/// Full-screen load-failure state: retry, never zero balances presented as
+/// fact.
+class _ErrorState extends StatelessWidget {
+  const _ErrorState({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(32, 32, 32, 8),
+      child: Column(
+        children: [
+          Icon(
+            LucideIcons.circleAlert,
+            size: 40,
+            color: context.colors.onSurfaceVariant,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: context.texts.bodyMedium,
+          ),
+          const SizedBox(height: 16),
+          FilledButton.tonal(
+            onPressed: onRetry,
+            child: const Text('Coba lagi'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Balance tiles from the server. The annual (Tahunan) tile is highlighted —
+/// it is the one the Ajukan Cuti form's preview draws from. The tiles fall to
+/// a column once the labels no longer fit side by side.
 class _Balances extends StatelessWidget {
+  const _Balances({required this.balances});
+
+  final List<LeaveBalance> balances;
+
   @override
   Widget build(BuildContext context) {
     final tiles = [
-      for (var i = 0; i < Mock.leaveBalances.length; i++)
-        _BalanceTile(balance: Mock.leaveBalances[i], highlight: i == 0),
+      for (final balance in balances)
+        _BalanceTile(
+          balance: balance,
+          highlight: balance.label.toLowerCase().contains('tahunan'),
+        ),
     ];
 
     return Padding(
@@ -323,10 +387,11 @@ class _RequestCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            request.reason,
-            style: context.texts.bodyMedium?.copyWith(color: muted),
-          ),
+          if (request.reason != null)
+            Text(
+              request.reason!,
+              style: context.texts.bodyMedium?.copyWith(color: muted),
+            ),
           if (request.decisionNote != null) ...[
             const SizedBox(height: 10),
             Container(

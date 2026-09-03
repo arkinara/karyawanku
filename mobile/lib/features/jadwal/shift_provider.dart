@@ -6,15 +6,11 @@ import '../../core/auth/auth_provider.dart';
 import '../../data/models.dart';
 import '../../data/repositories/leave_repository.dart';
 import '../../data/repositories/shift_repository.dart';
+import '../cuti/leave_provider.dart';
 
 /// Single [ShiftRepository] shared by the notifier and by tests.
 final shiftRepositoryProvider = Provider<ShiftRepository>(
   (ref) => ShiftRepository(ref.watch(apiClientProvider)),
-);
-
-/// Single [LeaveRepository] shared by the notifier and by tests.
-final leaveRepositoryProvider = Provider<LeaveRepository>(
-  (ref) => LeaveRepository(ref.watch(apiClientProvider)),
 );
 
 /// Live roster state for JadwalScreen and the Beranda upcoming list.
@@ -149,8 +145,8 @@ class ShiftNotifier extends Notifier<ShiftState> {
       final blocked = <DateTime>{};
       for (final r in requests) {
         if (r.status == LeaveStatus.ditolak) continue;
-        var d = dateOnly(r.tanggalMulai);
-        final end = dateOnly(r.tanggalSelesai);
+        var d = dateOnly(r.start);
+        final end = dateOnly(r.end);
         while (!d.isAfter(end)) {
           blocked.add(d);
           d = d.add(const Duration(days: 1));

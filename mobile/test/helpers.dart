@@ -12,6 +12,7 @@ import 'package:karyawanku_mobile/core/auth/auth_provider.dart';
 import 'package:karyawanku_mobile/core/auth/secure_session_store.dart';
 import 'package:karyawanku_mobile/data/models.dart';
 import 'package:karyawanku_mobile/features/absensi/attendance_provider.dart';
+import 'package:karyawanku_mobile/features/cuti/leave_provider.dart';
 import 'package:karyawanku_mobile/features/jadwal/shift_provider.dart';
 
 /// In-memory [SecureStorageBackend] so session roundtrips and auth flows run
@@ -148,6 +149,22 @@ ApiClient buildTestClient(
   return ApiClient(dio: testDio(handler), sessionStore: store);
 }
 
+/// Overrides that make every request fail fast — shared widget tests render
+/// with these so no screen can start a real (timer-backed) HTTP request while
+/// an un-pinned provider (e.g. the AjukanCuti shift-conflict fetch) reaches
+/// for [ApiClient.instance].
+List<Override> blockedNetworkOverrides() {
+  final store = SecureSessionStore(backend: InMemoryBackend());
+  final client = buildTestClient(
+    store,
+    (o) async => jsonErrorResponse('blocked', status: 503),
+  );
+  return [
+    secureSessionStoreProvider.overrideWithValue(store),
+    apiClientProvider.overrideWithValue(client),
+  ];
+}
+
 /// Pin [attendanceProvider] to a fixed state with no network work — shared
 /// widget tests (a11y, stress) get a deterministic screen instead of a live
 /// ApiClient reaching for a blocked test HttpClient.
@@ -208,6 +225,101 @@ class _ReadyShift extends ShiftNotifier {
   @override
   void clearError() {}
 }
+
+/// Pin [leaveProvider] to a fixed state with no network work — shared widget
+/// tests get a deterministic cuti screen instead of a live ApiClient reaching
+/// for a blocked test HttpClient.
+Override leaveOverride(LeaveState state) =>
+    leaveProvider.overrideWith(() => _ReadyLeave(state));
+
+class _ReadyLeave extends LeaveNotifier {
+  _ReadyLeave(this.initial);
+  final LeaveState initial;
+
+  @override
+  LeaveState build() => initial;
+
+  @override
+  Future<void> loadAll() async {}
+
+  @override
+  Future<void> submit({
+    required String leaveTypeId,
+    required DateTime tanggalMulai,
+    required DateTime tanggalSelesai,
+    required String alasan,
+  }) async {}
+
+  @override
+  void clearActionError() {}
+}
+
+/// A populated [LeaveState] mirroring the seeded BE data, for the shared
+/// widget tests so the cuti screens render their real content.
+LeaveState sampleLeaveState() => LeaveState(
+  balances: const [
+    LeaveBalance(label: 'Tahunan', remaining: 8, total: 12, tahun: 2026),
+    LeaveBalance(label: 'Sakit', remaining: 10, total: 12, tahun: 2026),
+    LeaveBalance(label: 'Izin', remaining: 3, total: 4, tahun: 2026),
+  ],
+  requests: [
+    LeaveRequest(
+      id: 'r-1',
+      leaveTypeName: 'Tahunan',
+      status: LeaveStatus.menunggu,
+      start: DateTime(2026, 9, 15),
+      end: DateTime(2026, 9, 17),
+      days: 3,
+      reason: 'Acara keluarga di Bandung',
+      submittedAt: DateTime(2026, 9, 13),
+    ),
+    LeaveRequest(
+      id: 'r-2',
+      leaveTypeName: 'Sakit',
+      status: LeaveStatus.disetujui,
+      start: DateTime(2026, 8, 12),
+      end: DateTime(2026, 8, 12),
+      days: 1,
+      reason: 'Demam, ada surat dokter',
+      submittedAt: DateTime(2026, 8, 11),
+    ),
+    LeaveRequest(
+      id: 'r-3',
+      leaveTypeName: 'Izin',
+      status: LeaveStatus.ditolak,
+      start: DateTime(2026, 7, 28),
+      end: DateTime(2026, 7, 28),
+      days: 1,
+      reason: 'Keperluan pribadi',
+      decisionNote: 'Catatan: shift sedang kekurangan orang, ajukan minggu depan.',
+      submittedAt: DateTime(2026, 7, 27),
+    ),
+  ],
+  leaveTypes: const [
+    LeaveType(
+      id: 'lt-1',
+      nama: 'Tahunan',
+      defaultKuotaHari: 12,
+      kebijakanSisa: 'carry-over',
+      carryOverMaxDays: 5,
+      aktif: true,
+    ),
+    LeaveType(
+      id: 'lt-2',
+      nama: 'Sakit',
+      defaultKuotaHari: 5,
+      kebijakanSisa: 'hangus',
+      aktif: true,
+    ),
+    LeaveType(
+      id: 'lt-3',
+      nama: 'Izin',
+      defaultKuotaHari: 3,
+      kebijakanSisa: 'hangus',
+      aktif: true,
+    ),
+  ],
+);
 
 /// A roster row fixture mirroring the BE shift-assignment envelope. [tanggal]
 /// defaults to `now` so tests never hardcode a month.

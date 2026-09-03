@@ -15,46 +15,6 @@ abstract final class Mock {
   // Beranda
   static const greeting = 'Selamat pagi, Siti';
   static const notificationCount = 2;
-  static const pendingLeaveCount = 1;
-
-  // Cuti
-  static const leaveBalances = [
-    LeaveBalance(label: 'Tahunan', remaining: 8, total: 12),
-    LeaveBalance(label: 'Sakit', remaining: 10, total: 12),
-    LeaveBalance(label: 'Izin', remaining: 3, total: 4),
-  ];
-
-  static const annualLeaveExpiry = '31/12/2026';
-
-  static final leaveRequests = [
-    LeaveRequest(
-      kind: LeaveKind.tahunan,
-      status: LeaveStatus.menunggu,
-      start: DateTime(2026, 9, 15),
-      end: DateTime(2026, 9, 17),
-      days: 3,
-      reason: 'Acara keluarga di Bandung',
-      meta: 'Diajukan 2 hari lalu · menunggu Pak Darmawan',
-    ),
-    LeaveRequest(
-      kind: LeaveKind.sakit,
-      status: LeaveStatus.disetujui,
-      start: DateTime(2026, 8, 12),
-      end: DateTime(2026, 8, 12),
-      days: 1,
-      reason: 'Demam, ada surat dokter',
-    ),
-    LeaveRequest(
-      kind: LeaveKind.izin,
-      status: LeaveStatus.ditolak,
-      start: DateTime(2026, 7, 28),
-      end: DateTime(2026, 7, 28),
-      days: 1,
-      reason: 'Keperluan pribadi',
-      decisionNote:
-          'Catatan: shift sedang kekurangan orang, ajukan minggu depan.',
-    ),
-  ];
 
   // Slip gaji
   static final latestPayslip = Payslip(

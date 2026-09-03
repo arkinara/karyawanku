@@ -45,6 +45,8 @@ void main() {
               signedInOverride,
               attendanceOverride(const AttendanceState()),
               shiftOverride(const ShiftState()),
+              leaveOverride(sampleLeaveState()),
+              ...blockedNetworkOverrides(),
             ],
             child: MaterialApp(
               theme: buildAppTheme(brightness: brightness),

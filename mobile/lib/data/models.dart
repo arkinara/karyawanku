@@ -18,8 +18,6 @@ DateTime parseDateOnly(String raw) {
 
 enum LeaveStatus { menunggu, disetujui, ditolak }
 
-enum LeaveKind { tahunan, sakit, izin, melahirkan, penting }
-
 enum AttendanceEntryState { done, pendingSync, empty }
 
 /// The BE attendance statuses (`backend/src/db/schema.ts`). Maps 1:1 onto the
@@ -120,39 +118,6 @@ class ShiftAssignment {
   }
 }
 
-/// A leave request row from the BE (`backend/src/routes/leave-requests.ts`),
-/// reduced to what the schedule needs: the covered date range and whether it
-/// blocks the employee's day.
-class LeaveRequestRecord {
-  const LeaveRequestRecord({
-    required this.id,
-    required this.tanggalMulai,
-    required this.tanggalSelesai,
-    required this.status,
-    this.reason,
-  });
-
-  final String id;
-  final DateTime tanggalMulai;
-  final DateTime tanggalSelesai;
-  final LeaveStatus status;
-  final String? reason;
-
-  factory LeaveRequestRecord.fromJson(Map<String, dynamic> json) {
-    return LeaveRequestRecord(
-      id: json['id'] as String,
-      tanggalMulai: parseDateOnly(json['tanggal_mulai'] as String),
-      tanggalSelesai: parseDateOnly(json['tanggal_selesai'] as String),
-      status: switch (json['status'] as String?) {
-        'disetujui' => LeaveStatus.disetujui,
-        'ditolak' => LeaveStatus.ditolak,
-        _ => LeaveStatus.menunggu,
-      },
-      reason: json['alasan'] as String?,
-    );
-  }
-}
-
 class AttendanceEntry {
   const AttendanceEntry({
     required this.label,
@@ -167,56 +132,164 @@ class AttendanceEntry {
   final String? note;
 }
 
+/// A leave request from the BE (`backend/src/routes/leave-requests.ts`),
+/// rendered on CutiScreen and used by the schedule to mark blocked days. The
+/// type name comes from the server verbatim — never inferred client-side.
 class LeaveRequest {
   const LeaveRequest({
-    required this.kind,
+    required this.id,
+    required this.leaveTypeName,
     required this.status,
     required this.start,
     required this.end,
     required this.days,
-    required this.reason,
-    this.meta,
+    this.reason,
     this.decisionNote,
+    this.submittedAt,
   });
 
-  final LeaveKind kind;
+  final String id;
+  final String leaveTypeName;
   final LeaveStatus status;
   final DateTime start;
   final DateTime end;
   final int days;
-  final String reason;
+  final String? reason;
 
-  /// e.g. `Diajukan 2 hari lalu · menunggu Pak Darmawan`
-  final String? meta;
-
-  /// Rejection or approval note from the approver.
+  /// `catatan_approver` from the BE — the approver's decision note.
   final String? decisionNote;
 
-  String get kindLabel => switch (kind) {
-    LeaveKind.tahunan => 'Cuti Tahunan',
-    LeaveKind.sakit => 'Cuti Sakit',
-    LeaveKind.izin => 'Cuti Izin',
-    LeaveKind.melahirkan => 'Cuti Melahirkan',
-    LeaveKind.penting => 'Cuti Penting',
-  };
+  /// `created_at` from the BE, for the "Diajukan {tanggal}" trailing line.
+  final DateTime? submittedAt;
+
+  String get kindLabel {
+    final name = leaveTypeName.trim();
+    return name.toLowerCase().startsWith('cuti ') ? name : 'Cuti $name';
+  }
 
   String get statusLabel => switch (status) {
     LeaveStatus.menunggu => 'Menunggu',
     LeaveStatus.disetujui => 'Disetujui',
     LeaveStatus.ditolak => 'Ditolak',
   };
+
+  String? get meta {
+    final submitted = submittedAt;
+    if (submitted == null) return null;
+    final d =
+        '${submitted.day.toString().padLeft(2, '0')}/'
+        '${submitted.month.toString().padLeft(2, '0')}/${submitted.year}';
+    return 'Diajukan $d';
+  }
+
+  factory LeaveRequest.fromJson(Map<String, dynamic> json) {
+    final start = parseDateOnly(json['tanggal_mulai'] as String);
+    final end = parseDateOnly(json['tanggal_selesai'] as String);
+    return LeaveRequest(
+      id: json['id'] as String,
+      leaveTypeName: json['leave_type_name'] as String? ?? 'Cuti',
+      status: switch (json['status'] as String?) {
+        'disetujui' => LeaveStatus.disetujui,
+        'ditolak' => LeaveStatus.ditolak,
+        _ => LeaveStatus.menunggu,
+      },
+      start: start,
+      end: end,
+      days: end.difference(start).inDays + 1,
+      reason: json['alasan'] as String?,
+      decisionNote: json['catatan_approver'] as String?,
+      submittedAt: _parseInstant(json['created_at']),
+    );
+  }
 }
 
+/// One active leave type from the BE (`backend/src/routes/leave-types.ts`).
+/// The form's chips are built from these — there is no fixed five-type list.
+class LeaveType {
+  const LeaveType({
+    required this.id,
+    required this.nama,
+    required this.defaultKuotaHari,
+    required this.kebijakanSisa,
+    this.carryOverMaxDays,
+    required this.aktif,
+  });
+
+  final String id;
+  final String nama;
+  final int defaultKuotaHari;
+
+  /// `hangus` or `carry-over`.
+  final String kebijakanSisa;
+  final int? carryOverMaxDays;
+  final bool aktif;
+
+  /// `Tahunan` -> `Cuti Tahunan`; already-prefixed names pass through.
+  String get label {
+    final name = nama.trim();
+    return name.toLowerCase().startsWith('cuti ') ? name : 'Cuti $name';
+  }
+
+  factory LeaveType.fromJson(Map<String, dynamic> json) {
+    return LeaveType(
+      id: json['id'] as String,
+      nama: json['nama_jenis_cuti'] as String,
+      defaultKuotaHari: (json['default_kuota_hari'] as num?)?.toInt() ?? 0,
+      kebijakanSisa: json['kebijakan_sisa'] as String? ?? 'hangus',
+      carryOverMaxDays: (json['carry_over_max_days'] as num?)?.toInt(),
+      aktif: json['aktif'] as bool? ?? true,
+    );
+  }
+}
+
+/// One leave balance row from the BE (`backend/src/routes/leave-balances.ts`),
+/// labelled by `nama_jenis_cuti` and carrying the year its quota applies to.
 class LeaveBalance {
   const LeaveBalance({
     required this.label,
     required this.remaining,
     required this.total,
+    required this.tahun,
   });
 
   final String label;
   final int remaining;
   final int total;
+
+  /// The balance's quota year; the quota hangs over (or carries over) at the
+  /// end of it.
+  final int tahun;
+
+  /// `31/12/{tahun}` — the day the remaining balance stops being usable.
+  DateTime get expiry => DateTime(tahun, 12, 31);
+
+  factory LeaveBalance.fromJson(Map<String, dynamic> json) {
+    final kuota = (json['kuota_hari'] as num?)?.toInt() ?? 0;
+    final terpakai = (json['terpakai_hari'] as num?)?.toInt() ?? 0;
+    return LeaveBalance(
+      label: json['nama_jenis_cuti'] as String? ?? 'Cuti',
+      remaining: (json['sisa_hari'] as num?)?.toInt() ?? kuota - terpakai,
+      total: kuota,
+      tahun: (json['tahun'] as num?)?.toInt() ?? DateTime.now().year,
+    );
+  }
+}
+
+/// The BE serializes `created_at` (a timestamp column) as an ISO-8601 string
+/// via JSON.stringify; be tolerant of an epoch number too.
+DateTime? _parseInstant(Object? raw) {
+  if (raw is String) {
+    final parsed = DateTime.tryParse(raw);
+    if (parsed != null) return parsed;
+    final epoch = int.tryParse(raw);
+    if (epoch != null) {
+      return DateTime.fromMillisecondsSinceEpoch(epoch * 1000);
+    }
+  }
+  if (raw is num) {
+    return DateTime.fromMillisecondsSinceEpoch((raw * 1000).round());
+  }
+  return null;
 }
 
 class PayslipLine {

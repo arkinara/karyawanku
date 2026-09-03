@@ -1,10 +1,10 @@
 # KaryawanKu Mobile (Flutter)
 
 Phase 2 native mobile app — employee self-service. Sign-in, session restore and
-sign-out talk to the Fastify BE in `backend/`; attendance (ticket #63) and the
-shift schedule (ticket #64) are wired to the real endpoints. The remaining
-domains (leave, payslip) still run off fixtures in `lib/data/mock_data.dart`
-until their per-domain MOB tickets land.
+sign-out talk to the Fastify BE in `backend/`; attendance (ticket #63), the
+shift schedule (ticket #64) and the leave screens (ticket #65) are wired to the
+real endpoints. The remaining domain (payslip) still runs off fixtures in
+`lib/data/mock_data.dart` until its per-domain MOB ticket lands.
 
 Built from the Claude Design doc `KaryawanKu Mobile.dc.html`, option **1b
 (Android / Material 3)** — M3 top app bars, tonal containers, pill buttons, an
@@ -159,6 +159,52 @@ Behaviour contract:
 - **Empty states.** An employee with no published roster sees an explanatory
   empty state on both Beranda and the schedule — never a blank grid.
 
+## Leave (ticket #65)
+
+`CutiScreen` and `AjukanCutiScreen` are driven by
+`lib/features/cuti/leave_provider.dart` (Riverpod), which talks to the BE
+through `lib/data/repositories/leave_repository.dart`. All of it flows through
+the one `ApiClient` from #62 — no screen touches HTTP, and the signed-in
+employee is resolved server-side from the JWT, so another employee's requests
+are never visible.
+
+Endpoints used (`backend/src/routes/leave-requests.ts`,
+`backend/src/routes/leave-balances.ts`, `backend/src/routes/leave-types.ts`):
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET /leave-balances?tahun=` | quota rows for the current year | Balance tiles + the form's annual header + expiry |
+| `GET /leave-requests?limit=100` | the employee's request history | List + status filter + schedule's leave-blocked days |
+| `GET /leave-types` | the business's active leave types | The form's type chips (no fixed five-type list) |
+| `POST /leave-requests` | create a pending request | Submit; on success the list refetches and the request appears as `Menunggu` |
+
+Behaviour contract:
+
+- **Balances, types and requests load in parallel** on CutiScreen mount.
+  A failure in any one keeps whatever already loaded and shows a retry
+  surface — never zero balances presented as fact.
+- **Approver data comes from the server.** The request card's decision note is
+  `catatan_approver` verbatim and the trailing line is the server's
+  `created_at` ("Diajukan 13/09/2026") — there is no hardcoded
+  "menunggu Pak Darmawan". (The BE does not yet return the approver's name,
+  only `approver_user_id`, so pending requests say "Menunggu persetujuan" via
+  the status pill rather than inventing a name.)
+- **Status filters map to the real BE statuses** (`pending` / `disetujui` /
+  `ditolak`), and the existing empty state shows when a filter has no matches.
+- **Impact preview is FE-computed, server-decided.** The form's balance
+  arithmetic (`newSisa = currentSisa − durationDays`, over-balance warning)
+  and the shift-conflict line are computed on the device from the latest
+  balances + a pre-fetched roster range so the employee gets a trustworthy
+  preview before sending. The server remains the source of truth: it re-checks
+  quota on `POST /leave-requests` and its rejection message surfaces verbatim
+  as a snackbar with the form's input preserved.
+- **Submit is in-flight-safe.** The button disables with a spinner and the
+  whole form is `IgnorePointer`'d while sending (double-tap produces one
+  request). On success the form pops back to the refreshed list with a
+  "Pengajuan terkirim" snackbar.
+- **The Cuti nav badge** shows the real pending count from the provider, not a
+  fixture.
+
 ## Design tokens and theming
 
 The palette, shape scale, motion rhythm and elevation are **mirrored from the
@@ -229,7 +275,7 @@ flutter run              # attached device or emulator
 flutter run -d chrome    # quickest way to compare against the design doc
 flutter run --dart-define=API_BASE_URL=http://localhost:3001  # against local BE
 flutter analyze
-flutter test                            # 201 tests
+flutter test                            # 226 tests
 flutter test test/token_parity_test.dart # mobile palette == web globals.css
 flutter test test/a11y_test.dart         # tap targets, labels, contrast x theme
 flutter test test/stress_test.dart       # text scale x width x theme matrix
@@ -237,9 +283,10 @@ flutter test test/stress_test.dart       # text scale x width x theme matrix
 
 ## Not yet wired
 
-The leave and payslip APIs in `backend/`, real geolocation, camera capture,
-push notifications, the offline queue, and the home-screen widget. The
-five mobile-only capabilities appear as UI states only. Sign-in/sign-out,
-attendance (today + clock in/out + monthly aggregate) and the shift schedule
-(roster by range + upcoming + leave-blocked days) are real; the remaining
-screen-by-screen data wiring is covered by the per-domain MOB tickets.
+The payslip API in `backend/`, real geolocation, camera capture, push
+notifications, the offline queue, and the home-screen widget. The five
+mobile-only capabilities appear as UI states only. Sign-in/sign-out,
+attendance (today + clock in/out + monthly aggregate), the shift schedule
+(roster by range + upcoming + leave-blocked days) and leave (balances +
+history + submit + types) are real; the remaining screen-by-screen data wiring
+is covered by the per-domain MOB tickets.

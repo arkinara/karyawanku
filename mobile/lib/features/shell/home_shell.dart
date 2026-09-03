@@ -9,25 +9,28 @@ import '../../widgets/common.dart';
 import '../absensi/absensi_screen.dart';
 import '../beranda/beranda_screen.dart';
 import '../cuti/cuti_screen.dart';
+import '../cuti/leave_provider.dart';
 import '../profile/profile_screen.dart';
 import '../slip/slip_gaji_screen.dart';
 
 /// Four-destination M3 navigation bar (80 dp, pill indicator). Jadwal is a
 /// pushed route rather than a fifth tab, matching the design doc.
-class HomeShell extends StatefulWidget {
+class HomeShell extends ConsumerStatefulWidget {
   const HomeShell({super.key, this.initialIndex = 0});
 
   final int initialIndex;
 
   @override
-  State<HomeShell> createState() => _HomeShellState();
+  ConsumerState<HomeShell> createState() => _HomeShellState();
 }
 
-class _HomeShellState extends State<HomeShell> {
+class _HomeShellState extends ConsumerState<HomeShell> {
   late int _index = widget.initialIndex;
 
   @override
   Widget build(BuildContext context) {
+    final pending = ref.watch(leaveProvider).pendingCount;
+
     return Scaffold(
       body: IndexedStack(
         index: _index,
@@ -52,8 +55,8 @@ class _HomeShellState extends State<HomeShell> {
           ),
           NavigationDestination(
             icon: Badge(
-              isLabelVisible: Mock.pendingLeaveCount > 0,
-              label: Text('${Mock.pendingLeaveCount}'),
+              isLabelVisible: pending > 0,
+              label: Text('$pending'),
               child: const Icon(LucideIcons.calendar),
             ),
             label: 'Cuti',
