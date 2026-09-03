@@ -4,6 +4,8 @@
 <dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>KaryawanKu menggunakan lokasi selama clock-in untuk verifikasi kehadiran di area kerja.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>KaryawanKu menggunakan kamera untuk verifikasi kehadiran (selfie clock-in).</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>

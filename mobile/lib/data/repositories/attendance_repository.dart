@@ -1,3 +1,8 @@
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:dio/dio.dart';
+
 import '../../core/api/api_client.dart';
 import '../models.dart';
 
@@ -83,5 +88,34 @@ class AttendanceRepository {
       query: {'period': period},
     );
     return AttendanceAggregate.fromJson(data);
+  }
+
+  /// `POST /attendance/:id/selfie` (multipart, field `file`) — attaches the
+  /// compressed verification selfie to a clock-in record. The BE re-encodes
+  /// server-side and enforces size/content-type; the upload is idempotent per
+  /// record (a second call overwrites with a fresh retention period).
+  Future<SelfieUpload> uploadSelfie({
+    required String attendanceId,
+    required File file,
+  }) async {
+    final form = FormData.fromMap({
+      'file': await MultipartFile.fromFile(
+        file.path,
+        filename: 'selfie.jpg',
+        contentType: DioMediaType('image', 'jpeg'),
+      ),
+    });
+    final data = await _api.post<Map<String, dynamic>>(
+      '/attendance/$attendanceId/selfie',
+      body: form,
+    );
+    return SelfieUpload.fromJson(data);
+  }
+
+  /// `GET /attendance/:id/selfie` — raw image bytes. The caller can only ever
+  /// fetch its own attendance record (the BE 403s cross-employee access);
+  /// past retention the BE returns 410.
+  Future<Uint8List> downloadSelfie({required String attendanceId}) async {
+    return _api.getBytes('/attendance/$attendanceId/selfie');
   }
 }

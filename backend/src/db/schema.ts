@@ -486,6 +486,33 @@ export const auditLogs = sqliteTable(
 )
 
 /**
+ * Metadata selfie verifikasi absensi (ticket #69). File gambar disimpan di
+ * filesystem (`backend/data/selfies/{employee_id}/{attendance_id}.jpg`) — hanya
+ * referensi (path) + ukuran + masa simpan yang dicatat di DB. `attendance_id`
+ * adalah primary key sehingga satu record absensi punya paling banyak satu
+ * selfie (upload kedua menimpa yang pertama dengan masa simpan baru).
+ * `retention_until` (default 90 hari) adalah batas waktu file boleh disajikan;
+ * job purge harian menghapus baris + file yang sudah lewat batas.
+ */
+export const selfieMeta = sqliteTable(
+  'selfie_meta',
+  {
+    attendance_id: text('attendance_id')
+      .primaryKey()
+      .references(() => attendanceRecords.id, { onDelete: 'cascade' }),
+    path: text('path').notNull(),
+    /** Selalu `image/jpeg` — server menurunkan ukuran + re-encode saat simpan. */
+    mime_type: text('mime_type').notNull(),
+    size_bytes: integer('size_bytes').notNull(),
+    uploaded_at: integer('uploaded_at', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    retention_until: integer('retention_until', { mode: 'timestamp' }).notNull(),
+  },
+  (table) => [index('selfie_meta_retention_until_idx').on(table.retention_until)],
+)
+
+/**
  * Bookkeeping key-value untuk proses berkala (ticket #56). Key yang dikenal:
  * `last_leave_reset_year` (tahun terakhir reset tahunan cuti, ditulis oleh
  * `runYearlyResetIfNeeded`) dan `last_thr_reset_year` (dicadangkan untuk proses
@@ -521,3 +548,5 @@ export type ThrPayment = typeof thrPayments.$inferSelect
 export type NewThrPayment = typeof thrPayments.$inferInsert
 export type AuditLog = typeof auditLogs.$inferSelect
 export type NewAuditLog = typeof auditLogs.$inferInsert
+export type SelfieMeta = typeof selfieMeta.$inferSelect
+export type NewSelfieMeta = typeof selfieMeta.$inferInsert

@@ -1,5 +1,9 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
 
 import 'package:karyawanku_mobile/core/auth/secure_session_store.dart';
 import 'package:karyawanku_mobile/data/repositories/attendance_repository.dart';
@@ -250,6 +254,67 @@ void main() {
       await repo.getAggregate(employeeId: 'emp-1', year: 2026, month: 1);
 
       expect(query!['period'], '2026-01');
+    });
+  });
+
+  group('uploadSelfie / downloadSelfie', () {
+    Future<File> makeJpegFile() async {
+      final image = img.Image(width: 640, height: 480);
+      img.fill(image, color: img.ColorRgb8(60, 120, 200));
+      final jpeg = img.encodeJpg(image, quality: 90);
+      final file = File(
+        '${Directory.systemTemp.path}/repo_selfie_${DateTime.now().microsecondsSinceEpoch}.jpg',
+      );
+      await file.writeAsBytes(jpeg);
+      return file;
+    }
+
+    test('uploadSelfie POSTs multipart with the file field + jpeg type', () async {
+      final file = await makeJpegFile();
+      String? path;
+      FormData? form;
+      final repo = repoFor((o) async {
+        path = o.path;
+        form = o.data as FormData?;
+        return jsonResponse({
+          'url': '/api/attendance/att-1/selfie',
+          'size_bytes': 271,
+          'retention_until': '2026-12-02T00:00:00.000Z',
+        });
+      });
+
+      final upload = await repo.uploadSelfie(attendanceId: 'att-1', file: file);
+
+      expect(path, '/attendance/att-1/selfie');
+      expect(form, isNotNull);
+      final fd = form!;
+      expect(fd.files.length, 1);
+      expect(fd.files.single.key, 'file');
+      expect(fd.files.single.value.filename, 'selfie.jpg');
+      // MediaType uses identity equality; compare the mime type string.
+      expect(fd.files.single.value.contentType?.mimeType, 'image/jpeg');
+      expect(upload.url, '/api/attendance/att-1/selfie');
+      expect(upload.sizeBytes, 271);
+      expect(
+        upload.retentionUntil,
+        DateTime.parse('2026-12-02T00:00:00.000Z'),
+      );
+    });
+
+    test('downloadSelfie GETs the raw image bytes', () async {
+      final repo = repoFor((o) async {
+        expect(o.path, '/attendance/att-1/selfie');
+        expect(o.responseType, ResponseType.bytes);
+        return ResponseBody.fromBytes(
+          [0xff, 0xd8, 0xff, 0xe0, 0x12, 0x34],
+          200,
+          headers: {'content-type': ['image/jpeg']},
+        );
+      });
+
+      final bytes = await repo.downloadSelfie(attendanceId: 'att-1');
+
+      expect(bytes, Uint8List.fromList([0xff, 0xd8, 0xff, 0xe0, 0x12, 0x34]));
     });
   });
 }

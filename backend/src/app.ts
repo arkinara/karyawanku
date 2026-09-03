@@ -15,6 +15,7 @@ import employeesImportRoutes from './routes/employees-import.js'
 import salaryComponentsRoutes from './routes/salary-components.js'
 import salaryAssignmentsRoutes from './routes/salary-assignments.js'
 import attendanceRoutes from './routes/attendance.js'
+import selfiesRoutes from './routes/selfies.js'
 import leaveTypesRoutes from './routes/leave-types.js'
 import leaveBalancesRoutes from './routes/leave-balances.js'
 import leaveRequestsRoutes from './routes/leave-requests.js'
@@ -103,6 +104,7 @@ export function buildApp(): FastifyInstance {
       await api.register(salaryComponentsRoutes)
       await api.register(salaryAssignmentsRoutes)
       await api.register(attendanceRoutes)
+      await api.register(selfiesRoutes)
       await api.register(leaveTypesRoutes)
       await api.register(leaveBalancesRoutes)
       await api.register(leaveRequestsRoutes)

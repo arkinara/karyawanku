@@ -50,6 +50,12 @@ dependencies:
   geolocator: ^13.0.0
   permission_handler: ^11.3.0
 
+  # Ticket #69 — selfie verification for clock-in. Front camera capture via
+  # image_picker, on-device downscale/JPEG compression via `image`, camera
+  # permission via permission_handler (shared with #68).
+  image_picker: ^1.1.2
+  image: ^4.2.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

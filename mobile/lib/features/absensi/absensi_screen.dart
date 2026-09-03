@@ -6,11 +6,13 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/format.dart';
 import '../../core/location/location_service.dart';
+import '../../core/selfie/selfie_consent_store.dart';
 import '../../data/models.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/common.dart';
 import 'attendance_provider.dart';
 import 'geofence_provider.dart';
+import 'selfie_provider.dart';
 
 /// Attendance — clock-in direction A ("geofence card") from the design doc:
 /// wall clock, status, elapsed hero, one primary pill button, today's
@@ -125,16 +127,125 @@ class _AbsensiScreenState extends ConsumerState<AbsensiScreen>
               now: _now,
               today: attendance.today,
               submitting: attendance.submitting,
-              onClockIn: () =>
-                  ref.read(attendanceProvider.notifier).clockIn(),
+              onClockIn: _handleClockIn,
               onClockOut: () =>
                   ref.read(attendanceProvider.notifier).clockOut(),
+              onSelfieTap: _onSelfieTap,
             ),
             _TodayTimeline(today: attendance.today),
             _MonthTotals(aggregate: attendance.aggregate),
           ],
         ],
       ),
+    );
+  }
+
+  /// Clock-in that also flushes a captured selfie once the record exists:
+  /// the selfie slot can be filled before the first clock-in, and the photo is
+  /// then attached as a follow-up upload to the just-created record. A failed
+  /// clock-in never attempts the upload (the capture is preserved for retry).
+  void _handleClockIn() {
+    final attendance = ref.read(attendanceProvider.notifier);
+    attendance.clockIn().then((_) {
+      if (!mounted) return;
+      final recordId = ref.read(attendanceProvider).today?.record?.id;
+      final selfie = ref.read(selfieProvider);
+      if (recordId != null && selfie.hasCapture && !selfie.uploading) {
+        ref.read(selfieProvider.notifier).upload(recordId);
+      }
+    });
+  }
+
+  /// Selfie slot tap: consent (once) → camera permission → capture. A denied
+  /// camera permission is the designed fallback — "Selfie dilewati" — and
+  /// never blocks clock-in (the selfie is optional, but encouraged).
+  Future<void> _onSelfieTap() async {
+    final consent = ref.read(selfieConsentStoreProvider);
+    final notifier = ref.read(selfieProvider.notifier);
+
+    if (!await consent.hasConsent()) {
+      final agreed = await _showSelfieConsentDialog();
+      if (agreed != true || !mounted) return;
+      await consent.grant();
+      notifier.acknowledgeConsent();
+    }
+
+    final captured = await notifier.capture();
+    if (captured == null && mounted) {
+      final permission = ref.read(selfieProvider).permission;
+      if (!permission.canUse) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Kamera tidak diizinkan. Selfie dilewati — Anda tetap bisa Clock In.',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  /// Privacy + consent dialog shown once, before the first capture. States
+  /// what is stored, who can see it, and how long — per UU PDP.
+  Future<bool?> _showSelfieConsentDialog() {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) {
+        final colors = context.colors;
+        final status = context.status;
+        return AlertDialog(
+          title: const Text('Selfie verifikasi kehadiran'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Sebelum mengambil foto, ini yang perlu Anda tahu:',
+                style: context.texts.bodyMedium,
+              ),
+              const SizedBox(height: 12),
+              _ConsentRow(
+                icon: LucideIcons.clock,
+                background: status.infoContainer,
+                foreground: status.onInfoContainer,
+                text: 'Selfie disimpan 90 hari',
+              ),
+              const SizedBox(height: 8),
+              _ConsentRow(
+                icon: LucideIcons.userCheck,
+                background: status.successContainer,
+                foreground: status.onSuccessContainer,
+                text: 'Hanya Anda + owner yang bisa melihatnya',
+              ),
+              const SizedBox(height: 8),
+              _ConsentRow(
+                icon: LucideIcons.trash,
+                background: status.dangerContainer,
+                foreground: status.onDangerContainer,
+                text: 'Bisa dihapus',
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Foto dipakai untuk verifikasi kehadiran oleh tim Anda. '
+                'Tidak ada pengenalan wajah otomatis.',
+                style: context.texts.bodySmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Nanti'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Saya Mengerti'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -178,6 +289,7 @@ class _ClockCard extends StatelessWidget {
     required this.submitting,
     required this.onClockIn,
     required this.onClockOut,
+    required this.onSelfieTap,
   });
 
   final DateTime now;
@@ -185,6 +297,7 @@ class _ClockCard extends StatelessWidget {
   final bool submitting;
   final VoidCallback onClockIn;
   final VoidCallback onClockOut;
+  final VoidCallback onSelfieTap;
 
   @override
   Widget build(BuildContext context) {
@@ -300,7 +413,10 @@ class _ClockCard extends StatelessWidget {
           const SizedBox(height: 20),
           _GeofenceChip(),
           const SizedBox(height: 8),
-          SizedBox(height: 96, child: _SelfieSlot()),
+          _SelfieSlot(
+            attendanceId: record?.id,
+            onTap: onSelfieTap,
+          ),
           const SizedBox(height: 20),
           if (primaryLabel != null)
             FilledButton.icon(
@@ -478,43 +594,210 @@ class _GeofenceChip extends ConsumerWidget {
   }
 }
 
-/// Dashed slot that holds the verification selfie once taken (selfie capture
-/// is a separate ticket — this is the designed placeholder).
-class _SelfieSlot extends StatelessWidget {
-  const _SelfieSlot();
+/// Dashed slot that holds the verification selfie once taken (ticket #69).
+///
+/// Four states, each with a distinct visual:
+/// - empty: dashed placeholder — tap runs consent + capture;
+/// - captured: on-device preview with "Gunakan" / "Batal" (upload fires here
+///   when an attendance record exists, else the photo rides along with the
+///   next Clock In);
+/// - uploading: spinner (the multipart POST is in flight);
+/// - uploaded: green check + the server's retention hint.
+class _SelfieSlot extends ConsumerWidget {
+  const _SelfieSlot({required this.attendanceId, required this.onTap});
+
+  /// Today's record id once clocked in; null before the first clock-in.
+  final String? attendanceId;
+
+  /// Empty-state tap → consent + capture flow (owned by the screen).
+  final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: 'Ambil selfie verifikasi',
-      excludeSemantics: true,
-      child: DashedBorder(
-        child: Container(
-          decoration: BoxDecoration(
-            color: context.colors.surfaceContainerHigh,
-            borderRadius: Shape.rMd,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.colors;
+    final status = context.status;
+    final state = ref.watch(selfieProvider);
+    final notifier = ref.read(selfieProvider.notifier);
+
+    final Widget content;
+    if (state.uploading) {
+      content = Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2.5),
           ),
-          child: Column(
+          const SizedBox(width: 10),
+          Text('Mengunggah selfie…', style: context.texts.bodyMedium),
+        ],
+      );
+    } else if (state.uploaded) {
+      content = Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(LucideIcons.checkCircle, size: 22, color: status.success),
+          const SizedBox(height: 4),
+          Text(
+            'Selfie tersimpan · tersedia selama 90 hari',
+            style: context.texts.labelMedium?.copyWith(
+              color: colors.onSurfaceVariant,
+            ),
+          ),
+        ],
+      );
+    } else if (state.hasCapture) {
+      content = Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          ClipRRect(
+            borderRadius: Shape.rMd,
+            child: Image.memory(
+              state.compressedBytes!,
+              height: 96,
+              fit: BoxFit.cover,
+              gaplessPlayback: true,
+            ),
+          ),
+          if (state.error != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              state.error!,
+              textAlign: TextAlign.center,
+              style: context.texts.bodySmall?.copyWith(color: status.danger),
+            ),
+          ],
+          const SizedBox(height: 8),
+          Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                LucideIcons.camera,
-                size: 20,
-                color: context.colors.onSurfaceVariant,
+              TextButton(
+                onPressed: notifier.clear,
+                child: const Text('Batal'),
               ),
-              const SizedBox(height: 2),
-              Text(
-                'Selfie',
-                style: context.texts.labelSmall?.copyWith(
-                  fontSize: 10,
-                  color: context.colors.onSurfaceVariant,
+              const SizedBox(width: 12),
+              FilledButton(
+                // Before the first clock-in there is no record to attach to —
+                // confirming just keeps the capture, which the next Clock In
+                // flushes automatically. After a failed upload the same button
+                // becomes a retry with the capture preserved.
+                onPressed: attendanceId == null
+                    ? () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Selfie akan dikirim setelah Clock In'),
+                          ),
+                        );
+                      }
+                    : () => notifier.upload(attendanceId!),
+                child: Text(
+                  state.error != null
+                      ? 'Coba lagi'
+                      : attendanceId == null
+                      ? 'Gunakan'
+                      : 'Gunakan & Kirim',
                 ),
               ),
             ],
           ),
+          if (attendanceId == null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                'Terkirim setelah Clock In',
+                style: context.texts.labelSmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+            ),
+        ],
+      );
+    } else {
+      content = Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            LucideIcons.camera,
+            size: 20,
+            color: colors.onSurfaceVariant,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'Selfie',
+            style: context.texts.labelSmall?.copyWith(
+              fontSize: 10,
+              color: colors.onSurfaceVariant,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Semantics(
+      button: !state.hasCapture && !state.uploading && !state.uploaded,
+      label: _semanticLabel(state),
+      excludeSemantics: true,
+      child: DashedBorder(
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 96),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: colors.surfaceContainerHigh,
+            borderRadius: Shape.rMd,
+          ),
+          child: state.hasCapture || state.uploading || state.uploaded
+              ? content
+              : InkWell(
+                  onTap: onTap,
+                  borderRadius: Shape.rMd,
+                  child: content,
+                ),
         ),
       ),
+    );
+  }
+
+  String _semanticLabel(SelfieState state) {
+    if (state.uploading) return 'Mengunggah selfie';
+    if (state.uploaded) return 'Selfie tersimpan, tersedia 90 hari';
+    if (state.hasCapture) return 'Selfie diambil, gunakan atau batal';
+    return 'Ambil selfie verifikasi';
+  }
+}
+
+/// One icon + line inside the consent dialog (never colour alone).
+class _ConsentRow extends StatelessWidget {
+  const _ConsentRow({
+    required this.icon,
+    required this.background,
+    required this.foreground,
+    required this.text,
+  });
+
+  final IconData icon;
+  final Color background;
+  final Color foreground;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: Shape.rSm,
+          ),
+          child: Icon(icon, size: 18, color: foreground),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(text, style: context.texts.bodyMedium),
+        ),
+      ],
     );
   }
 }

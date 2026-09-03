@@ -634,6 +634,33 @@ class Geofence {
   }
 }
 
+/// Upload result of a selfie verification photo (`POST /attendance/:id/selfie`,
+/// ticket #69). The server owns retention: `retentionUntil` is when the photo
+/// stops being retrievable and is shown verbatim in the success hint
+/// ("tersedia selama 90 hari").
+class SelfieUpload {
+  const SelfieUpload({
+    required this.url,
+    required this.sizeBytes,
+    required this.retentionUntil,
+  });
+
+  final String url;
+  final int sizeBytes;
+  final DateTime retentionUntil;
+
+  factory SelfieUpload.fromJson(Map<String, dynamic> json) {
+    return SelfieUpload(
+      url: json['url'] as String? ?? '',
+      sizeBytes: (json['size_bytes'] as num?)?.toInt() ?? 0,
+      retentionUntil: switch (json['retention_until']) {
+        final String raw => DateTime.tryParse(raw) ?? DateTime.now(),
+        _ => DateTime.now(),
+      },
+    );
+  }
+}
+
 /// Monthly summary from `GET /attendance/aggregate/:employeeId`.
 class AttendanceAggregate {
   const AttendanceAggregate({

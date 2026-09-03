@@ -1,13 +1,22 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:image/image.dart' as img;
+import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import 'package:karyawanku_mobile/core/api/api_client.dart';
 import 'package:karyawanku_mobile/core/auth/secure_session_store.dart';
 import 'package:karyawanku_mobile/core/location/location_service.dart';
+import 'package:karyawanku_mobile/core/selfie/selfie_consent_store.dart';
+import 'package:karyawanku_mobile/core/selfie/selfie_file_store.dart';
+import 'package:karyawanku_mobile/core/selfie/selfie_service.dart';
 import 'package:karyawanku_mobile/data/models.dart';
 import 'package:karyawanku_mobile/features/absensi/absensi_screen.dart';
 import 'package:karyawanku_mobile/features/absensi/geofence_provider.dart';
@@ -52,6 +61,7 @@ Widget screen(
   SecureSessionStore store,
   ApiClient client, {
   GeofenceState? geofence,
+  List<Override> selfie = const [],
 }) {
   return testScope(
     store,
@@ -59,9 +69,56 @@ Widget screen(
     extra: [
       signedInEmployeeOverride,
       geofenceOverride(geofence ?? const GeofenceState()),
+      ...selfie,
     ],
     child: const MaterialApp(home: AbsensiScreen()),
   );
+}
+
+/// A real JPEG on disk the fake picker can hand back.
+Future<File> makeSelfieFile() async {
+  final image = img.Image(width: 800, height: 600);
+  img.fill(image, color: img.ColorRgb8(210, 90, 50));
+  final jpeg = img.encodeJpg(image, quality: 90);
+  final file = File(
+    '${Directory.systemTemp.path}/screen_selfie_${DateTime.now().microsecondsSinceEpoch}.jpg',
+  );
+  await file.writeAsBytes(jpeg);
+  return file;
+}
+
+/// Overrides pinning the selfie pipeline to injectable fakes (no platform
+/// channels — no camera, no keychain on CI).
+List<Override> selfieOverrides({
+  PermissionStatus permission = PermissionStatus.granted,
+  File? picked,
+  SelfieConsentStore? consent,
+}) {
+  final service = SelfieService(
+    permissionRequester: () async => permission,
+    pickImage: (source, {imageQuality, preferredCameraDevice}) async =>
+        picked == null ? null : XFile(picked.path),
+  );
+  return [
+    selfieServiceProvider.overrideWithValue(service),
+    selfieFileStoreProvider.overrideWithValue(const _TempSelfieFileStore()),
+    selfieConsentStoreProvider.overrideWithValue(
+      consent ?? SelfieConsentStore(backend: InMemoryBackend()),
+    ),
+  ];
+}
+
+class _TempSelfieFileStore implements SelfieFileStore {
+  const _TempSelfieFileStore();
+
+  @override
+  Future<File> writeCompressed(Uint8List bytes, {required String name}) async {
+    final file = File(
+      '${Directory.systemTemp.path}/$name',
+    );
+    await file.writeAsBytes(bytes, flush: true);
+    return file;
+  }
 }
 
 /// A geofence notifier whose state the test can flip after pump — lets the
@@ -452,6 +509,190 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Pengaturan'), findsOneWidget);
+    });
+  });
+
+  group('selfie slot', () {
+    /// A client that serves today's record and accepts the selfie upload.
+    ApiClient selfieClient({bool clockedIn = true}) =>
+        buildTestClient(store, (o) async {
+          if (o.path == '/attendance/att-1/selfie') {
+            return jsonResponse({
+              'url': '/api/attendance/att-1/selfie',
+              'size_bytes': 512,
+              'retention_until': '2026-12-02T00:00:00.000Z',
+            }, 201);
+          }
+          if (o.path == '/attendance/today') {
+            return jsonResponse(
+              todayJson(
+                clockIn: clockedIn ? '2026-09-03T00:58:00.000Z' : null,
+              ),
+            );
+          }
+          return jsonResponse(aggregateJson());
+        });
+
+    testWidgets('slot shows the captured preview with confirm/cancel', (
+      tester,
+    ) async {
+      tallViewport(tester);
+      final selfieFile = await makeSelfieFile();
+      await tester.pumpWidget(
+        screen(
+          store,
+          selfieClient(),
+          selfie: selfieOverrides(picked: selfieFile),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Empty slot → dashed placeholder.
+      expect(find.text('Selfie'), findsOneWidget);
+
+      await tester.tap(find.text('Selfie'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Saya Mengerti'));
+      await tester.pumpAndSettle();
+
+      // Preview replaces the placeholder.
+      expect(find.byType(Image), findsOneWidget);
+      expect(find.text('Gunakan & Kirim'), findsOneWidget);
+      expect(find.text('Batal'), findsOneWidget);
+    });
+
+    testWidgets('consent dialog is shown once, then skipped', (tester) async {
+      tallViewport(tester);
+      final selfieFile = await makeSelfieFile();
+      final consent = SelfieConsentStore(backend: InMemoryBackend());
+      await tester.pumpWidget(
+        screen(
+          store,
+          selfieClient(),
+          selfie: selfieOverrides(picked: selfieFile, consent: consent),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Selfie'));
+      await tester.pumpAndSettle();
+      expect(find.text('Selfie disimpan 90 hari'), findsOneWidget);
+      expect(find.text('Saya Mengerti'), findsOneWidget);
+      await tester.tap(find.text('Saya Mengerti'));
+      await tester.pumpAndSettle();
+
+      // Discard the capture, then tap again — the dialog must not re-appear.
+      await tester.tap(find.text('Batal'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Selfie'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Selfie disimpan 90 hari'), findsNothing);
+      expect(find.text('Gunakan & Kirim'), findsOneWidget);
+    });
+
+    testWidgets('denied camera shows the "Selfie dilewati" fallback', (
+      tester,
+    ) async {
+      tallViewport(tester);
+      await tester.pumpWidget(
+        screen(
+          store,
+          selfieClient(),
+          selfie: selfieOverrides(
+            permission: PermissionStatus.permanentlyDenied,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Selfie'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Saya Mengerti'));
+      await tester.pumpAndSettle();
+
+      // Clock-in is never blocked: the fallback is a snackbar and the slot
+      // stays empty.
+      expect(find.textContaining('Selfie dilewati'), findsOneWidget);
+      expect(find.text('Selfie'), findsOneWidget);
+      expect(find.text('Clock In'), findsOneWidget);
+    });
+
+    testWidgets('upload success shows the retention hint', (tester) async {
+      tallViewport(tester);
+      final selfieFile = await makeSelfieFile();
+      await tester.pumpWidget(
+        screen(
+          store,
+          selfieClient(),
+          selfie: selfieOverrides(picked: selfieFile),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Selfie'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Saya Mengerti'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Gunakan & Kirim'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Selfie tersimpan · tersedia selama 90 hari'),
+        findsOneWidget,
+      );
+      // The hint comes from the server's retention_until, rendered verbatim.
+      expect(find.text('Gunakan & Kirim'), findsNothing);
+    });
+
+    testWidgets('before clock-in the capture rides along with Clock In', (
+      tester,
+    ) async {
+      tallViewport(tester);
+      final selfieFile = await makeSelfieFile();
+      var clockedIn = false;
+      final client = buildTestClient(store, (o) async {
+        if (o.path == '/attendance/clock-in') {
+          clockedIn = true;
+          return jsonResponse({'record': todayJson()});
+        }
+        if (o.path == '/attendance/att-1/selfie') {
+          return jsonResponse({
+            'url': '/api/attendance/att-1/selfie',
+            'size_bytes': 512,
+            'retention_until': '2026-12-02T00:00:00.000Z',
+          }, 201);
+        }
+        if (o.path == '/attendance/today') {
+          return jsonResponse(
+            todayJson(
+              clockIn: clockedIn ? '2026-09-03T00:58:00.000Z' : null,
+            ),
+          );
+        }
+        return jsonResponse(aggregateJson());
+      });
+      await tester.pumpWidget(
+        screen(store, client, selfie: selfieOverrides(picked: selfieFile)),
+      );
+      await tester.pumpAndSettle();
+
+      // Not clocked in yet: the slot preview offers "Gunakan", not a send.
+      await tester.tap(find.text('Selfie'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Saya Mengerti'));
+      await tester.pumpAndSettle();
+      expect(find.text('Gunakan'), findsOneWidget);
+      expect(find.text('Terkirim setelah Clock In'), findsOneWidget);
+
+      // Clock In creates the record, then flushes the pending selfie.
+      await tester.tap(find.text('Clock In'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Selfie tersimpan · tersedia selama 90 hari'),
+        findsOneWidget,
+      );
     });
   });
 }

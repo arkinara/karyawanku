@@ -2,7 +2,33 @@ import 'dotenv/config'
 import { migrate } from './db/migrate.js'
 import { getDb } from './db/index.js'
 import { runYearlyResetIfNeeded } from './lib/leave-reset.js'
+import { getSelfieRetentionDays, purgeSelfiesOlderThan } from './lib/selfie-storage.js'
 import { start } from './app.js'
+
+const SELFIE_PURGE_INTERVAL_MS = 24 * 60 * 60 * 1000
+let purgeTimer: NodeJS.Timeout | null = null
+
+/**
+ * Job harian retensi selfie (ticket #69): menghapus foto yang sudah lewat
+ * `retention_until` (default 90 hari) + file yatim. Dipanggil sekali saat boot
+ * lalu tiap 24 jam. Gagal hanya dicatat ke log — server tetap berjalan.
+ */
+function scheduleSelfiePurge(): void {
+  const run = (): void => {
+    try {
+      const retentionDays = getSelfieRetentionDays()
+      const purged = purgeSelfiesOlderThan(retentionDays)
+      if (purged > 0) {
+        console.log(`[karyawanku] purge selfie: ${purged} file dihapus (retensi ${retentionDays} hari)`)
+      }
+    } catch (err) {
+      console.error('[karyawanku] purge selfie gagal:', err)
+    }
+  }
+  run()
+  purgeTimer = setInterval(run, SELFIE_PURGE_INTERVAL_MS)
+  purgeTimer.unref?.()
+}
 
 /**
  * Boot server. Migrasi skema TIDAK dijalankan otomatis — wajib eksplisit via
@@ -25,6 +51,7 @@ export async function boot(port?: number): Promise<void> {
   }
 
   await start(port)
+  scheduleSelfiePurge()
 }
 
 const entry = process.argv[1]
