@@ -881,6 +881,5 @@ void main() {
       },
       skip: true, // Same real-async timer issue.
     );
-    });
   });
 }
