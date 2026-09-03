@@ -409,6 +409,67 @@ files are added.
 interface (`lib/core/push/push_messaging.dart`); `test/helpers.dart` provides
 `FakeMessaging` and tests inject it via the `fcmServiceProvider` override.
 
+## Home-screen widget (ticket #74)
+
+A home-screen widget shows the same shift + clock state as the Beranda hero:
+shift label + time range, a status chip ("Belum Clock In" / "On shift" /
+"Selesai", "Menunggu kirim" while an offline action awaits sync), a BE
+rejection verbatim, and an action pill (Clock In / Clock Out / Masuk). When the
+shift carries a geofence and the device is outside, the widget says
+"Clock-in dibuka di kantor" — tapping still tries, and the BE's rejection
+message is shown on the widget, never silently swallowed.
+
+### How it works
+
+- **Data container.** `lib/core/widget/widget_state.dart` writes a `WidgetSnapshot`
+  JSON blob (`kk_widget_snapshot`, etag `kk_widget_etag`) into the default
+  SharedPreferences. The Android `KaryawanKuWidgetProvider` reads the *same*
+  prefs file, so the app and widget never drift. On iOS the snapshot is also
+  published into the App Group container via `HomeWidget.saveWidgetData`.
+- **Who writes.** The attendance provider syncs after every clock-in/out
+  (success *or* rejection), the shift provider syncs after the roster loads,
+  sign-in writes a fresh user snapshot, sign-out wipes it.
+- **Tapping.** Widget buttons deep-link into the app with
+  `karyawanku://widget?action=clock_in|clock_out|sign_in`. The app picks the URI
+  up through `HomeWidget.widgetClicked` (running) /
+  `initiallyLaunchedFromHomeWidget` (cold start) and runs the action through the
+  *same* queue-aware attendance provider as the in-app button — a widget
+  clock-in while offline is **queued**, never lost or duplicated, and repeat
+  taps are debounced by the in-flight guard. Signed-out taps land on
+  MasukScreen with an `intent=widget` marker and the action runs once auth
+  resolves.
+
+### Adding the widget
+
+- **Android** — long-press the launcher → Widgets → KaryawanKu → drag onto the
+  home screen. Sizes 2×2 (small layout) and 4×2 / 4×4 (medium layout; the
+  provider picks the layout by the widget's reported size). The provider class
+  (`KaryawanKuWidgetProvider.kt`) compiles through the Flutter build pipeline —
+  run `flutter build apk --release` locally to verify; it is exercised on a
+  real device, not in `flutter test`.
+- **iOS** — the SwiftUI widget skeleton lives in `ios/KaryawanKuWidget/`.
+  Interactive widgets (tapping the pill) require **iOS 17+** (AppIntent); on
+  **iOS 16** the action falls back to `widgetURL` deep-linking into the app.
+  Sizes: small + medium. To wire it up: add the widget extension target in
+  Xcode from `ios/KaryawanKuWidget/KaryawanKuWidget.swift` (one `@main` per
+  target), and enable the **App Groups** entitlement for
+  `group.com.karyawanku.mobile` on *both* the app and the extension. Without
+  the group, the widget shows its last cached entry / the signed-out state.
+- **Architecture note.** The app and the widget share data through
+  `home_widget`'s App Group + SharedPreferences: Android via the app's default
+  SharedPreferences file, iOS via the App Group UserDefaults
+  (`HomeWidget.setAppGroupId` is called in `main()`).
+
+### Tests
+
+`WidgetBridge` is an injectable seam over the `home_widget` plugin; tests inject
+a `FakeWidgetBridge` that records calls, so no Android/iOS widget runtime is
+exercised in `flutter test`. Coverage: `widget_store_test.dart` (roundtrip,
+signed-out default, 30-min staleness, etag), `widget_snapshot_test.dart`
+(canClockIn/canClockOut derivation), `widget_action_test.dart` (online/offline/
+signed-out/geofence-422/debounce), `widget_refresh_test.dart` (attendance +
+shift sync hooks).
+
 ## Design tokens and theming
 
 The palette, shape scale, motion rhythm and elevation are **mirrored from the
@@ -479,23 +540,37 @@ flutter run              # attached device or emulator
 flutter run -d chrome    # quickest way to compare against the design doc
 flutter run --dart-define=API_BASE_URL=http://localhost:3001  # against local BE
 flutter analyze
-flutter test                            # 405 tests
+flutter test                            # 426 tests
 flutter test test/token_parity_test.dart # mobile palette == web globals.css
 flutter test test/a11y_test.dart         # tap targets, labels, contrast x theme
 flutter test test/stress_test.dart       # text scale x width x theme matrix
 ```
 
+### CI
+
+The mobile lane (`.github/workflows/ci.yml`) runs on every push to `main` and
+every PR to `main`:
+
+```
+dart format --set-exit-if-changed lib test
+flutter analyze
+flutter test --reporter=expanded
+flutter build apk --release
+```
+
 ## Not yet wired
 
-Camera capture (the selfie slot), the offline queue, and the home-screen
-widget. Push notifications are wired end-to-end but need the real Firebase
-credential files (see the ticket #71 section) before a device can receive a
-real FCM message — the app degrades to no-push without them. The remaining
-mobile-only capabilities appear as UI states only. Sign-in/sign-out,
-attendance (today + clock in/out + monthly aggregate), the geofence clock-in
-location flow (permission + fix + chip + coordinates), the shift schedule
-(roster by range + upcoming + leave-blocked days), leave (balances + history +
-submit + types), payslips (list + detail + PDF download/share) and push
-(device registration, leave-decision notifications, shift-reminder toggle,
-in-app badge + deep links) are all wired to the BE; the remaining screen-by-
-screen data wiring is covered by the per-domain MOB tickets.
+Camera capture (the selfie slot) and the offline queue still need the finishing
+touches noted in their tickets. Push notifications are wired end-to-end but need
+the real Firebase credential files (see the ticket #71 section) before a device
+can receive a real FCM message — the app degrades to no-push without them. The
+home-screen widget is wired on Android (provider + snapshot + action dispatch);
+the iOS widget extension is a skeleton that needs the Xcode target + App Group
+entitlement (see the ticket #74 section above). Sign-in/sign-out, attendance
+(today + clock in/out + monthly aggregate), the geofence clock-in location flow
+(permission + fix + chip + coordinates), the shift schedule (roster by range +
+upcoming + leave-blocked days), leave (balances + history + submit + types),
+payslips (list + detail + PDF download/share) and push (device registration,
+leave-decision notifications, shift-reminder toggle, in-app badge + deep links)
+are all wired to the BE; the remaining screen-by-screen data wiring is covered
+by the per-domain MOB tickets.
