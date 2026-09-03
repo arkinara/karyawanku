@@ -1,20 +1,86 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/format.dart';
-import '../../data/mock_data.dart';
 import '../../data/models.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/common.dart';
+import 'attendance_provider.dart';
 
 /// Attendance — clock-in direction A ("geofence card") from the design doc:
-/// big clock, location chip, selfie slot, one primary pill button.
-class AbsensiScreen extends StatelessWidget {
+/// wall clock, status, elapsed hero, one primary pill button, today's
+/// timeline and the month's totals.
+///
+/// Everything here is driven by [attendanceProvider] (the BE), except the wall
+/// clock which ticks from the device clock. The elapsed figure derives from
+/// the server's `clock_in_at`, never the device clock.
+class AbsensiScreen extends ConsumerStatefulWidget {
   const AbsensiScreen({super.key});
 
   @override
+  ConsumerState<AbsensiScreen> createState() => _AbsensiScreenState();
+}
+
+class _AbsensiScreenState extends ConsumerState<AbsensiScreen>
+    with WidgetsBindingObserver {
+  late DateTime _now = DateTime.now();
+  Timer? _ticker;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      setState(() => _now = DateTime.now());
+    });
+    // Load on mount — deferred a frame so the provider can be written to
+    // (Riverpod forbids writes during build/initState). Same load runs again
+    // on resume below.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(attendanceProvider.notifier).refresh();
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Returning to the foreground: reconcile today's record + month totals
+    // with the server (e.g. the day rolled over while the app was away).
+    if (state == AppLifecycleState.resumed) {
+      ref.read(attendanceProvider.notifier).refresh();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final status = context.status;
+    final attendance = ref.watch(attendanceProvider);
+
+    // Surface clock-action failures as a snackbar; the load failure renders
+    // inline as the error state below.
+    ref.listen(attendanceProvider, (previous, next) {
+      if (next.actionError != null && previous?.actionError == null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(next.actionError!)),
+          );
+          ref.read(attendanceProvider.notifier).clearActionError();
+        });
+      }
+    });
+
+    final loading = attendance.today == null && attendance.loading;
+    final failed =
+        attendance.today == null && attendance.error != null && !loading;
 
     return Scaffold(
       appBar: AppBar(
@@ -28,186 +94,74 @@ class AbsensiScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.only(bottom: 24),
         children: [
-          if (Mock.isOffline)
-            ToneBanner(
-              icon: LucideIcons.wifiOff,
-              background: status.warningContainer,
-              foreground: status.onWarningContainer,
-              action: 'LIHAT',
-              live: true,
-              onAction: () => _showQueue(context),
-              child: Text(
-                'Offline — ${Mock.queuedEntries} entri menunggu kirim',
-              ),
+          if (loading) ...[
+            const _ClockSkeleton(key: ValueKey('attendance-loading')),
+            const _TimelineSkeleton(),
+            const _TilesSkeleton(),
+          ] else if (failed)
+            _ErrorCard(
+              message: attendance.error!,
+              onRetry: () =>
+                  ref.read(attendanceProvider.notifier).loadToday(),
+            )
+          else ...[
+            _ClockCard(
+              now: _now,
+              today: attendance.today,
+              submitting: attendance.submitting,
+              onClockIn: () =>
+                  ref.read(attendanceProvider.notifier).clockIn(),
+              onClockOut: () =>
+                  ref.read(attendanceProvider.notifier).clockOut(),
             ),
-          const _ClockCard(),
-          const SectionLabel('Hari ini', top: 8),
-          ListCard(
-            children: [
-              for (final entry in Mock.todayEntries)
-                CardRow(
-                  minHeight: 64,
-                  leading: _StateDot(entry.state),
-                  title: entry.label,
-                  subtitle: entry.note,
-                  subtitleColor: entry.state == AttendanceState.pendingSync
-                      ? status.onWarningContainer
-                      : null,
-                  // Time is a value, not a control — spoken with the row.
-                  semanticLabel: _entryLabel(entry),
-                  trailingWidget: Text(
-                    entry.time,
-                    textAlign: TextAlign.end,
-                    style: context.texts.bodyLarge?.copyWith(
-                      color: context.colors.onSurfaceVariant,
-                      fontFeatures: Fmt.tabular,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SectionLabel('Bulan ini'),
-          Padding(
-            padding: Insets.page,
-            child: Row(
-              children: [
-                Expanded(
-                  child: StatTile(
-                    value: '${Mock.monthHadir}',
-                    label: 'Hadir',
-                    background: status.successContainer,
-                    foreground: status.onSuccessContainer,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: StatTile(
-                    value: '${Mock.monthTelat}',
-                    label: 'Telat',
-                    background: status.warningContainer,
-                    foreground: status.onWarningContainer,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: StatTile(
-                    value: '${Mock.monthIzin}',
-                    label: 'Izin',
-                    background: status.infoContainer,
-                    foreground: status.onInfoContainer,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _entryLabel(AttendanceEntry entry) {
-    final time = entry.state == AttendanceState.empty
-        ? 'belum tercatat'
-        : entry.time;
-    return [entry.label, entry.note, time].whereType<String>().join(', ');
-  }
-
-  void _showQueue(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) => Padding(
-        padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Antrean offline', style: sheetContext.texts.titleLarge),
-            const SizedBox(height: 8),
-            Text(
-              'Entri tersimpan di perangkat dan terkirim otomatis saat sinyal kembali.',
-              style: sheetContext.texts.bodyMedium?.copyWith(
-                color: sheetContext.colors.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 20),
-            ListCard(
-              margin: EdgeInsets.zero,
-              children: [
-                CardRow(
-                  minHeight: 64,
-                  leading: const _StateDot(AttendanceState.pendingSync),
-                  title: 'Kembali',
-                  subtitle: 'Menunggu sinkronisasi',
-                  subtitleColor: sheetContext.status.onWarningContainer,
-                  trailingWidget: TextButton(
-                    onPressed: () {},
-                    child: const Text('Coba lagi'),
-                  ),
-                ),
-              ],
-            ),
+            _TodayTimeline(today: attendance.today),
+            _MonthTotals(aggregate: attendance.aggregate),
           ],
-        ),
+        ],
       ),
     );
   }
 }
 
-/// Wall clock, geofence chip, selfie slot and the single primary action.
+/// Wall clock, status, elapsed hero, geofence chip, selfie slot and the single
+/// primary action.
 class _ClockCard extends StatelessWidget {
-  const _ClockCard();
+  const _ClockCard({
+    required this.now,
+    required this.today,
+    required this.submitting,
+    required this.onClockIn,
+    required this.onClockOut,
+  });
+
+  final DateTime now;
+  final TodayAttendance? today;
+  final bool submitting;
+  final VoidCallback onClockIn;
+  final VoidCallback onClockOut;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final status = context.status;
-    final inside = Mock.insideGeofence;
+    final record = today?.record;
 
-    final geofence = Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: inside ? status.successContainer : status.warningContainer,
-        borderRadius: Shape.rMd,
-      ),
-      child: Row(
-        children: [
-          Icon(
-            LucideIcons.mapPin,
-            size: 20,
-            color: inside
-                ? status.onSuccessContainer
-                : status.onWarningContainer,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  inside ? 'Di dalam area' : 'Di luar area',
-                  style: context.texts.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w500,
-                    color: inside
-                        ? status.onSuccessContainer
-                        : status.onWarningContainer,
-                  ),
-                ),
-                Text(
-                  '${Mock.employee.branch} · ${Mock.geofenceDistance}',
-                  style: context.texts.labelMedium?.copyWith(
-                    color: inside
-                        ? status.onSuccessContainer
-                        : status.onWarningContainer,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+    final hasClockIn = record?.clockIn != null;
+    final hasClockOut = record?.clockOut != null;
+    final onShift = hasClockIn && !hasClockOut;
+
+    final primaryLabel = !hasClockIn
+        ? 'Clock In'
+        : hasClockOut
+        ? null
+        : 'Clock Out';
+    final primaryAction = !hasClockIn ? onClockIn : onClockOut;
+
+    final elapsedMinutes = onShift
+        ? now.difference(record!.clockIn!.toLocal()).inMinutes
+        : hasClockOut
+        ? record!.clockOut!.toLocal().difference(record.clockIn!.toLocal()).inMinutes
+        : 0;
 
     return Container(
       margin: const EdgeInsets.all(16),
@@ -223,7 +177,7 @@ class _ClockCard extends StatelessWidget {
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
-              Mock.wallClock,
+              Fmt.clock(now),
               style: context.texts.displayLarge?.copyWith(
                 fontFeatures: Fmt.tabular,
               ),
@@ -231,43 +185,122 @@ class _ClockCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            '${Mock.timezone} · ${Fmt.longDate(Mock.today)}',
+            'WIB · ${Fmt.longDate(now)}',
             textAlign: TextAlign.center,
             style: context.texts.bodyMedium?.copyWith(
               color: colors.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 20),
-          // Side by side normally; stacked once the location line wraps.
-          if (context.isLargeText) ...[
-            geofence,
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            decoration: BoxDecoration(
+              color: onShift
+                  ? status.successContainer
+                  : colors.surfaceContainerHigh,
+              borderRadius: Shape.rSm,
+            ),
+            child: Text(
+              onShift
+                  ? 'SEDANG BEKERJA'
+                  : hasClockOut
+                  ? 'SELESAI'
+                  : 'BELUM CLOCK IN',
+              style: context.texts.labelMedium?.copyWith(
+                fontWeight: FontWeight.w500,
+                letterSpacing: .4,
+                color: onShift
+                    ? status.onSuccessContainer
+                    : colors.onSurfaceVariant,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            onShift
+                ? 'Sudah Clock In · ${Fmt.duration(elapsedMinutes)}'
+                : hasClockOut
+                ? 'Sudah Clock Out · ${Fmt.duration(elapsedMinutes)}'
+                : 'Mulai shift untuk mencatat kehadiran',
+            textAlign: TextAlign.center,
+            style: context.texts.titleMedium?.copyWith(
+              fontFeatures: Fmt.tabular,
+              color: onShift ? status.onSuccessContainer : colors.onSurface,
+            ),
+          ),
+          if (record != null && (record.lateMinutes > 0 || record.effectiveOvertimeMinutes > 0)) ...[
             const SizedBox(height: 8),
-            const SizedBox(height: 96, child: _SelfieSlot()),
-          ] else
-            IntrinsicHeight(
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.center,
+              children: [
+                if (record.lateMinutes > 0)
+                  StatusPill(
+                    label: 'Telat ${record.lateMinutes} mnt',
+                    background: status.warningContainer,
+                    foreground: status.onWarningContainer,
+                  ),
+                if (record.effectiveOvertimeMinutes > 0)
+                  StatusPill(
+                    label:
+                        'Lembur ${Fmt.duration(record.effectiveOvertimeMinutes)}',
+                    background: status.infoContainer,
+                    foreground: status.onInfoContainer,
+                  ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 20),
+          _GeofenceChip(),
+          const SizedBox(height: 8),
+          SizedBox(height: 96, child: _SelfieSlot()),
+          const SizedBox(height: 20),
+          if (primaryLabel != null)
+            FilledButton.icon(
+              onPressed: submitting ? null : primaryAction,
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(64),
+                textStyle: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: .1,
+                ),
+              ),
+              icon: submitting
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2.5),
+                    )
+                  : const Icon(LucideIcons.clock, size: 24),
+              label: Text(submitting ? 'Memproses…' : primaryLabel),
+            )
+          else
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: colors.surfaceContainerHigh,
+                borderRadius: Shape.rMd,
+              ),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(child: geofence),
-                  const SizedBox(width: 8),
-                  const SizedBox(width: 72, child: _SelfieSlot()),
+                  Icon(
+                    LucideIcons.checkCircle,
+                    size: 20,
+                    color: status.success,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Absensi hari ini sudah lengkap',
+                      style: context.texts.bodyMedium,
+                    ),
+                  ),
                 ],
               ),
             ),
-          const SizedBox(height: 20),
-          FilledButton.icon(
-            onPressed: () {},
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(64),
-              textStyle: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
-                letterSpacing: .1,
-              ),
-            ),
-            icon: const Icon(LucideIcons.clock, size: 24),
-            label: const Text('Clock Out'),
-          ),
           const SizedBox(height: 12),
           Align(
             alignment: Alignment.centerLeft,
@@ -284,7 +317,62 @@ class _ClockCard extends StatelessWidget {
   }
 }
 
-/// Dashed slot that holds the verification selfie once taken.
+/// Static geofence chip. Real geofence verification is a separate ticket, so
+/// this is the designed slot without fabricated distance data.
+class _GeofenceChip extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final status = context.status;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: status.successContainer,
+        borderRadius: Shape.rMd,
+      ),
+      child: Row(
+        children: [
+          Icon(
+            LucideIcons.mapPin,
+            size: 20,
+            color: status.onSuccessContainer,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Geofence',
+                  style: context.texts.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w500,
+                    color: status.onSuccessContainer,
+                  ),
+                ),
+                Text(
+                  'Verifikasi lokasi aktif',
+                  style: context.texts.labelMedium?.copyWith(
+                    color: status.onSuccessContainer,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(
+            LucideIcons.badgeCheck,
+            size: 20,
+            color: status.onSuccessContainer,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Dashed slot that holds the verification selfie once taken (selfie capture
+/// is a separate ticket — this is the designed placeholder).
 class _SelfieSlot extends StatelessWidget {
   const _SelfieSlot();
 
@@ -324,12 +412,337 @@ class _SelfieSlot extends StatelessWidget {
   }
 }
 
+/// Today's timeline: Masuk and Pulang from the server record. Late and
+/// overtime minutes render verbatim from the BE — never recomputed here.
+class _TodayTimeline extends StatelessWidget {
+  const _TodayTimeline({required this.today});
+
+  final TodayAttendance? today;
+
+  @override
+  Widget build(BuildContext context) {
+    final record = today?.record;
+    final entries = <AttendanceEntry>[
+      AttendanceEntry(
+        label: 'Masuk',
+        time: record?.clockIn == null
+            ? '--:--'
+            : Fmt.clock(record!.clockIn!.toLocal()),
+        state: record?.clockIn == null
+            ? AttendanceEntryState.empty
+            : AttendanceEntryState.done,
+        note: record != null && record.lateMinutes > 0
+            ? 'Telat ${record.lateMinutes} mnt'
+            : record?.catatan,
+      ),
+      AttendanceEntry(
+        label: 'Pulang',
+        time: record?.clockOut == null
+            ? '--:--'
+            : Fmt.clock(record!.clockOut!.toLocal()),
+        state: record?.clockOut == null
+            ? AttendanceEntryState.empty
+            : AttendanceEntryState.done,
+        note: record != null && record.effectiveOvertimeMinutes > 0
+            ? 'Lembur ${Fmt.duration(record.effectiveOvertimeMinutes)}'
+            : null,
+      ),
+    ];
+
+    return Column(
+      children: [
+        const SectionLabel('Hari ini', top: 8),
+        ListCard(
+          children: [
+            for (final entry in entries)
+              CardRow(
+                minHeight: 64,
+                leading: _StateDot(entry.state),
+                title: entry.label,
+                subtitle: entry.note,
+                subtitleColor: entry.state == AttendanceEntryState.empty
+                    ? context.colors.onSurfaceVariant
+                    : null,
+                semanticLabel: _entryLabel(entry),
+                trailingWidget: Text(
+                  entry.time,
+                  textAlign: TextAlign.end,
+                  style: context.texts.bodyLarge?.copyWith(
+                    color: entry.state == AttendanceEntryState.empty
+                        ? context.colors.onSurfaceVariant
+                        : context.colors.onSurface,
+                    fontFeatures: Fmt.tabular,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        if (record == null)
+          Padding(
+            padding: Insets.page,
+            child: Text(
+              'Belum ada absensi hari ini — klik Clock In untuk mulai '
+              'mencatat kehadiran.',
+              style: context.texts.bodyMedium?.copyWith(
+                color: context.colors.onSurfaceVariant,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  String _entryLabel(AttendanceEntry entry) {
+    final time = entry.state == AttendanceEntryState.empty
+        ? 'belum tercatat'
+        : entry.time;
+    return [entry.label, entry.note, time].whereType<String>().join(', ');
+  }
+}
+
+/// Month totals from `GET /attendance/aggregate`. The tiles render once the
+/// aggregate arrives; late/overtime totals are shown as a caption.
+class _MonthTotals extends StatelessWidget {
+  const _MonthTotals({required this.aggregate});
+
+  final AttendanceAggregate? aggregate;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = context.status;
+
+    return Column(
+      children: [
+        const SectionLabel('Bulan ini'),
+        if (aggregate == null)
+          Padding(
+            padding: Insets.page,
+            child: Text(
+              'Rekap bulan ini belum tersedia.',
+              style: context.texts.bodyMedium?.copyWith(
+                color: context.colors.onSurfaceVariant,
+              ),
+            ),
+          )
+        else ...[
+          Padding(
+            padding: Insets.page,
+            child: Row(
+              children: [
+                Expanded(
+                  child: StatTile(
+                    value: '${aggregate!.hadir}',
+                    label: 'Hadir',
+                    background: status.successContainer,
+                    foreground: status.onSuccessContainer,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: StatTile(
+                    value: '${aggregate!.telat}',
+                    label: 'Telat',
+                    background: status.warningContainer,
+                    foreground: status.onWarningContainer,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: StatTile(
+                    value: '${aggregate!.izin}',
+                    label: 'Izin',
+                    background: status.infoContainer,
+                    foreground: status.onInfoContainer,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Text(
+              'Total telat ${aggregate!.totalLateMinutes} mnt · '
+              'lembur ${Fmt.duration(aggregate!.totalOvertimeMinutes)}',
+              style: context.texts.labelMedium?.copyWith(
+                color: context.colors.onSurfaceVariant,
+                fontFeatures: Fmt.tabular,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Load-failure card with a retry action — never an empty timeline presented
+/// as "no activity".
+class _ErrorCard extends StatelessWidget {
+  const _ErrorCard({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = context.status;
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: status.dangerContainer,
+          borderRadius: Shape.rXl,
+        ),
+        child: Column(
+          children: [
+            Icon(LucideIcons.alertTriangle, size: 28, color: status.danger),
+            const SizedBox(height: 12),
+            Text(
+              'Gagal memuat absensi',
+              style: context.texts.titleMedium?.copyWith(
+                color: status.onDangerContainer,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: context.texts.bodyMedium?.copyWith(
+                color: status.onDangerContainer,
+              ),
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(LucideIcons.refreshCcw, size: 20),
+              label: const Text('Coba lagi'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Skeleton placeholders — the screen never blocks on a spinner.
+class _SkeletonBox extends StatelessWidget {
+  const _SkeletonBox({
+    required this.width,
+    required this.height,
+    this.radius = Shape.md,
+  });
+
+  final double width;
+  final double height;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: context.colors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(radius),
+      ),
+    );
+  }
+}
+
+class _ClockSkeleton extends StatelessWidget {
+  const _ClockSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: context.colors.surfaceContainerLowest,
+        borderRadius: Shape.rXl,
+        border: Border.all(color: context.colors.outlineVariant),
+      ),
+      child: Column(
+        children: [
+          const _SkeletonBox(width: 180, height: 48),
+          const SizedBox(height: 12),
+          const _SkeletonBox(width: 160, height: 16),
+          const SizedBox(height: 20),
+          const _SkeletonBox(width: 120, height: 28),
+          const SizedBox(height: 24),
+          const _SkeletonBox(width: double.infinity, height: 96),
+          const SizedBox(height: 24),
+          const _SkeletonBox(width: double.infinity, height: 64, radius: Shape.full),
+        ],
+      ),
+    );
+  }
+}
+
+class _TimelineSkeleton extends StatelessWidget {
+  const _TimelineSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const SectionLabel('Hari ini', top: 8),
+        ListCard(
+          children: [
+            for (var i = 0; i < 2; i++)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 18,
+                ),
+                child: Row(
+                  children: [
+                    const _SkeletonBox(width: 10, height: 10, radius: Shape.full),
+                    const SizedBox(width: 16),
+                    const _SkeletonBox(width: 90, height: 16),
+                    const Spacer(),
+                    const _SkeletonBox(width: 48, height: 16),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _TilesSkeleton extends StatelessWidget {
+  const _TilesSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const SectionLabel('Bulan ini'),
+        Padding(
+          padding: Insets.page,
+          child: Row(
+            children: [
+              for (var i = 0; i < 3; i++) ...[
+                if (i > 0) const SizedBox(width: 8),
+                const Expanded(child: _SkeletonBox(width: 96, height: 88)),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// Timeline bullet: green for synced, amber for queued, grey for not yet.
 /// Decorative — the row's semantic label carries the state in words.
 class _StateDot extends StatelessWidget {
   const _StateDot(this.state);
 
-  final AttendanceState state;
+  final AttendanceEntryState state;
 
   @override
   Widget build(BuildContext context) {
@@ -340,9 +753,9 @@ class _StateDot extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: switch (state) {
-            AttendanceState.done => context.status.success,
-            AttendanceState.pendingSync => context.status.warning,
-            AttendanceState.empty => context.colors.outlineVariant,
+            AttendanceEntryState.done => context.status.success,
+            AttendanceEntryState.pendingSync => context.status.warning,
+            AttendanceEntryState.empty => context.colors.outlineVariant,
           },
         ),
       ),

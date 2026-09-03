@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:karyawanku_mobile/data/mock_data.dart';
 import 'package:karyawanku_mobile/features/absensi/absensi_screen.dart';
+import 'package:karyawanku_mobile/features/absensi/attendance_provider.dart';
 import 'package:karyawanku_mobile/features/auth/masuk_screen.dart';
 import 'package:karyawanku_mobile/features/beranda/beranda_screen.dart';
 import 'package:karyawanku_mobile/features/cuti/ajukan_cuti_screen.dart';
@@ -39,7 +40,10 @@ void main() {
         final handle = tester.ensureSemantics();
         await tester.pumpWidget(
           ProviderScope(
-            overrides: [signedInOverride],
+            overrides: [
+              signedInOverride,
+              attendanceOverride(const AttendanceState()),
+            ],
             child: MaterialApp(
               theme: buildAppTheme(brightness: brightness),
               home: screen,

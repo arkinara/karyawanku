@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:karyawanku_mobile/app.dart';
+import 'package:karyawanku_mobile/features/absensi/attendance_provider.dart';
 import 'package:karyawanku_mobile/features/shell/home_shell.dart';
 import 'package:karyawanku_mobile/theme/app_theme.dart';
 
@@ -14,21 +15,26 @@ void main() {
   ) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [signedInOverride],
+        overrides: [
+          signedInOverride,
+          attendanceOverride(const AttendanceState()),
+        ],
         child: const KaryawanKuApp(),
       ),
     );
     await tester.pumpAndSettle();
 
     expect(find.byType(HomeShell), findsOneWidget);
-    expect(find.text('SEDANG BEKERJA'), findsOneWidget);
-    expect(find.text('5j 43m'), findsOneWidget);
+    expect(find.text('Belum Clock In'), findsWidgets);
   });
 
   testWidgets('every tab in the navigation bar renders', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [signedInOverride],
+        overrides: [
+          signedInOverride,
+          attendanceOverride(const AttendanceState()),
+        ],
         child: MaterialApp(theme: buildAppTheme(), home: const HomeShell()),
       ),
     );

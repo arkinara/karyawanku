@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -8,6 +10,7 @@ import '../../data/mock_data.dart';
 import '../../data/models.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/common.dart';
+import '../absensi/attendance_provider.dart';
 import '../jadwal/jadwal_screen.dart';
 import '../shell/home_shell.dart';
 
@@ -31,7 +34,7 @@ class BerandaScreen extends StatelessWidget {
           padding: const EdgeInsets.only(bottom: 24),
           children: [
             const _Header(),
-            const _ShiftHero(),
+            _ShiftHero(onOpenTab: onOpenTab),
             const SizedBox(height: 16),
             _Shortcuts(onOpenTab: onOpenTab),
             SectionLabel(
@@ -140,20 +143,96 @@ class _Header extends ConsumerWidget {
   }
 }
 
-/// Teal hero card: status, elapsed time, and shift progress.
-class _ShiftHero extends StatelessWidget {
-  const _ShiftHero();
+/// Teal hero card: attendance state from the server, live elapsed time, and a
+/// clock-in CTA for the not-yet-clocked-in state. The clock-in time is
+/// server-authoritative; only the elapsed figure derives from the device
+/// clock. There is deliberately no progress bar — the schedule is a separate
+/// endpoint and a zero-length shift must never render a meaningless bar.
+class _ShiftHero extends ConsumerStatefulWidget {
+  const _ShiftHero({required this.onOpenTab});
+
+  final ValueChanged<int> onOpenTab;
+
+  @override
+  ConsumerState<_ShiftHero> createState() => _ShiftHeroState();
+}
+
+class _ShiftHeroState extends ConsumerState<_ShiftHero> {
+  late DateTime _now = DateTime.now();
+  Timer? _ticker;
+
+  @override
+  void initState() {
+    super.initState();
+    // Ticks so the elapsed figure stays live while on shift.
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      setState(() => _now = DateTime.now());
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final attendance = ref.watch(attendanceProvider);
     final colors = context.colors;
     final onHero = colors.onPrimary;
+    final record = attendance.today?.record;
+
+    final hasClockIn = record?.clockIn != null;
+
+    String pill;
+    String headline;
+    String detail;
+    String semantics;
+    Widget? cta;
+
+    if (!hasClockIn) {
+      // No record yet (or the load has not completed) — invite the action.
+      pill = 'BELUM CLOCK IN';
+      headline = 'Belum Clock In';
+      detail = 'Mulai shift untuk mencatat kehadiran.';
+      semantics = 'Belum Clock In. Mulai shift untuk mencatat kehadiran.';
+      cta = FilledButton.icon(
+        onPressed: () => widget.onOpenTab(1),
+        style: FilledButton.styleFrom(
+          backgroundColor: onHero,
+          foregroundColor: colors.primary,
+          minimumSize: const Size.fromHeight(52),
+        ),
+        icon: const Icon(LucideIcons.clock, size: 20),
+        label: const Text('Clock In'),
+      );
+    } else {
+      final rec = record!;
+      if (rec.clockOut == null) {
+        final minutes = _now.difference(rec.clockIn!.toLocal()).inMinutes;
+        final masuk = Fmt.clock(rec.clockIn!.toLocal());
+        pill = 'SEDANG BEKERJA';
+        headline = Fmt.duration(minutes);
+        detail = 'Masuk $masuk · Sudah Clock In';
+        semantics = 'Sudah Clock In, ${Fmt.duration(minutes)}. Masuk $masuk.';
+      } else {
+        final masuk = Fmt.clock(rec.clockIn!.toLocal());
+        final pulang = Fmt.clock(rec.clockOut!.toLocal());
+        final minutes = rec.clockOut!
+            .toLocal()
+            .difference(rec.clockIn!.toLocal())
+            .inMinutes;
+        pill = 'SELESAI';
+        headline = Fmt.duration(minutes);
+        detail = 'Masuk $masuk · Pulang $pulang';
+        semantics =
+            'Sudah Clock Out, ${Fmt.duration(minutes)}. Masuk $masuk, pulang $pulang.';
+      }
+    }
 
     return Semantics(
-      label:
-          'Sedang bekerja, ${Mock.currentShiftLabel}. '
-          'Sudah ${Fmt.duration(Mock.workedMinutes)}. '
-          'Masuk ${Mock.clockedInAt}, pulang ${Mock.shiftEndsAt}.',
+      label: semantics,
       excludeSemantics: true,
       child: Container(
         margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -166,50 +245,28 @@ class _ShiftHero extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                // Both halves were unbounded, so the row split at 412 dp once
-                // the status pill grew.
-                Flexible(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: onHero.withValues(alpha: .18),
-                      borderRadius: Shape.rSm,
-                    ),
-                    child: Text(
-                      'SEDANG BEKERJA',
-                      overflow: TextOverflow.ellipsis,
-                      style: context.texts.labelMedium?.copyWith(
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: .4,
-                        color: onHero,
-                      ),
-                    ),
-                  ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              decoration: BoxDecoration(
+                color: onHero.withValues(alpha: .18),
+                borderRadius: Shape.rSm,
+              ),
+              child: Text(
+                pill,
+                overflow: TextOverflow.ellipsis,
+                style: context.texts.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: .4,
+                  color: onHero,
                 ),
-                const SizedBox(width: 12),
-                Flexible(
-                  child: Text(
-                    Mock.currentShiftLabel,
-                    textAlign: TextAlign.end,
-                    overflow: TextOverflow.ellipsis,
-                    style: context.texts.bodySmall?.copyWith(
-                      color: onHero.withValues(alpha: .78),
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
             const SizedBox(height: 18),
             FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
               child: Text(
-                Fmt.duration(Mock.workedMinutes),
+                headline,
                 style: context.texts.displayMedium?.copyWith(
                   color: onHero,
                   fontFeatures: Fmt.tabular,
@@ -218,22 +275,16 @@ class _ShiftHero extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Masuk ${Mock.clockedInAt} · pulang ${Mock.shiftEndsAt}',
+              detail,
               style: context.texts.bodySmall?.copyWith(
                 color: onHero.withValues(alpha: .78),
                 fontFeatures: Fmt.tabular,
               ),
             ),
-            const SizedBox(height: 16),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(Shape.full),
-              child: LinearProgressIndicator(
-                value: Mock.shiftProgress,
-                minHeight: 4,
-                backgroundColor: onHero.withValues(alpha: .24),
-                valueColor: AlwaysStoppedAnimation(onHero),
-              ),
-            ),
+            if (cta != null) ...[
+              const SizedBox(height: 20),
+              cta,
+            ],
           ],
         ),
       ),

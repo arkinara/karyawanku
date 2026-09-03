@@ -1,8 +1,10 @@
 # KaryawanKu Mobile (Flutter)
 
 Phase 2 native mobile app — employee self-service. Sign-in, session restore and
-sign-out talk to the Fastify BE in `backend/`; everything else still runs off
-fixtures in `lib/data/mock_data.dart` until the per-domain MOB tickets land.
+sign-out talk to the Fastify BE in `backend/`; attendance is wired to the real
+endpoints (ticket #63). The remaining domains (leave, payslip, shifts) still run
+off fixtures in `lib/data/mock_data.dart` until their per-domain MOB tickets
+land.
 
 Built from the Claude Design doc `KaryawanKu Mobile.dc.html`, option **1b
 (Android / Material 3)** — M3 top app bars, tonal containers, pill buttons, an
@@ -15,8 +17,8 @@ Built from the Claude Design doc `KaryawanKu Mobile.dc.html`, option **1b
 | Route | Source | Notes |
 |---|---|---|
 | `MasukScreen` | 1b Masuk | Outlined fields, biometric secondary action, offline notice |
-| `BerandaScreen` | 1b Beranda | Shift hero, three tonal shortcuts, next shifts, latest payslip |
-| `AbsensiScreen` | 1b Absensi / 1c | Wall clock, geofence chip, selfie slot, today's timeline, month stats |
+| `BerandaScreen` | 1b Beranda | Live shift hero, three tonal shortcuts, next shifts, latest payslip |
+| `AbsensiScreen` | 1b Absensi / 1c | Live wall clock, status + elapsed hero, today's timeline, month stats |
 | `CutiScreen` | 1a Cuti | Balances, status filter, request history with status rail |
 | `AjukanCutiScreen` | 1b Cuti · ajukan | Type chips, date range, impact banner, attachment slot |
 | `SlipGajiScreen` | 1b Slip Gaji | Latest payslip hero, year filter, history incl. THR |
@@ -74,6 +76,49 @@ Notes:
 - Token storage deliberately differs from the web client: there is no
   `localStorage` equivalent on mobile that is safe for a JWT, so the mobile app
   uses the platform Keychain/Keystore instead of `kk-token` in localStorage.
+
+## Attendance (ticket #63)
+
+`AbsensiScreen` and the `BerandaScreen` shift hero are driven by
+`lib/features/absensi/attendance_provider.dart` (Riverpod), which talks to the
+BE through `lib/data/repositories/attendance_repository.dart`. Everything flows
+through the one `ApiClient` from #62 — no screen touches HTTP.
+
+Endpoints used (`backend/src/routes/attendance.ts`):
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET /attendance/today` | today's record | Timeline + hero state |
+| `POST /attendance/clock-in` | open the day | `submission_method: 'live'` |
+| `POST /attendance/clock-out` | close the day | `submission_method: 'live'` |
+| `GET /attendance/aggregate/:employeeId?period=YYYY-MM` | month totals | The mobile interface keeps a `year` + `month` pair and formats it to the BE's `period` string |
+
+Behaviour contract:
+
+- **Clock-in time is server-authoritative.** The device sends its UTC instant
+  as `client_timestamp` (a drift-review claim only); the elapsed figure is
+  computed from the server's `clock_in` field, never the device clock. The wall
+  clock ticks from the device clock for display, but it never drives state.
+- **Late and overtime are never recomputed on the client.** `late_minutes` and
+  `overtime_minutes` come from the API and render verbatim.
+- **Live state on mount + resume.** `AbsensiScreen` loads today + the aggregate
+  on mount and again when the app returns to the foreground
+  (`AppLifecycleState.resumed`), so the day rolls over correctly.
+- **The primary button follows the record**: "Clock In" before any
+  `clock_in`, "Clock Out" while on shift, and hidden once `clock_out` exists.
+  It is disabled with a spinner while a write is in flight (double-tap proof).
+- **Failures.** A load failure renders an error card with retry — never an
+  empty timeline presented as "no activity". Server rejections (409 already
+  clocked in, 422 no shift, 403 no linked employee) surface their Bahasa
+  message verbatim as a snackbar.
+- **Beranda hero** shows "Belum Clock In" + a Clock In CTA (opens the Absensi
+  tab) before the first clock-in, a live elapsed figure while on shift, and the
+  clock-in → clock-out total once finished. There is deliberately no progress
+  bar: the shift schedule is a separate endpoint and a zero-length shift must
+  never render a meaningless bar.
+- **Geofence and selfie** remain static placeholders; the offline queue
+  (`submission_method: 'offline_queue'`) is a separate ticket — live
+  submissions only.
 
 ## Design tokens and theming
 
@@ -145,7 +190,7 @@ flutter run              # attached device or emulator
 flutter run -d chrome    # quickest way to compare against the design doc
 flutter run --dart-define=API_BASE_URL=http://localhost:3001  # against local BE
 flutter analyze
-flutter test                            # 151 tests
+flutter test                            # 178 tests
 flutter test test/token_parity_test.dart # mobile palette == web globals.css
 flutter test test/a11y_test.dart         # tap targets, labels, contrast x theme
 flutter test test/stress_test.dart       # text scale x width x theme matrix
@@ -153,7 +198,8 @@ flutter test test/stress_test.dart       # text scale x width x theme matrix
 
 ## Not yet wired
 
-The shifts/attendance/leave/payroll APIs in `backend/`, geolocation, camera
+The leave, payslip and shift APIs in `backend/`, real geolocation, camera
 capture, push notifications, the offline queue, and the home-screen widget. The
-five mobile-only capabilities appear as UI states only. Sign-in/sign-out are
-real; the screen-by-screen data wiring is covered by the per-domain MOB tickets.
+five mobile-only capabilities appear as UI states only. Sign-in/sign-out and
+attendance (today + clock in/out + monthly aggregate) are real; the remaining
+screen-by-screen data wiring is covered by the per-domain MOB tickets.

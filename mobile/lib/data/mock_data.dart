@@ -16,51 +16,9 @@ abstract final class Mock {
   );
 
   // Beranda
-  static const currentShiftLabel = 'Shift Pagi';
-  static const clockedInAt = '07:58';
-  static const shiftEndsAt = '15:00';
-  static const workedMinutes = 343; // 5j 43m
-  static const shiftProgress = .72;
   static const greeting = 'Selamat pagi, Siti';
   static const notificationCount = 2;
   static const pendingLeaveCount = 1;
-
-  // Absensi
-  static const wallClock = '09:41';
-  static const timezone = 'WIB';
-  static const isOffline = true;
-  static const queuedEntries = 1;
-  static const insideGeofence = true;
-  static const geofenceDistance = '12 m';
-
-  static const todayEntries = [
-    AttendanceEntry(
-      label: 'Masuk',
-      time: '07:58',
-      state: AttendanceState.done,
-      note: 'mulai shift pagi',
-    ),
-    AttendanceEntry(
-      label: 'Istirahat',
-      time: '12:00',
-      state: AttendanceState.done,
-    ),
-    AttendanceEntry(
-      label: 'Kembali',
-      time: '13:02',
-      state: AttendanceState.pendingSync,
-      note: 'Menunggu sinkronisasi',
-    ),
-    AttendanceEntry(
-      label: 'Pulang',
-      time: '--:--',
-      state: AttendanceState.empty,
-    ),
-  ];
-
-  static const monthHadir = 21;
-  static const monthTelat = 2;
-  static const monthIzin = 1;
 
   // Cuti
   static const leaveBalances = [

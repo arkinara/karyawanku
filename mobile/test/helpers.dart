@@ -10,6 +10,8 @@ import 'package:karyawanku_mobile/core/api/api_client.dart';
 import 'package:karyawanku_mobile/core/api/models.dart';
 import 'package:karyawanku_mobile/core/auth/auth_provider.dart';
 import 'package:karyawanku_mobile/core/auth/secure_session_store.dart';
+import 'package:karyawanku_mobile/data/models.dart';
+import 'package:karyawanku_mobile/features/absensi/attendance_provider.dart';
 
 /// In-memory [SecureStorageBackend] so session roundtrips and auth flows run
 /// without platform channels.
@@ -110,6 +112,20 @@ final signedInOverride = authProvider.overrideWith(
   () => _ReadyAuth(AuthState.signedIn(testSession)),
 );
 
+/// Same, but the signed-in user is linked to an employee record (`emp-1`) so
+/// employee-scoped endpoints like the attendance aggregate resolve.
+final signedInEmployeeOverride = authProvider.overrideWith(
+  () => _ReadyAuth(
+    AuthState.signedIn(
+      Session(
+        accessToken: testSession.accessToken,
+        refreshToken: testSession.refreshToken,
+        user: testEmployeeUser,
+      ),
+    ),
+  ),
+);
+
 class _ReadyAuth extends AuthNotifier {
   _ReadyAuth(this.initial);
   final AuthState initial;
@@ -129,4 +145,71 @@ ApiClient buildTestClient(
   Future<ResponseBody> Function(RequestOptions options) handler,
 ) {
   return ApiClient(dio: testDio(handler), sessionStore: store);
+}
+
+/// Pin [attendanceProvider] to a fixed state with no network work — shared
+/// widget tests (a11y, stress) get a deterministic screen instead of a live
+/// ApiClient reaching for a blocked test HttpClient.
+Override attendanceOverride(AttendanceState state) =>
+    attendanceProvider.overrideWith(() => _ReadyAttendance(state));
+
+class _ReadyAttendance extends AttendanceNotifier {
+  _ReadyAttendance(this.initial);
+  final AttendanceState initial;
+
+  @override
+  AttendanceState build() => initial;
+
+  @override
+  Future<void> loadToday() async {}
+
+  @override
+  Future<void> loadAggregate() async {}
+
+  @override
+  Future<void> refresh() async {}
+
+  @override
+  Future<void> clockIn() async {}
+
+  @override
+  Future<void> clockOut() async {}
+
+  @override
+  void clearActionError() {}
+}
+
+/// A signed-in employee (with a linked employee record) for attendance tests.
+final testEmployeeUser = User(
+  id: 'u-1',
+  businessId: 'b-1',
+  email: 'siti@usaha.com',
+  nama: 'Siti Nurhaliza',
+  role: UserRole.employee,
+  status: 'aktif',
+  employeeId: 'emp-1',
+);
+
+/// A today record fixture mirroring the BE envelope shape.
+AttendanceRecord testAttendanceRecord({
+  DateTime? clockIn,
+  DateTime? clockOut,
+  int lateMinutes = 0,
+  int overtimeMinutes = 0,
+  String? catatan,
+  AttendanceStatus status = AttendanceStatus.hadir,
+}) {
+  return AttendanceRecord(
+    id: 'att-1',
+    employeeId: 'emp-1',
+    tanggal: '2026-09-03',
+    clockIn: clockIn,
+    clockOut: clockOut,
+    catatan: catatan,
+    status: status,
+    lateMinutes: lateMinutes,
+    overtimeMinutes: overtimeMinutes,
+    submissionMethod: 'live',
+    timeDriftDetected: false,
+  );
 }
