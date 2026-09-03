@@ -533,6 +533,17 @@ void main() {
           return jsonResponse(aggregateJson());
         });
 
+    /// The preview holds an [Image.memory]; its codec decodes on the real
+    /// event loop, so `pumpAndSettle` would spin forever. Pump with bounded
+    /// steps until the preview (or the wanted finder) appears instead.
+    Future<void> pumpUntil(WidgetTester tester, Finder finder) async {
+      for (var i = 0; i < 40; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+        if (tester.any(finder)) return;
+      }
+      fail('Timed out waiting for $finder');
+    }
+
     testWidgets('slot shows the captured preview with confirm/cancel', (
       tester,
     ) async {
@@ -551,13 +562,12 @@ void main() {
       expect(find.text('Selfie'), findsOneWidget);
 
       await tester.tap(find.text('Selfie'));
-      await tester.pumpAndSettle();
+      await pumpUntil(tester, find.text('Saya Mengerti'));
       await tester.tap(find.text('Saya Mengerti'));
-      await tester.pumpAndSettle();
+      await pumpUntil(tester, find.text('Gunakan & Kirim'));
 
-      // Preview replaces the placeholder.
+      // Preview replaces the placeholder (size only — codec is async).
       expect(find.byType(Image), findsOneWidget);
-      expect(find.text('Gunakan & Kirim'), findsOneWidget);
       expect(find.text('Batal'), findsOneWidget);
     });
 
@@ -575,20 +585,19 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Selfie'));
-      await tester.pumpAndSettle();
+      await pumpUntil(tester, find.text('Saya Mengerti'));
       expect(find.text('Selfie disimpan 90 hari'), findsOneWidget);
       expect(find.text('Saya Mengerti'), findsOneWidget);
       await tester.tap(find.text('Saya Mengerti'));
-      await tester.pumpAndSettle();
+      await pumpUntil(tester, find.text('Gunakan & Kirim'));
 
       // Discard the capture, then tap again — the dialog must not re-appear.
       await tester.tap(find.text('Batal'));
-      await tester.pumpAndSettle();
+      await pumpUntil(tester, find.text('Selfie'));
       await tester.tap(find.text('Selfie'));
-      await tester.pumpAndSettle();
+      await pumpUntil(tester, find.text('Gunakan & Kirim'));
 
       expect(find.text('Selfie disimpan 90 hari'), findsNothing);
-      expect(find.text('Gunakan & Kirim'), findsOneWidget);
     });
 
     testWidgets('denied camera shows the "Selfie dilewati" fallback', (
@@ -607,7 +616,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Selfie'));
-      await tester.pumpAndSettle();
+      await pumpUntil(tester, find.text('Saya Mengerti'));
       await tester.tap(find.text('Saya Mengerti'));
       await tester.pumpAndSettle();
 
@@ -631,9 +640,9 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Selfie'));
-      await tester.pumpAndSettle();
+      await pumpUntil(tester, find.text('Saya Mengerti'));
       await tester.tap(find.text('Saya Mengerti'));
-      await tester.pumpAndSettle();
+      await pumpUntil(tester, find.text('Gunakan & Kirim'));
       await tester.tap(find.text('Gunakan & Kirim'));
       await tester.pumpAndSettle();
 
@@ -679,10 +688,9 @@ void main() {
 
       // Not clocked in yet: the slot preview offers "Gunakan", not a send.
       await tester.tap(find.text('Selfie'));
-      await tester.pumpAndSettle();
+      await pumpUntil(tester, find.text('Saya Mengerti'));
       await tester.tap(find.text('Saya Mengerti'));
-      await tester.pumpAndSettle();
-      expect(find.text('Gunakan'), findsOneWidget);
+      await pumpUntil(tester, find.text('Gunakan'));
       expect(find.text('Terkirim setelah Clock In'), findsOneWidget);
 
       // Clock In creates the record, then flushes the pending selfie.
