@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:karyawanku_mobile/app.dart';
 import 'package:karyawanku_mobile/features/absensi/attendance_provider.dart';
+import 'package:karyawanku_mobile/features/jadwal/shift_provider.dart';
 import 'package:karyawanku_mobile/features/shell/home_shell.dart';
 import 'package:karyawanku_mobile/theme/app_theme.dart';
 
@@ -18,6 +19,7 @@ void main() {
         overrides: [
           signedInOverride,
           attendanceOverride(const AttendanceState()),
+          shiftOverride(const ShiftState()),
         ],
         child: const KaryawanKuApp(),
       ),
@@ -34,6 +36,7 @@ void main() {
         overrides: [
           signedInOverride,
           attendanceOverride(const AttendanceState()),
+          shiftOverride(const ShiftState()),
         ],
         child: MaterialApp(theme: buildAppTheme(), home: const HomeShell()),
       ),

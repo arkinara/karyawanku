@@ -1,10 +1,10 @@
 # KaryawanKu Mobile (Flutter)
 
 Phase 2 native mobile app — employee self-service. Sign-in, session restore and
-sign-out talk to the Fastify BE in `backend/`; attendance is wired to the real
-endpoints (ticket #63). The remaining domains (leave, payslip, shifts) still run
-off fixtures in `lib/data/mock_data.dart` until their per-domain MOB tickets
-land.
+sign-out talk to the Fastify BE in `backend/`; attendance (ticket #63) and the
+shift schedule (ticket #64) are wired to the real endpoints. The remaining
+domains (leave, payslip) still run off fixtures in `lib/data/mock_data.dart`
+until their per-domain MOB tickets land.
 
 Built from the Claude Design doc `KaryawanKu Mobile.dc.html`, option **1b
 (Android / Material 3)** — M3 top app bars, tonal containers, pill buttons, an
@@ -120,6 +120,45 @@ Behaviour contract:
   (`submission_method: 'offline_queue'`) is a separate ticket — live
   submissions only.
 
+## Shifts (ticket #64)
+
+`JadwalScreen` and the Beranda "Jadwal 3 hari ke depan" list are driven by
+`lib/features/jadwal/shift_provider.dart` (Riverpod), which talks to the BE
+through `lib/data/repositories/shift_repository.dart`. Leave-blocked days come
+from real leave requests via `lib/data/repositories/leave_repository.dart`. All
+of it flows through the one `ApiClient` from #62 — no screen touches HTTP, and
+the signed-in employee is resolved server-side from the JWT.
+
+Endpoints used (`backend/src/routes/shift-assignments.ts`,
+`backend/src/routes/leave-requests.ts`):
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET /shift-assignments?start=&end=` | roster for a visible range | Week strip + month grid |
+| `GET /shift-assignments/upcoming?days=3` | next-days roster | Beranda "Jadwal 3 hari ke depan" |
+| `GET /leave-requests?limit=100` | leave request dates | Amber "Cuti" marks on the calendar |
+
+Behaviour contract:
+
+- **Only published roster.** The BE filters `published = true` for employee
+  roles on both endpoints, so a draft never leaks into the app. The mobile
+  renders whatever the API returns verbatim — shift name and times come from
+  the server, never inferred client-side. (The BE roster carries no role or
+  branch fields, so the detail card stops at shift name + times.)
+- **Calendar navigates by the device clock.** "Today" and the initial week and
+  month come from `DateTime.now()` — there is no fixture date. The month view
+  pages forward/back with its own arrows and fetches the range it displays.
+- **Ranges are cached, not refetched.** The provider memoizes every
+  `(start, end)` tuple it successfully fetches; paging back to an already-loaded
+  month is a no-op. A failed fetch is *not* cached, so retry refetches, and the
+  failure surfaces as a snackbar with a "Coba lagi" action — the calendar keeps
+  whatever it already rendered instead of blanking.
+- **Rest days and leave.** A day with no assignment renders the existing "Libur"
+  state. Days covered by a pending or approved leave request are marked amber
+  ("Cuti") from real leave request dates.
+- **Empty states.** An employee with no published roster sees an explanatory
+  empty state on both Beranda and the schedule — never a blank grid.
+
 ## Design tokens and theming
 
 The palette, shape scale, motion rhythm and elevation are **mirrored from the
@@ -190,7 +229,7 @@ flutter run              # attached device or emulator
 flutter run -d chrome    # quickest way to compare against the design doc
 flutter run --dart-define=API_BASE_URL=http://localhost:3001  # against local BE
 flutter analyze
-flutter test                            # 178 tests
+flutter test                            # 201 tests
 flutter test test/token_parity_test.dart # mobile palette == web globals.css
 flutter test test/a11y_test.dart         # tap targets, labels, contrast x theme
 flutter test test/stress_test.dart       # text scale x width x theme matrix
@@ -198,8 +237,9 @@ flutter test test/stress_test.dart       # text scale x width x theme matrix
 
 ## Not yet wired
 
-The leave, payslip and shift APIs in `backend/`, real geolocation, camera
-capture, push notifications, the offline queue, and the home-screen widget. The
-five mobile-only capabilities appear as UI states only. Sign-in/sign-out and
-attendance (today + clock in/out + monthly aggregate) are real; the remaining
+The leave and payslip APIs in `backend/`, real geolocation, camera capture,
+push notifications, the offline queue, and the home-screen widget. The
+five mobile-only capabilities appear as UI states only. Sign-in/sign-out,
+attendance (today + clock in/out + monthly aggregate) and the shift schedule
+(roster by range + upcoming + leave-blocked days) are real; the remaining
 screen-by-screen data wiring is covered by the per-domain MOB tickets.

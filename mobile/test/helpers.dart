@@ -12,6 +12,7 @@ import 'package:karyawanku_mobile/core/auth/auth_provider.dart';
 import 'package:karyawanku_mobile/core/auth/secure_session_store.dart';
 import 'package:karyawanku_mobile/data/models.dart';
 import 'package:karyawanku_mobile/features/absensi/attendance_provider.dart';
+import 'package:karyawanku_mobile/features/jadwal/shift_provider.dart';
 
 /// In-memory [SecureStorageBackend] so session roundtrips and auth flows run
 /// without platform channels.
@@ -177,6 +178,61 @@ class _ReadyAttendance extends AttendanceNotifier {
 
   @override
   void clearActionError() {}
+}
+
+/// Pin [shiftProvider] to a fixed state with no network work — shared widget
+/// tests get a deterministic schedule instead of a live ApiClient reaching
+/// for a blocked test HttpClient.
+Override shiftOverride(ShiftState state) =>
+    shiftProvider.overrideWith(() => _ReadyShift(state));
+
+class _ReadyShift extends ShiftNotifier {
+  _ReadyShift(this.initial);
+  final ShiftState initial;
+
+  @override
+  ShiftState build() => initial;
+
+  @override
+  Future<void> loadMonth(DateTime month) async {}
+
+  @override
+  Future<void> loadWeek(DateTime weekStart) async {}
+
+  @override
+  Future<void> loadUpcoming({int days = 3}) async {}
+
+  @override
+  Future<void> loadLeaveBlocks() async {}
+
+  @override
+  void clearError() {}
+}
+
+/// A roster row fixture mirroring the BE shift-assignment envelope. [tanggal]
+/// defaults to `now` so tests never hardcode a month.
+ShiftAssignment testShiftAssignment({
+  DateTime? tanggal,
+  String namaShift = 'Pagi',
+  String jamMulai = '07:00',
+  String jamSelesai = '15:00',
+  bool published = true,
+}) {
+  return ShiftAssignment(
+    id: 'sa-1',
+    employeeId: 'emp-1',
+    employeeName: 'Siti Nurhaliza',
+    shiftId: 's-1',
+    shift: Shift(
+      id: 's-1',
+      namaShift: namaShift,
+      jamMulai: jamMulai,
+      jamSelesai: jamSelesai,
+      aktif: true,
+    ),
+    tanggal: tanggal ?? DateTime.now(),
+    published: published,
+  );
 }
 
 /// A signed-in employee (with a linked employee record) for attendance tests.

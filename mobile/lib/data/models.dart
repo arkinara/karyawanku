@@ -1,5 +1,21 @@
 enum ShiftKind { pagi, siang, malam, libur }
 
+/// Map a BE shift name (`Pagi` / `Siang` / `Malam`, or a custom label) onto
+/// the fixed [ShiftKind] used for calendar colouring. Unknown/custom names
+/// fall back to [ShiftKind.libur].
+ShiftKind shiftKindOf(String namaShift) => switch (namaShift) {
+  'Pagi' => ShiftKind.pagi,
+  'Siang' => ShiftKind.siang,
+  'Malam' => ShiftKind.malam,
+  _ => ShiftKind.libur,
+};
+
+/// `YYYY-MM-DD` -> `DateTime(y, m, d)` (date-only, no time component).
+DateTime parseDateOnly(String raw) {
+  final parts = raw.split('-');
+  return DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+}
+
 enum LeaveStatus { menunggu, disetujui, ditolak }
 
 enum LeaveKind { tahunan, sakit, izin, melahirkan, penting }
@@ -26,35 +42,115 @@ class Employee {
   final String branch;
 }
 
+/// A shift from the BE (`backend/src/db/schema.ts#shifts`). Rendered verbatim:
+/// the name and times come from the server, never inferred on the client.
 class Shift {
   const Shift({
-    required this.date,
-    required this.kind,
-    required this.start,
-    required this.end,
-    required this.role,
-    this.isToday = false,
-    this.leaveRequested = false,
+    required this.id,
+    required this.namaShift,
+    required this.jamMulai,
+    required this.jamSelesai,
+    required this.aktif,
   });
 
-  final DateTime date;
-  final ShiftKind kind;
-  final String start;
-  final String end;
-  final String role;
-  final bool isToday;
+  final String id;
+  final String namaShift;
+  final String jamMulai;
+  final String jamSelesai;
+  final bool aktif;
 
-  /// A pending leave request covering this day — shown amber in the calendar.
-  final bool leaveRequested;
+  /// `Shift Pagi`, `Shift Siang`, … — `Libur` has no prefix.
+  String get label =>
+      namaShift == 'Libur' ? 'Libur' : 'Shift $namaShift';
 
-  String get label => switch (kind) {
-    ShiftKind.pagi => 'Shift Pagi',
-    ShiftKind.siang => 'Shift Siang',
-    ShiftKind.malam => 'Shift Malam',
-    ShiftKind.libur => 'Libur',
-  };
+  /// `07:00 – 15:00`
+  String get range => '$jamMulai – $jamSelesai';
 
-  String get range => '$start – $end';
+  factory Shift.fromJson(Map<String, dynamic> json) {
+    return Shift(
+      id: json['id'] as String,
+      namaShift: json['nama_shift'] as String,
+      jamMulai: json['jam_mulai'] as String,
+      jamSelesai: json['jam_selesai'] as String,
+      aktif: json['aktif'] as bool? ?? true,
+    );
+  }
+}
+
+/// One published roster row from the BE
+/// (`backend/src/routes/shift-assignments.ts`). Carries the shift it points
+/// at, so the schedule needs no separate shifts catalogue fetch.
+class ShiftAssignment {
+  const ShiftAssignment({
+    required this.id,
+    required this.employeeId,
+    this.employeeName,
+    required this.shiftId,
+    this.shift,
+    required this.tanggal,
+    required this.published,
+  });
+
+  final String id;
+  final String employeeId;
+
+  /// The employee's full name — the assignment rows are employee-scoped, so
+  /// this is the roster owner's name, not a peer's.
+  final String? employeeName;
+  final String shiftId;
+  final Shift? shift;
+
+  /// `tanggal` from the BE, parsed as a date-only [DateTime].
+  final DateTime tanggal;
+  final bool published;
+
+  factory ShiftAssignment.fromJson(Map<String, dynamic> json) {
+    final rawShift = json['shift'];
+    return ShiftAssignment(
+      id: json['id'] as String,
+      employeeId: json['employee_id'] as String,
+      employeeName: json['employee_name'] as String?,
+      shiftId: json['shift_id'] as String,
+      shift: rawShift is Map<String, dynamic>
+          ? Shift.fromJson(rawShift)
+          : null,
+      tanggal: parseDateOnly(json['tanggal'] as String),
+      published: json['published'] as bool? ?? false,
+    );
+  }
+}
+
+/// A leave request row from the BE (`backend/src/routes/leave-requests.ts`),
+/// reduced to what the schedule needs: the covered date range and whether it
+/// blocks the employee's day.
+class LeaveRequestRecord {
+  const LeaveRequestRecord({
+    required this.id,
+    required this.tanggalMulai,
+    required this.tanggalSelesai,
+    required this.status,
+    this.reason,
+  });
+
+  final String id;
+  final DateTime tanggalMulai;
+  final DateTime tanggalSelesai;
+  final LeaveStatus status;
+  final String? reason;
+
+  factory LeaveRequestRecord.fromJson(Map<String, dynamic> json) {
+    return LeaveRequestRecord(
+      id: json['id'] as String,
+      tanggalMulai: parseDateOnly(json['tanggal_mulai'] as String),
+      tanggalSelesai: parseDateOnly(json['tanggal_selesai'] as String),
+      status: switch (json['status'] as String?) {
+        'disetujui' => LeaveStatus.disetujui,
+        'ditolak' => LeaveStatus.ditolak,
+        _ => LeaveStatus.menunggu,
+      },
+      reason: json['alasan'] as String?,
+    );
+  }
 }
 
 class AttendanceEntry {

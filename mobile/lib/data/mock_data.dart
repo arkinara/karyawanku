@@ -4,9 +4,6 @@ import 'models.dart';
 /// and date here matches `KaryawanKu Mobile.dc.html` so the Flutter build can
 /// be compared against the mockups screen by screen.
 abstract final class Mock {
-  /// The design is dated Selasa, 2 September 2026.
-  static final today = DateTime(2026, 9, 2);
-
   static const employee = Employee(
     name: 'Siti Nurhaliza',
     initials: 'SN',
@@ -58,128 +55,6 @@ abstract final class Mock {
           'Catatan: shift sedang kekurangan orang, ajukan minggu depan.',
     ),
   ];
-
-  // Jadwal
-  static final shifts = <Shift>[
-    Shift(
-      date: DateTime(2026, 9, 2),
-      kind: ShiftKind.pagi,
-      start: '07:00',
-      end: '15:00',
-      role: 'Kasir',
-      isToday: true,
-    ),
-    Shift(
-      date: DateTime(2026, 9, 3),
-      kind: ShiftKind.pagi,
-      start: '07:00',
-      end: '15:00',
-      role: 'Kasir',
-    ),
-    Shift(
-      date: DateTime(2026, 9, 4),
-      kind: ShiftKind.pagi,
-      start: '07:00',
-      end: '15:00',
-      role: 'Kasir',
-    ),
-    Shift(
-      date: DateTime(2026, 9, 5),
-      kind: ShiftKind.siang,
-      start: '15:00',
-      end: '23:00',
-      role: 'Kasir',
-    ),
-    Shift(
-      date: DateTime(2026, 9, 6),
-      kind: ShiftKind.siang,
-      start: '15:00',
-      end: '23:00',
-      role: 'Kasir',
-    ),
-    Shift(
-      date: DateTime(2026, 9, 8),
-      kind: ShiftKind.pagi,
-      start: '07:00',
-      end: '15:00',
-      role: 'Kasir',
-    ),
-    Shift(
-      date: DateTime(2026, 9, 9),
-      kind: ShiftKind.pagi,
-      start: '07:00',
-      end: '15:00',
-      role: 'Kasir',
-    ),
-    Shift(
-      date: DateTime(2026, 9, 10),
-      kind: ShiftKind.pagi,
-      start: '07:00',
-      end: '15:00',
-      role: 'Kasir',
-    ),
-    Shift(
-      date: DateTime(2026, 9, 12),
-      kind: ShiftKind.siang,
-      start: '15:00',
-      end: '23:00',
-      role: 'Kasir',
-    ),
-    Shift(
-      date: DateTime(2026, 9, 13),
-      kind: ShiftKind.siang,
-      start: '15:00',
-      end: '23:00',
-      role: 'Kasir',
-    ),
-    Shift(
-      date: DateTime(2026, 9, 15),
-      kind: ShiftKind.pagi,
-      start: '07:00',
-      end: '15:00',
-      role: 'Kasir',
-      leaveRequested: true,
-    ),
-    Shift(
-      date: DateTime(2026, 9, 16),
-      kind: ShiftKind.pagi,
-      start: '07:00',
-      end: '15:00',
-      role: 'Kasir',
-      leaveRequested: true,
-    ),
-    Shift(
-      date: DateTime(2026, 9, 17),
-      kind: ShiftKind.pagi,
-      start: '07:00',
-      end: '15:00',
-      role: 'Kasir',
-      leaveRequested: true,
-    ),
-    Shift(
-      date: DateTime(2026, 9, 18),
-      kind: ShiftKind.pagi,
-      start: '07:00',
-      end: '15:00',
-      role: 'Kasir',
-    ),
-    Shift(
-      date: DateTime(2026, 9, 19),
-      kind: ShiftKind.pagi,
-      start: '07:00',
-      end: '15:00',
-      role: 'Kasir',
-    ),
-    Shift(
-      date: DateTime(2026, 9, 20),
-      kind: ShiftKind.pagi,
-      start: '07:00',
-      end: '15:00',
-      role: 'Kasir',
-    ),
-  ];
-
-  static const shiftReminder = 'Pengingat 30 menit sebelum shift — aktif';
 
   // Slip gaji
   static final latestPayslip = Payslip(

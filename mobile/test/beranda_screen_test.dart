@@ -6,14 +6,20 @@ import 'package:karyawanku_mobile/core/format.dart';
 import 'package:karyawanku_mobile/data/models.dart';
 import 'package:karyawanku_mobile/features/absensi/attendance_provider.dart';
 import 'package:karyawanku_mobile/features/beranda/beranda_screen.dart';
+import 'package:karyawanku_mobile/features/jadwal/shift_provider.dart';
 
 import 'helpers.dart';
 
-Widget beranda(AttendanceState state, {ValueChanged<int>? onOpenTab}) {
+Widget beranda(
+  AttendanceState state, {
+  ValueChanged<int>? onOpenTab,
+  ShiftState shift = const ShiftState(),
+}) {
   return ProviderScope(
     overrides: [
       signedInOverride,
       attendanceOverride(state),
+      shiftOverride(shift),
     ],
     child: MaterialApp(home: Scaffold(body: BerandaScreen(onOpenTab: onOpenTab ?? (_) {}))),
   );
@@ -92,4 +98,77 @@ void main() {
 
     expect(find.text('Belum Clock In'), findsWidgets);
   });
+
+  testWidgets('upcoming list is populated from getUpcoming()', (tester) async {
+    final today = DateTime.now();
+    final shift = ShiftState(
+      upcoming: [
+        testShiftAssignment(tanggal: today),
+        testShiftAssignment(
+          tanggal: today.add(const Duration(days: 1)),
+          namaShift: 'Siang',
+          jamMulai: '15:00',
+          jamSelesai: '23:00',
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(beranda(const AttendanceState(), shift: shift));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Shift Pagi'), findsOneWidget);
+    expect(find.text('Shift Siang'), findsOneWidget);
+    expect(find.textContaining('07:00 – 15:00'), findsOneWidget);
+    expect(find.textContaining('15:00 – 23:00'), findsOneWidget);
+  });
+
+  testWidgets('empty upcoming renders an explanatory empty state', (
+    tester,
+  ) async {
+    await tester.pumpWidget(beranda(const AttendanceState()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Belum ada jadwal 3 hari ke depan.'), findsOneWidget);
+    expect(find.text('Shift Pagi'), findsNothing);
+  });
+
+  testWidgets('loads the upcoming roster on mount', (tester) async {
+    final notifier = _RecordingShift(const ShiftState());
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          signedInOverride,
+          attendanceOverride(const AttendanceState()),
+          shiftProvider.overrideWith(() => notifier),
+        ],
+        child: MaterialApp(
+          home: Scaffold(body: BerandaScreen(onOpenTab: (_) {})),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(notifier.calls, contains('upcoming'));
+  });
+}
+
+class _RecordingShift extends ShiftNotifier {
+  _RecordingShift(this.initial);
+  final ShiftState initial;
+  final List<String> calls = [];
+
+  @override
+  ShiftState build() => initial;
+
+  @override
+  Future<void> loadMonth(DateTime month) async {}
+
+  @override
+  Future<void> loadWeek(DateTime weekStart) async {}
+
+  @override
+  Future<void> loadUpcoming({int days = 3}) async => calls.add('upcoming');
+
+  @override
+  Future<void> loadLeaveBlocks() async {}
 }

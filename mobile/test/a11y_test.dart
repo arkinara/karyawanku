@@ -10,6 +10,7 @@ import 'package:karyawanku_mobile/features/beranda/beranda_screen.dart';
 import 'package:karyawanku_mobile/features/cuti/ajukan_cuti_screen.dart';
 import 'package:karyawanku_mobile/features/cuti/cuti_screen.dart';
 import 'package:karyawanku_mobile/features/jadwal/jadwal_screen.dart';
+import 'package:karyawanku_mobile/features/jadwal/shift_provider.dart';
 import 'package:karyawanku_mobile/features/shell/home_shell.dart';
 import 'package:karyawanku_mobile/features/slip/slip_detail_screen.dart';
 import 'package:karyawanku_mobile/features/slip/slip_gaji_screen.dart';
@@ -43,6 +44,7 @@ void main() {
             overrides: [
               signedInOverride,
               attendanceOverride(const AttendanceState()),
+              shiftOverride(const ShiftState()),
             ],
             child: MaterialApp(
               theme: buildAppTheme(brightness: brightness),

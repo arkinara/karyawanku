@@ -12,19 +12,34 @@ import '../../theme/tokens.dart';
 import '../../widgets/common.dart';
 import '../absensi/attendance_provider.dart';
 import '../jadwal/jadwal_screen.dart';
+import '../jadwal/shift_provider.dart';
 import '../shell/home_shell.dart';
 
 /// Home. The shift hero answers "am I on the clock and for how much longer",
 /// then three tonal shortcuts, then the two things staff check most often.
-class BerandaScreen extends StatelessWidget {
+class BerandaScreen extends ConsumerStatefulWidget {
   const BerandaScreen({super.key, required this.onOpenTab});
 
   /// Switches the surrounding [HomeShell] tab — used by the shortcut row.
   final ValueChanged<int> onOpenTab;
 
   @override
+  ConsumerState<BerandaScreen> createState() => _BerandaScreenState();
+}
+
+class _BerandaScreenState extends ConsumerState<BerandaScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // The upcoming list comes from the live roster — fetch it once on mount.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(shiftProvider.notifier).loadUpcoming(days: 3);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final upcoming = Mock.shifts.where((s) => !s.isToday).take(3).toList();
+    final upcoming = ref.watch(shiftProvider).upcoming;
     final latest = Mock.latestPayslip;
 
     return Scaffold(
@@ -34,9 +49,9 @@ class BerandaScreen extends StatelessWidget {
           padding: const EdgeInsets.only(bottom: 24),
           children: [
             const _Header(),
-            _ShiftHero(onOpenTab: onOpenTab),
+            _ShiftHero(onOpenTab: widget.onOpenTab),
             const SizedBox(height: 16),
-            _Shortcuts(onOpenTab: onOpenTab),
+            _Shortcuts(onOpenTab: widget.onOpenTab),
             SectionLabel(
               'Jadwal 3 hari ke depan',
               action: 'Lihat semua',
@@ -44,25 +59,23 @@ class BerandaScreen extends StatelessWidget {
                 context,
               ).push(MaterialPageRoute(builder: (_) => const JadwalScreen())),
             ),
-            ListCard(
-              children: [
-                for (final shift in upcoming)
-                  CardRow(
-                    leading: RoundToken(
-                      label: Fmt.day2(shift.date),
-                      background: shift.kind == ShiftKind.siang
-                          ? context.status.infoContainer
-                          : context.colors.primaryContainer,
-                      foreground: shift.kind == ShiftKind.siang
-                          ? context.status.onInfoContainer
-                          : context.colors.onPrimaryContainer,
-                    ),
-                    title: shift.label,
-                    subtitle:
-                        '${Fmt.dayNames[shift.date.weekday - 1]} · ${shift.range}',
+            if (upcoming.isEmpty)
+              Padding(
+                padding: Insets.page,
+                child: Text(
+                  'Belum ada jadwal 3 hari ke depan.',
+                  style: context.texts.bodyMedium?.copyWith(
+                    color: context.colors.onSurfaceVariant,
                   ),
-              ],
-            ),
+                ),
+              )
+            else
+              ListCard(
+                children: [
+                  for (final assignment in upcoming)
+                    _UpcomingRow(assignment: assignment),
+                ],
+              ),
             const SectionLabel('Slip gaji terakhir'),
             ListCard(
               children: [
@@ -81,13 +94,43 @@ class BerandaScreen extends StatelessWidget {
                   semanticLabel:
                       'Slip gaji ${latest.period}, dibayar '
                       '${Fmt.date(latest.paidOn)}, ${Fmt.rupiah(latest.takeHome)}',
-                  onTap: () => onOpenTab(3),
+                  onTap: () => widget.onOpenTab(3),
                 ),
               ],
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// One upcoming roster row: shift name + time, server-side, oldest first.
+class _UpcomingRow extends StatelessWidget {
+  const _UpcomingRow({required this.assignment});
+
+  final ShiftAssignment assignment;
+
+  @override
+  Widget build(BuildContext context) {
+    final date = assignment.tanggal;
+    final shift = assignment.shift;
+    final isSiang =
+        shift != null && shiftKindOf(shift.namaShift) == ShiftKind.siang;
+
+    return CardRow(
+      leading: RoundToken(
+        label: Fmt.day2(date),
+        background: isSiang
+            ? context.status.infoContainer
+            : context.colors.primaryContainer,
+        foreground: isSiang
+            ? context.status.onInfoContainer
+            : context.colors.onPrimaryContainer,
+      ),
+      title: shift?.label ?? 'Libur',
+      subtitle:
+          '${Fmt.dayNames[date.weekday - 1]} · ${shift?.range ?? ''}',
     );
   }
 }
