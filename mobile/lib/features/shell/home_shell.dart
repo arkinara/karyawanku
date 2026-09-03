@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/auth/auth_provider.dart';
+import '../../core/widget/widget_bridge.dart';
+import '../../core/widget/widget_entry.dart';
 import '../../data/mock_data.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/common.dart';
@@ -35,6 +37,17 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     // queued while the device was away is sent (#70).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) ref.read(offlineQueueManagerProvider.notifier).flush();
+    });
+    // Ticket #74 — a widget clock action that arrived while signed out and
+    // ran right after auth resolves lands on Beranda (the shell's first tab).
+    // The root router's auth listener clears the same holder, so this is a
+    // no-op when the action already ran.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      handlePendingWidgetAction(
+        ProviderScope.containerOf(context),
+        bridge: ref.read(widgetBridgeProvider),
+      );
     });
   }
 

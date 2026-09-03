@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Ticket #74 — KaryawanKuWidget extension Info.plist (skeleton).
+     When adding the widget extension target in Xcode, copy this into the
+     target and enable the "App Groups" entitlement for
+     group.com.karyawanku.mobile on BOTH the app and the extension. -->
+<plist version="1.0">
+<dict>
+	<key>NSExtension</key>
+	<dict>
+		<key>NSExtensionPointIdentifier</key>
+		<string>com.apple.widgetkit-extension</string>
+	</dict>
+</dict>
+</plist>

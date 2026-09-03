@@ -5,6 +5,8 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/auth/auth_provider.dart';
 import '../../core/auth/biometric_providers.dart';
+import '../../core/widget/widget_bridge.dart';
+import '../../core/widget/widget_entry.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/common.dart';
 
@@ -43,8 +45,17 @@ class _MasukScreenState extends ConsumerState<MasukScreen> {
     }
 
     FocusScope.of(context).unfocus();
+    // Capture before the async gap so no BuildContext crosses it.
+    final container = ProviderScope.containerOf(context);
     try {
       await ref.read(authProvider.notifier).signIn(email, password);
+      // Ticket #74 — a home-screen widget clock action deferred while signed
+      // out runs now that the session is live. The root router's auth
+      // listener checks the same holder, so this is at most one run.
+      await handlePendingWidgetAction(
+        container,
+        bridge: ref.read(widgetBridgeProvider),
+      );
       // Success — the root router observes the signed-in state and swaps to
       // the shell. Nothing to navigate by hand.
     } on NetworkException catch (e) {

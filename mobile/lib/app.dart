@@ -7,6 +7,8 @@ import 'core/auth/auth_provider.dart';
 import 'core/navigation.dart';
 import 'core/push/deep_link_router.dart';
 import 'core/push/push_bootstrap.dart';
+import 'core/widget/widget_bridge.dart';
+import 'core/widget/widget_entry.dart';
 import 'features/auth/masuk_screen.dart';
 import 'features/cuti/leave_detail_screen.dart';
 import 'features/cuti/leave_provider.dart';
@@ -46,6 +48,7 @@ class RootRouter extends ConsumerStatefulWidget {
 
 class _RootRouterState extends ConsumerState<RootRouter> {
   StreamSubscription<DeepLinkTarget>? _deepLinkSub;
+  StreamSubscription<Uri?>? _widgetSub;
   DeepLinkTarget? _pendingTarget;
 
   /// Ticket #72 — the cold-start biometric gate runs at most once. A failed
@@ -69,12 +72,43 @@ class _RootRouterState extends ConsumerState<RootRouter> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       router.handleColdStart();
     });
+    // Ticket #74 — home-screen widget taps. While the app runs, widget actions
+    // arrive on the widgetClicked stream; a cold-start tap arrives via
+    // initiallyLaunchedFromHomeWidget (checked below). Both dispatch through
+    // the same [onWidgetClicked] entry.
+    final widgetBridge = ref.read(widgetBridgeProvider);
+    _widgetSub = widgetBridge.onWidgetClicked.listen((uri) {
+      if (!mounted) return;
+      onWidgetClicked(
+        uri,
+        container: ProviderScope.containerOf(context),
+        bridge: ref.read(widgetBridgeProvider),
+      );
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _handleWidgetColdStart();
+    });
   }
 
   @override
   void dispose() {
     _deepLinkSub?.cancel();
+    _widgetSub?.cancel();
     super.dispose();
+  }
+
+  /// A widget tap that launched the app from a terminated state. Signed-out
+  /// clock actions defer to [pendingWidgetActionProvider] and run once the
+  /// auth listener below observes the signed-in transition.
+  Future<void> _handleWidgetColdStart() async {
+    final bridge = ref.read(widgetBridgeProvider);
+    final uri = await bridge.initiallyLaunchedFromHomeWidget();
+    if (!mounted || uri == null) return;
+    await onWidgetClicked(
+      uri,
+      container: ProviderScope.containerOf(context),
+      bridge: bridge,
+    );
   }
 
   void _onDeepLink(DeepLinkTarget target) {
@@ -116,9 +150,23 @@ class _RootRouterState extends ConsumerState<RootRouter> {
     // Cold-start deep link: navigate once auth resolves.
     ref.listen<AuthState>(authProvider, (prev, next) {
       final pending = _pendingTarget;
-      if (next.isSignedIn && pending != null) {
-        _pendingTarget = null;
-        _navigate(pending);
+      if (next.isSignedIn) {
+        if (pending != null) {
+          _pendingTarget = null;
+          _navigate(pending);
+        }
+        // Ticket #74 — a widget clock action that arrived while signed out
+        // runs exactly once, right after auth resolves (the pending holder is
+        // cleared by the first consumer).
+        if (!prev!.isSignedIn) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            handlePendingWidgetAction(
+              ProviderScope.containerOf(context),
+              bridge: ref.read(widgetBridgeProvider),
+            );
+          });
+        }
       }
     });
 

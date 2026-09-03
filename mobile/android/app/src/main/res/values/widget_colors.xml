@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ticket #74 — KaryawanKu home-screen widget colours. The exact ProMax
+     hex values from mobile/lib/theme/tokens.dart (light palette), mirrored so
+     the widget and the in-app screens cannot drift. Android 12+ applies its
+     own widget tinting to the frame; these drive the content colours. -->
+<resources>
+    <color name="kk_primary">#0F756D</color>
+    <color name="kk_on_primary">#FFFFFF</color>
+    <color name="kk_surface">#FCFDFD</color>
+    <color name="kk_surface1">#F6F9F9</color>
+    <color name="kk_on_surface">#192124</color>
+    <color name="kk_on_surface_variant">#546469</color>
+    <color name="kk_outline_variant">#D9E1E2</color>
+    <color name="kk_success_container">#DFF6EE</color>
+    <color name="kk_on_success_container">#054834</color>
+    <color name="kk_warning_container">#FDF1D3</color>
+    <color name="kk_on_warning_container">#552B07</color>
+    <color name="kk_danger">#C71A3F</color>
+    <color name="kk_danger_container">#FDE7EB</color>
+    <color name="kk_on_danger_container">#650B1F</color>
+</resources>

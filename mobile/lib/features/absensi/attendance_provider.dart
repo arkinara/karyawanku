@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/auth/auth_provider.dart';
 import '../../core/connectivity/connectivity_provider.dart';
+import '../../core/widget/widget_bridge.dart';
 import '../../data/local/offline_queue.dart';
 import '../../data/models.dart';
 import '../../data/repositories/attendance_repository.dart';
@@ -192,6 +193,15 @@ class AttendanceNotifier extends Notifier<AttendanceState> {
     return _queueOffline(QueuedAttendanceKind.clockOut, key, location);
   }
 
+  /// Widget-driven clock-in (ticket #74) — the same idempotent, queue-aware
+  /// path as [clockIn], named explicitly so the widget action reuses the
+  /// offline queue (a widget tap while offline is QUEUED, never lost or
+  /// duplicated) and the in-flight guard debounces repeat taps.
+  Future<void> clockInWithQueue() => clockIn();
+
+  /// Widget-driven clock-out — mirrors [clockInWithQueue].
+  Future<void> clockOutWithQueue() => clockOut();
+
   static const _localIdPrefix = 'local-';
 
   /// Persist the action to the durable queue and soft-commit it locally.
@@ -222,13 +232,17 @@ class AttendanceNotifier extends Notifier<AttendanceState> {
       // Refresh the banner/sheet and (if already online) try a flush.
       await ref.read(offlineQueueManagerProvider.notifier).reload();
       ref.read(offlineQueueManagerProvider.notifier).flush();
+      // Widget sync — the snapshot marks the optimistic record as pending.
+      await _syncWidget();
     } on ApiException catch (e) {
       state = state.copyWith(submitting: false, actionError: e.message);
+      await _syncWidget();
     } catch (_) {
       state = state.copyWith(
         submitting: false,
         actionError: 'Gagal menyimpan absensi offline',
       );
+      await _syncWidget();
     }
   }
 
@@ -272,14 +286,25 @@ class AttendanceNotifier extends Notifier<AttendanceState> {
       await action(DateTime.now());
       await _refetchToday();
       state = state.copyWith(submitting: false, actionError: null);
+      await _syncWidget();
     } on ApiException catch (e) {
       state = state.copyWith(submitting: false, actionError: e.message);
+      await _syncWidget();
     } catch (_) {
       state = state.copyWith(
         submitting: false,
         actionError: 'Gagal mencatat absensi',
       );
+      await _syncWidget();
     }
+  }
+
+  /// Push the current state into the home-screen widget (ticket #74): the
+  /// snapshot carries the latest clock state (or the BE's rejection verbatim)
+  /// and [WidgetBridge.updateWidget] re-renders every pinned widget. Best-
+  /// effort — a missing plugin/storage never surfaces into the clock path.
+  Future<void> _syncWidget() async {
+    await syncWidgetSnapshot(ref, attendance: state);
   }
 
   /// Silent refetch of today's record — no skeleton, keeps the current

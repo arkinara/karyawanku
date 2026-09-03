@@ -8,6 +8,8 @@ import '../api/api_exception.dart';
 import '../api/models.dart';
 import '../device/device_identity.dart';
 import '../push/push_registration.dart';
+import '../widget/widget_bridge.dart';
+import '../widget/widget_state.dart';
 import 'biometric_providers.dart';
 import 'biometric_service.dart';
 import 'authenticator.dart';
@@ -170,6 +172,10 @@ class AuthNotifier extends Notifier<AuthState> {
       }
       state = AuthState.signedIn(response.session);
       unawaited(ref.read(pushRegistrationProvider).register());
+      // Ticket #74 — write a fresh widget snapshot for THIS user. Reading the
+      // live state builds a signed-in snapshot (new business id) so a previous
+      // user's cached shift/clock data can never leak into the widget.
+      await syncWidgetSnapshot(ref);
     } catch (e) {
       state = const AuthState.signedOut();
       rethrow;
@@ -309,6 +315,9 @@ class AuthNotifier extends Notifier<AuthState> {
       await _credentialStore.clear();
       _manualSignOut = false;
       state = const AuthState.signedOut();
+      // Ticket #74 — wipe the widget snapshot so the widget flips to
+      // "Masuk KaryawanKu" immediately instead of showing the old user.
+      await _refreshWidgetSignedOut();
     }
   }
 
@@ -330,11 +339,24 @@ class AuthNotifier extends Notifier<AuthState> {
       await _credentialStore.clear();
       _manualSignOut = false;
       state = const AuthState.signedOut();
+      await _refreshWidgetSignedOut();
     }
   }
 
   /// Consume the one-shot notice after the router surfaced it.
   void acknowledgeNotice() {
     if (state.notice != null) state = const AuthState.signedOut();
+  }
+
+  /// Best-effort wipe of the home-screen widget on sign-out (ticket #74):
+  /// persist the signed-out snapshot and refresh the widget. Any storage or
+  /// platform failure is swallowed — local sign-out is the source of truth.
+  Future<void> _refreshWidgetSignedOut() async {
+    try {
+      await WidgetStore.markSignedOut();
+      await ref.read(widgetBridgeProvider).updateWidget();
+    } catch (_) {
+      // Best-effort.
+    }
   }
 }

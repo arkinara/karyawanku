@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/auth/auth_provider.dart';
+import '../../core/widget/widget_bridge.dart';
 import '../../data/models.dart';
 import '../../data/repositories/leave_repository.dart';
 import '../../data/repositories/shift_repository.dart';
@@ -113,6 +114,7 @@ class ShiftNotifier extends Notifier<ShiftState> {
         loading: false,
         error: null,
       );
+      await _syncWidget();
     } on ApiException catch (e) {
       state = state.copyWith(loading: false, error: e.message);
     } catch (_) {
@@ -126,11 +128,19 @@ class ShiftNotifier extends Notifier<ShiftState> {
     try {
       final list = await _repo.getUpcoming(days: days);
       state = state.copyWith(upcoming: list, error: null);
+      await _syncWidget();
     } on ApiException catch (e) {
       state = state.copyWith(error: e.message);
     } catch (_) {
       state = state.copyWith(error: 'Gagal memuat jadwal ke depan');
     }
+  }
+
+  /// Refresh the home-screen widget's cached snapshot (ticket #74) so the
+  /// widget's shift label/range mirrors the roster the app just loaded.
+  /// Best-effort — a storage/plugin failure never surfaces into the roster.
+  Future<void> _syncWidget() async {
+    await syncWidgetSnapshot(ref, shift: state);
   }
 
   /// Mark leave-blocked days from real leave requests (fetched once). A

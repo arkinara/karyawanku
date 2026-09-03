@@ -20,6 +20,7 @@ import 'package:karyawanku_mobile/core/location/location_service.dart';
 import 'package:karyawanku_mobile/core/push/fcm_service.dart';
 import 'package:karyawanku_mobile/core/push/push_messaging.dart';
 import 'package:karyawanku_mobile/core/device/device_identity.dart';
+import 'package:karyawanku_mobile/core/widget/widget_bridge.dart';
 import 'package:karyawanku_mobile/data/models.dart';
 import 'package:karyawanku_mobile/data/repositories/payslip_file_store.dart';
 import 'package:karyawanku_mobile/features/absensi/attendance_provider.dart';
@@ -816,6 +817,33 @@ Map<String, dynamic> deviceRefreshBody() => {
   'device_biometric_key':
       'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
 };
+
+/// Recorded [WidgetBridge] for widget tests (ticket #74) — no Android/iOS
+/// widget runtime is exercised in `flutter test`; the bridge records every
+/// call so the wiring can be asserted.
+class FakeWidgetBridge implements WidgetBridge {
+  final updates = <int>[];
+  final launches = <Uri>[];
+  final _clicks = StreamController<Uri?>.broadcast();
+  Uri? coldStart;
+
+  int get updateCount => updates.length;
+
+  /// Feed a widget tap (as if the platform delivered `widgetClicked`).
+  void emitClick(Uri? uri) => _clicks.add(uri);
+
+  @override
+  Future<void> updateWidget() async => updates.add(1);
+
+  @override
+  Stream<Uri?> get onWidgetClicked => _clicks.stream;
+
+  @override
+  Future<Uri?> initiallyLaunchedFromHomeWidget() async => coldStart;
+
+  @override
+  Future<void> launchApp(Uri uri) async => launches.add(uri);
+}
 
 /// Builds an [ApiClient] wired to the in-memory backend as its device-id
 /// source so `X-Device-Id` flows like on a real device.

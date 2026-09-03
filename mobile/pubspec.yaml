@@ -79,6 +79,13 @@ dependencies:
   local_auth_darwin: ^1.1.2
   crypto: ^3.0.6
 
+  # Ticket #74 — home-screen widget. Android App Widgets + iOS WidgetKit
+  # (interactive where the platform supports it). The widget shares the cached
+  # shift + clock snapshot with the app via the plugin's App Group +
+  # SharedPreferences container.
+  home_widget: ^0.7.0
+  shared_preferences: ^2.3.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
