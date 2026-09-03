@@ -1,7 +1,8 @@
 # KaryawanKu Mobile (Flutter)
 
-Phase 2 native mobile app — employee self-service. Front end only: every screen
-runs off fixtures in `lib/data/mock_data.dart`; nothing talks to `backend/` yet.
+Phase 2 native mobile app — employee self-service. Sign-in, session restore and
+sign-out talk to the Fastify BE in `backend/`; everything else still runs off
+fixtures in `lib/data/mock_data.dart` until the per-domain MOB tickets land.
 
 Built from the Claude Design doc `KaryawanKu Mobile.dc.html`, option **1b
 (Android / Material 3)** — M3 top app bars, tonal containers, pill buttons, an
@@ -24,6 +25,55 @@ Built from the Claude Design doc `KaryawanKu Mobile.dc.html`, option **1b
 
 `JadwalScreen` is pushed from Beranda rather than occupying a fifth navigation
 destination, matching the design doc's four-tab bar.
+
+## Auth, networking and secure token storage (ticket #62)
+
+`lib/core/api/api_client.dart` is the single typed client over Dio. It owns the
+base URL, adds `Authorization: Bearer <jwt>` to every authenticated request, and
+maps BE error envelopes (`{ error: { message, details } }`) into typed
+exceptions — `ApiException` (validation/business), `NetworkException`
+(timeout/offline) and `UnauthorizedException` (session loss) — so screens can
+tell "email atau sandi salah" apart from "device offline".
+
+Session lifecycle lives in `lib/core/auth/auth_provider.dart` (Riverpod):
+
+- `POST /auth/sign-in` stores the token pair + user and routes to the shell only
+  on success.
+- Cold start restores the stored session and verifies it with `GET /auth/me` —
+  a valid session skips the sign-in screen.
+- A 401 triggers exactly one `POST /auth/refresh`; a second failure signs the
+  user out with a "sesi berakhir" notice and bounces to `MasukScreen`.
+- `POST /auth/sign-out` revokes, and local state is cleared even when the call
+  fails.
+
+Tokens live in `lib/core/auth/secure_session_store.dart`, backed by
+`flutter_secure_storage` — the iOS Keychain and Android
+EncryptedSharedPreferences (Keystore-backed AES). They are never written to
+plaintext SharedPreferences or files. Keys: `kk_access_token`, `kk_refresh_token`,
+`kk_user`. A storage read failure (e.g. a restored backup on a new device) is
+treated as signed-out, not a crash.
+
+### Running against the local BE
+
+```
+cd mobile
+flutter pub get
+flutter run --dart-define=API_BASE_URL=http://localhost:3001
+```
+
+A build pointed at staging needs no code change:
+
+```
+flutter run --dart-define=API_BASE_URL=https://staging.example.com
+```
+
+Notes:
+
+- `flutter_secure_storage` requires a **real device or emulator** — it does not
+  work on web (`flutter run -d chrome` will not be able to persist a session).
+- Token storage deliberately differs from the web client: there is no
+  `localStorage` equivalent on mobile that is safe for a JWT, so the mobile app
+  uses the platform Keychain/Keystore instead of `kk-token` in localStorage.
 
 ## Design tokens and theming
 
@@ -93,8 +143,9 @@ cd mobile
 flutter pub get
 flutter run              # attached device or emulator
 flutter run -d chrome    # quickest way to compare against the design doc
+flutter run --dart-define=API_BASE_URL=http://localhost:3001  # against local BE
 flutter analyze
-flutter test                            # 119 tests
+flutter test                            # 151 tests
 flutter test test/token_parity_test.dart # mobile palette == web globals.css
 flutter test test/a11y_test.dart         # tap targets, labels, contrast x theme
 flutter test test/stress_test.dart       # text scale x width x theme matrix
@@ -102,6 +153,7 @@ flutter test test/stress_test.dart       # text scale x width x theme matrix
 
 ## Not yet wired
 
-Real auth, the shifts/attendance/leave/payroll APIs in `backend/`, geolocation,
-camera capture, push notifications, the offline queue, and the home-screen
-widget. The five mobile-only capabilities appear as UI states only.
+The shifts/attendance/leave/payroll APIs in `backend/`, geolocation, camera
+capture, push notifications, the offline queue, and the home-screen widget. The
+five mobile-only capabilities appear as UI states only. Sign-in/sign-out are
+real; the screen-by-screen data wiring is covered by the per-domain MOB tickets.

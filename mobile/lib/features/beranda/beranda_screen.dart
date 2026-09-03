@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/auth/auth_provider.dart';
 import '../../core/format.dart';
 import '../../data/mock_data.dart';
 import '../../data/models.dart';
@@ -87,11 +89,17 @@ class BerandaScreen extends StatelessWidget {
   }
 }
 
-class _Header extends StatelessWidget {
+class _Header extends ConsumerWidget {
   const _Header();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(authProvider).user;
+    final firstName = (user?.nama.trim().split(RegExp(r'\s+')).firstOrNull) ??
+        'Siti';
+    final greeting =
+        user == null ? Mock.greeting : 'Selamat pagi, $firstName';
+
     return Padding(
       // Was a fixed 64 dp box; two lines of scaled-up text overflowed it.
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -104,7 +112,7 @@ class _Header extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(Mock.greeting, style: context.texts.titleMedium),
+                  Text(greeting, style: context.texts.titleMedium),
                   Text(
                     '${Mock.employee.company} · '
                     '${Mock.employee.branch.replaceFirst('Cabang ', '')}',
@@ -124,11 +132,7 @@ class _Header extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 4),
-            Semantics(
-              label: 'Profil ${Mock.employee.name}',
-              button: true,
-              child: const EmployeeAvatar(),
-            ),
+            const EmployeeAvatar(),
           ],
         ),
       ),

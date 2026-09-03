@@ -1,17 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:karyawanku_mobile/app.dart';
 import 'package:karyawanku_mobile/features/shell/home_shell.dart';
 import 'package:karyawanku_mobile/theme/app_theme.dart';
 
+import 'helpers.dart';
+
 void main() {
-  testWidgets('sign-in lands on Beranda with the shift hero', (tester) async {
-    await tester.pumpWidget(const KaryawanKuApp());
-
-    expect(find.text('Masuk untuk melanjutkan.'), findsOneWidget);
-
-    await tester.tap(find.widgetWithText(FilledButton, 'Masuk'));
+  testWidgets('signed-in app opens on Beranda with the shift hero', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [signedInOverride],
+        child: const KaryawanKuApp(),
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.byType(HomeShell), findsOneWidget);
@@ -21,7 +27,10 @@ void main() {
 
   testWidgets('every tab in the navigation bar renders', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(theme: buildAppTheme(), home: const HomeShell()),
+      ProviderScope(
+        overrides: [signedInOverride],
+        child: MaterialApp(theme: buildAppTheme(), home: const HomeShell()),
+      ),
     );
     await tester.pumpAndSettle();
 

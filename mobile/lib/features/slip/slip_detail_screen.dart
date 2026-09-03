@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/auth/auth_provider.dart';
 import '../../core/format.dart';
 import '../../data/mock_data.dart';
 import '../../data/models.dart';
@@ -9,15 +11,16 @@ import '../../widgets/common.dart';
 
 /// Payslip detail. Take-home sits above the fold; the compliance lines
 /// (BPJS Kesehatan/JHT/JP, PPh 21) are spelled out rather than summed away.
-class SlipDetailScreen extends StatelessWidget {
+class SlipDetailScreen extends ConsumerWidget {
   const SlipDetailScreen({super.key, required this.payslip});
 
   final Payslip payslip;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
     final status = context.status;
+    final user = ref.watch(authProvider).user;
 
     return Scaffold(
       appBar: AppBar(
@@ -48,7 +51,8 @@ class SlipDetailScreen extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   'Digenerate ${Fmt.date(payslip.paidOn)} · '
-                  '${Mock.employee.name}, ${Mock.employee.role}',
+                  '${user == null ? Mock.employee.name : user.nama}, '
+                  '${user == null ? Mock.employee.role : user.roleLabel}',
                   style: context.texts.bodyMedium?.copyWith(
                     color: colors.onSurfaceVariant,
                     fontFeatures: Fmt.tabular,

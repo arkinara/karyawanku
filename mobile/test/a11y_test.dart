@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:karyawanku_mobile/data/mock_data.dart';
@@ -12,6 +13,8 @@ import 'package:karyawanku_mobile/features/shell/home_shell.dart';
 import 'package:karyawanku_mobile/features/slip/slip_detail_screen.dart';
 import 'package:karyawanku_mobile/features/slip/slip_gaji_screen.dart';
 import 'package:karyawanku_mobile/theme/app_theme.dart';
+
+import 'helpers.dart';
 
 final screens = <String, Widget>{
   'Masuk': const MasukScreen(),
@@ -35,9 +38,12 @@ void main() {
       ) async {
         final handle = tester.ensureSemantics();
         await tester.pumpWidget(
-          MaterialApp(
-            theme: buildAppTheme(brightness: brightness),
-            home: screen,
+          ProviderScope(
+            overrides: [signedInOverride],
+            child: MaterialApp(
+              theme: buildAppTheme(brightness: brightness),
+              home: screen,
+            ),
           ),
         );
         await tester.pumpAndSettle();

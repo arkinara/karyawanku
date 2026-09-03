@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:karyawanku_mobile/features/absensi/absensi_screen.dart';
@@ -11,6 +12,8 @@ import 'package:karyawanku_mobile/features/slip/slip_detail_screen.dart';
 import 'package:karyawanku_mobile/features/slip/slip_gaji_screen.dart';
 import 'package:karyawanku_mobile/data/mock_data.dart';
 import 'package:karyawanku_mobile/theme/app_theme.dart';
+
+import 'helpers.dart';
 
 final screens = <String, Widget>{
   'Masuk': const MasukScreen(),
@@ -37,9 +40,12 @@ void main() {
               await tester.pumpWidget(
                 MediaQuery(
                   data: MediaQueryData(textScaler: TextScaler.linear(scale)),
-                  child: MaterialApp(
-                    theme: buildAppTheme(brightness: brightness),
-                    home: screen,
+                  child: ProviderScope(
+                    overrides: [signedInOverride],
+                    child: MaterialApp(
+                      theme: buildAppTheme(brightness: brightness),
+                      home: screen,
+                    ),
                   ),
                 ),
               );

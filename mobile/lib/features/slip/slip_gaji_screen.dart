@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/auth/auth_provider.dart';
 import '../../core/format.dart';
 import '../../data/mock_data.dart';
 import '../../data/models.dart';
@@ -10,14 +12,14 @@ import 'slip_detail_screen.dart';
 
 /// Payslip list: the newest one as a tonal hero with earnings/deductions
 /// split, then history including THR.
-class SlipGajiScreen extends StatefulWidget {
+class SlipGajiScreen extends ConsumerStatefulWidget {
   const SlipGajiScreen({super.key});
 
   @override
-  State<SlipGajiScreen> createState() => _SlipGajiScreenState();
+  ConsumerState<SlipGajiScreen> createState() => _SlipGajiScreenState();
 }
 
-class _SlipGajiScreenState extends State<SlipGajiScreen> {
+class _SlipGajiScreenState extends ConsumerState<SlipGajiScreen> {
   static const _filters = ['Semua', '2026', '2025'];
   int _filter = 0;
 
@@ -32,6 +34,7 @@ class _SlipGajiScreenState extends State<SlipGajiScreen> {
   Widget build(BuildContext context) {
     final latest = Mock.latestPayslip;
     final history = _history;
+    final user = ref.watch(authProvider).user;
 
     return Scaffold(
       body: SafeArea(
@@ -45,7 +48,9 @@ class _SlipGajiScreenState extends State<SlipGajiScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${Mock.employee.name} · ${Mock.employee.role}',
+                    user == null
+                        ? '${Mock.employee.name} · ${Mock.employee.role}'
+                        : '${user.nama} · ${user.roleLabel}',
                     style: context.texts.bodyMedium?.copyWith(
                       color: context.colors.onSurfaceVariant,
                     ),

@@ -1,23 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../../data/mock_data.dart';
+import '../../core/api/api_exception.dart';
+import '../../core/auth/auth_provider.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/common.dart';
-import '../shell/home_shell.dart';
+
+const _offlineNotice =
+    'Absensi tetap tercatat tanpa sinyal — data terkirim otomatis saat kembali online.';
 
 /// Sign-in. M3 outlined fields with floating labels, pill buttons, and the
 /// offline reassurance note that sets expectations before the first shift.
-class MasukScreen extends StatefulWidget {
+/// Submits to `POST /auth/sign-in`; the router swaps to the shell only once
+/// [AuthNotifier.signIn] succeeds.
+class MasukScreen extends ConsumerStatefulWidget {
   const MasukScreen({super.key});
 
   @override
-  State<MasukScreen> createState() => _MasukScreenState();
+  ConsumerState<MasukScreen> createState() => _MasukScreenState();
 }
 
-class _MasukScreenState extends State<MasukScreen> {
-  final _email = TextEditingController(text: 'nama@usaha.com');
-  final _password = TextEditingController(text: 'rahasia123');
+class _MasukScreenState extends ConsumerState<MasukScreen> {
+  final _email = TextEditingController();
+  final _password = TextEditingController();
   bool _obscure = true;
 
   @override
@@ -27,15 +33,54 @@ class _MasukScreenState extends State<MasukScreen> {
     super.dispose();
   }
 
-  void _enter() {
-    Navigator.of(
-      context,
-    ).pushReplacement(MaterialPageRoute(builder: (_) => const HomeShell()));
+  Future<void> _submit() async {
+    final email = _email.text.trim();
+    final password = _password.text;
+    if (email.isEmpty || password.isEmpty) {
+      _showError('Email dan kata sandi wajib diisi');
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+    try {
+      await ref.read(authProvider.notifier).signIn(email, password);
+      // Success — the root router observes the signed-in state and swaps to
+      // the shell. Nothing to navigate by hand.
+    } on NetworkException catch (e) {
+      if (mounted) _showError(e.message);
+    } on ApiException catch (e) {
+      if (mounted) _showError(e.message);
+    } catch (_) {
+      if (mounted) _showError('Terjadi kesalahan. Silakan coba lagi.');
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
   }
 
   @override
   Widget build(BuildContext context) {
+    final auth = ref.watch(authProvider);
     final colors = context.colors;
+    final loading = auth.signingIn;
+
+    // Surface the "sesi berakhir" notice left by a failed refresh exactly once.
+    final notice = auth.notice;
+    if (notice != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _showError(notice);
+        ref.read(authProvider.notifier).acknowledgeNotice();
+      });
+    }
 
     return Scaffold(
       body: SafeArea(
@@ -91,6 +136,7 @@ class _MasukScreenState extends State<MasukScreen> {
                 keyboardType: TextInputType.emailAddress,
                 autofillHints: const [AutofillHints.username],
                 textInputAction: TextInputAction.next,
+                enabled: !loading,
                 decoration: const InputDecoration(labelText: 'Email'),
               ),
               const SizedBox(height: 20),
@@ -99,7 +145,8 @@ class _MasukScreenState extends State<MasukScreen> {
                 obscureText: _obscure,
                 autofillHints: const [AutofillHints.password],
                 textInputAction: TextInputAction.done,
-                onSubmitted: (_) => _enter(),
+                enabled: !loading,
+                onSubmitted: (_) => _submit(),
                 decoration: InputDecoration(
                   labelText: 'Kata sandi',
                   suffixIcon: IconButton(
@@ -124,10 +171,22 @@ class _MasukScreenState extends State<MasukScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              FilledButton(onPressed: _enter, child: const Text('Masuk')),
+              FilledButton(
+                onPressed: loading ? null : _submit,
+                child: loading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          valueColor: AlwaysStoppedAnimation(Colors.white),
+                        ),
+                      )
+                    : const Text('Masuk'),
+              ),
               const SizedBox(height: 20),
               OutlinedButton(
-                onPressed: _enter,
+                onPressed: () {},
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -171,7 +230,7 @@ class _MasukScreenState extends State<MasukScreen> {
                 background: context.status.infoContainer,
                 foreground: context.status.onInfoContainer,
                 margin: EdgeInsets.zero,
-                child: const Text(Mock.offlineNotice),
+                child: const Text(_offlineNotice),
               ),
             ],
           ),

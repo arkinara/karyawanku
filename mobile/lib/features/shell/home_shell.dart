@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/auth/auth_provider.dart';
 import '../../data/mock_data.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/common.dart';
 import '../absensi/absensi_screen.dart';
 import '../beranda/beranda_screen.dart';
 import '../cuti/cuti_screen.dart';
+import '../profile/profile_screen.dart';
 import '../slip/slip_gaji_screen.dart';
 
 /// Four-destination M3 navigation bar (80 dp, pill indicator). Jadwal is a
@@ -67,19 +70,34 @@ class _HomeShellState extends State<HomeShell> {
   void _go(int i) => setState(() => _index = i);
 }
 
-/// Shared app-bar avatar for the signed-in employee.
-class EmployeeAvatar extends StatelessWidget {
+/// Shared app-bar avatar for the signed-in employee. Reads the real user from
+/// the auth session and opens [ProfileScreen] on tap.
+class EmployeeAvatar extends ConsumerWidget {
   const EmployeeAvatar({super.key, this.size = 36});
 
   final double size;
 
   @override
-  Widget build(BuildContext context) {
-    return RoundToken(
-      label: Mock.employee.initials,
-      background: context.colors.primaryContainer,
-      foreground: context.colors.onPrimaryContainer,
-      size: size,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(authProvider).user;
+    final name = user?.nama ?? Mock.employee.name;
+    final initials = user?.initials ?? Mock.employee.initials;
+
+    return Semantics(
+      label: 'Profil $name',
+      button: true,
+      child: InkWell(
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const ProfileScreen()),
+        ),
+        borderRadius: BorderRadius.circular(size / 2),
+        child: RoundToken(
+          label: initials,
+          background: context.colors.primaryContainer,
+          foreground: context.colors.onPrimaryContainer,
+          size: size,
+        ),
+      ),
     );
   }
 }
