@@ -410,14 +410,7 @@ class Payslip {
 
   /// `2026-08` -> `Agustus 2026`; non-periodic keys (e.g. `THR-2026`) pass
   /// through with a server-tolerant fallback.
-  String get periodLabel {
-    final parts = periode.split('-');
-    if (parts.length != 2) return periode;
-    final y = int.tryParse(parts[0]);
-    final m = int.tryParse(parts[1]);
-    if (y == null || m == null || m < 1 || m > 12) return periode;
-    return '${Fmt.monthNames[m - 1]} $y';
-  }
+  String get periodLabel => _periodLabel(periode);
 
   /// A payslip an employee can rely on — approved or locked runs. Draft rows
   /// are not yet payable.

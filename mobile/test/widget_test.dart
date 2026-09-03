@@ -6,7 +6,6 @@ import 'package:karyawanku_mobile/app.dart';
 import 'package:karyawanku_mobile/features/absensi/attendance_provider.dart';
 import 'package:karyawanku_mobile/features/jadwal/shift_provider.dart';
 import 'package:karyawanku_mobile/features/shell/home_shell.dart';
-import 'package:karyawanku_mobile/features/slip/payslip_provider.dart';
 import 'package:karyawanku_mobile/theme/app_theme.dart';
 
 import 'helpers.dart';

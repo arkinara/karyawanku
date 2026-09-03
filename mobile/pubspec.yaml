@@ -44,6 +44,12 @@ dependencies:
   path_provider: ^2.1.6
   share_plus: ^12.0.2
 
+  # Ticket #68 — device location for geofence clock-in verification. Distance
+  # is computed client-side with `Geolocator.distanceBetween`; the geofencing
+  # packages are deliberately not used (no native circular-region monitoring).
+  geolocator: ^13.0.0
+  permission_handler: ^11.3.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

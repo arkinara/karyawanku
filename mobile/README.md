@@ -332,10 +332,10 @@ flutter test test/stress_test.dart       # text scale x width x theme matrix
 
 ## Not yet wired
 
-The payslip API in `backend/`, real geolocation, camera capture, push
-notifications, the offline queue, and the home-screen widget. The five
-mobile-only capabilities appear as UI states only. Sign-in/sign-out,
-attendance (today + clock in/out + monthly aggregate), the shift schedule
-(roster by range + upcoming + leave-blocked days) and leave (balances +
-history + submit + types) are real; the remaining screen-by-screen data wiring
-is covered by the per-domain MOB tickets.
+Real geolocation, camera capture, push notifications, the offline queue, and
+the home-screen widget. The four remaining mobile-only capabilities appear as
+UI states only. Sign-in/sign-out, attendance (today + clock in/out + monthly
+aggregate), the shift schedule (roster by range + upcoming + leave-blocked
+days), leave (balances + history + submit + types) and payslips (list +
+detail + PDF download/share) are all wired to the BE; the remaining screen-by-
+screen data wiring is covered by the per-domain MOB tickets.
