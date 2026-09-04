@@ -235,7 +235,7 @@ export interface AttendanceGeofenceResult {
  *   seperti perilaku lama).
  * - `mode = 'block_in_radius'` TIDAK pernah diam-diam turun ke `flag_only`
  *   saat radius diset: selama lokasi aktif, off-site / poor-accuracy /
- *   koordinat hilang semuanya menolak.
+ *   koordinat hilang / akurasi hilang semuanya menolak.
  */
 function evaluateAttendanceGeofence(
   business: Business,
@@ -255,6 +255,15 @@ function evaluateAttendanceGeofence(
   if (geofenceActive && mode === 'block_in_radius') {
     if (!coords) {
       throw new ApiError(422, 'coordinates_required_for_blocking_business')
+    }
+    // `unknown` here can only mean the client sent lat/lon but omitted
+    // `accuracy_m` (the location is active, so the config side is complete).
+    // Letting it through would make the whole geofence opt-out by dropping one
+    // field: an off-site clock-in without accuracy would be accepted.
+    if (verdict.status === 'unknown') {
+      throw new ApiError(422, 'accuracy_required_for_blocking_business', {
+        radius_m: radiusM,
+      })
     }
     if (verdict.status === 'off_site') {
       throw new ApiError(422, 'outside_geofence', {

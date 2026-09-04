@@ -155,6 +155,14 @@ describe('evaluateGeofence', () => {
     expect(v).toEqual({ status: 'unknown', distanceM: null })
   })
 
+  it('akurasi 0 (platform tanpa estimasi) → poor_accuracy, bukan on_site', () => {
+    const v = evaluateGeofence(
+      { lat: WORK_LAT, lon: WORK_LON, accuracyM: 0 },
+      { workLat: WORK_LAT, workLon: WORK_LON, radiusM: 100, mode: 'flag_only' },
+    )
+    expect(v.status).toBe('poor_accuracy')
+  })
+
   it('akurasi null → unknown (tidak pernah menganggap on-site tanpa akurasi)', () => {
     const v = evaluateGeofence(
       { lat: WORK_LAT, lon: WORK_LON, accuracyM: null },
@@ -277,6 +285,42 @@ describe('POST /api/attendance/clock-in — geofence', () => {
     expect(res.json().error.details.distance_m).toBeGreaterThan(240)
     expect(res.json().error.details.radius_m).toBe(100)
     expect(res.json().error.details.business_id).toBe(ctx.businessId)
+    expect(recordCount()).toBe(0)
+  })
+
+  it('akurasi 0 di dalam radius, bisnis block_in_radius → 422 accuracy_too_poor', async () => {
+    ctx = await setupTest()
+    await configureGeofence({ geofence_mode: 'block_in_radius' })
+    const emp = await seedEmployee()
+    await linkEmployeeUser(emp.id)
+
+    // accuracy_m = 0 berarti "platform tidak punya estimasi", bukan fix sempurna.
+    const res = await clockIn({
+      submission_method: 'offline_queue',
+      client_timestamp: at('2026-08-08', '07:45'),
+      ...coordAt(10, 0),
+    })
+    expect(res.statusCode).toBe(422)
+    expect(res.json().error.message).toBe('accuracy_too_poor')
+    expect(recordCount()).toBe(0)
+  })
+
+  it('off-site tanpa accuracy_m, bisnis block_in_radius → 422, tanpa record', async () => {
+    ctx = await setupTest()
+    await configureGeofence({ geofence_mode: 'block_in_radius' })
+    const emp = await seedEmployee()
+    await linkEmployeeUser(emp.id)
+
+    // Menghilangkan `accuracy_m` tidak boleh menjadi jalan keluar dari geofence.
+    const res = await clockIn({
+      submission_method: 'offline_queue',
+      client_timestamp: at('2026-08-07', '07:45'),
+      latitude: WORK_LAT + 250 / M_PER_DEG_LAT,
+      longitude: WORK_LON,
+    })
+    expect(res.statusCode).toBe(422)
+    expect(res.json().error.message).toBe('accuracy_required_for_blocking_business')
+    expect(res.json().error.details.radius_m).toBe(100)
     expect(recordCount()).toBe(0)
   })
 

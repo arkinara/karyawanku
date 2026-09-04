@@ -56,8 +56,8 @@ export function haversineDistanceMeters(
  *
  * - Input tidak lengkap (koordinat / akurasi / lokasi kerja / radius null) →
  *   `unknown`, jarak null. Bisnis tanpa lokasi tidak pernah memunculkan flag.
- * - Akurasi > radius → `poor_accuracy` (GPS jelek ≠ di lokasi), jarak tetap
- *   dicatat.
+ * - Akurasi <= 0 (platform tidak punya estimasi) atau akurasi > radius →
+ *   `poor_accuracy` (GPS jelek ≠ di lokasi), jarak tetap dicatat.
  * - Selain itu `on_site` bila `jarak <= radius`, `off_site` bila lebih.
  */
 export function evaluateGeofence(
@@ -82,7 +82,11 @@ export function evaluateGeofence(
     config.workLon,
   )
 
-  if (point.accuracyM > config.radiusM) {
+  // `accuracy <= 0` is not a perfect fix — it is the platform saying it has no
+  // accuracy estimate (Android reports 0, iOS reports negative). Trusting it
+  // would let the weakest fix claim the strongest verdict. Mirrors the mobile
+  // guard in `location_service.dart` (`user.accuracy <= 0` → lowAccuracy).
+  if (point.accuracyM <= 0 || point.accuracyM > config.radiusM) {
     return { status: 'poor_accuracy', distanceM }
   }
 
