@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import LeavePage from '@/app/leave/page'
 
@@ -252,7 +252,13 @@ function stubEmployeeFetch() {
   )
 }
 
+// The fixtures above are all August 2026, and the page's "Bulan Ini" metrics
+// plus the "tanggal mulai >= hari ini" form rule both read the wall clock — so
+// without a frozen clock these tests silently started failing on 1 Sep 2026.
+// Only Date is faked; setTimeout stays real so waitFor/findBy still work.
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date('2026-08-20T09:00:00'))
   window.localStorage.clear()
   window.history.replaceState(null, '', '/')
   window.localStorage.setItem('kk-token', 'test-token')
@@ -260,6 +266,10 @@ beforeEach(() => {
     'kk-user',
     JSON.stringify({ id: 'u', business_id: 'b', nama: 'Owner', email: 'o@x', role: 'owner' }),
   )
+})
+
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 describe('Leave Page — Owner view', () => {

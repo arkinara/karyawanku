@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { eq } from 'drizzle-orm'
 import type { TestCtx } from './helpers.js'
 import { setupTest } from './helpers.js'
@@ -7,6 +7,7 @@ import { employees, leaveBalances, leaveTypes, users } from '../src/db/schema.js
 let ctx: TestCtx
 
 afterEach(() => {
+  vi.useRealTimers()
   ctx?.cleanup()
 })
 
@@ -40,7 +41,16 @@ async function linkEmployeeUser(employeeId: string) {
   ctx.db.db.update(users).set({ employee_id: employeeId }).where(eq(users.email, 'siti@demo.com')).run()
 }
 
-const YEAR = new Date().getUTCFullYear()
+// Kuota prorata dihitung dari masa kerja terhadap "sekarang", sedangkan
+// tanggal masuk pada fixture di bawah bersifat tetap (2026). Tanpa jam yang
+// dibekukan, kasus "masa kerja < 1 tahun" berhenti berlaku begitu tahun
+// berganti. Hanya Date yang dipalsukan; timer lain tetap nyata.
+const YEAR = 2026
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date('2026-08-20T09:00:00Z'))
+})
 
 describe('GET /api/leave-balances (auto-create)', () => {
   it('owner melihat saldo karyawan, auto-create semua jenis cuti, Tahunan kuota 12 (masa kerja >= 1 th)', async () => {
