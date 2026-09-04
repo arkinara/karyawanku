@@ -2,6 +2,36 @@ import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
 import { afterEach, vi } from 'vitest'
 
+// Node >=22 defines its own `localStorage` global, which is undefined unless
+// the process was started with --localstorage-file. vitest's jsdom environment
+// skips any key already present on globalThis, so jsdom's real Storage never
+// lands and every `localStorage.*` call in a test throws. CI runs Node 20 and
+// never sees this; local devs on a newer Node saw the whole suite fail.
+// Install a minimal in-memory Storage only when the global is missing — on
+// Node 20 this is a no-op and jsdom's own implementation is used as before.
+if (typeof globalThis.localStorage === 'undefined') {
+  const makeStorage = (): Storage => {
+    const store = new Map<string, string>()
+    return {
+      get length() {
+        return store.size
+      },
+      key: (i: number) => [...store.keys()][i] ?? null,
+      getItem: (k: string) => (store.has(k) ? store.get(k)! : null),
+      setItem: (k: string, v: string) => void store.set(String(k), String(v)),
+      removeItem: (k: string) => void store.delete(String(k)),
+      clear: () => store.clear(),
+    } as Storage
+  }
+  for (const name of ['localStorage', 'sessionStorage'] as const) {
+    Object.defineProperty(globalThis, name, {
+      value: makeStorage(),
+      configurable: true,
+      writable: true,
+    })
+  }
+}
+
 // The M3/ProMax bridge made AppShell (and every page using it) a 'use client'
 // component that calls useRouter()/usePathname()/useSearchParams() from
 // next/navigation. jsdom has no Next.js router context, so mock the module
