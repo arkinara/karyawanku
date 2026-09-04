@@ -33,6 +33,18 @@ export type AttendanceStatus = (typeof attendanceStatuses)[number]
 export const attendanceSubmissionMethods = ['live', 'offline_queue'] as const
 export type AttendanceSubmissionMethod = (typeof attendanceSubmissionMethods)[number]
 
+/**
+ * Mode geofence bisnis (ticket #67): `flag_only` hanya menandai status on/off
+ * site pada record absensi; `block_in_radius` menolak clock-in/out di luar
+ * radius. Evaluasi jarak selalu server-side — klien tidak bisa meng-override.
+ */
+export const geofenceModes = ['flag_only', 'block_in_radius'] as const
+export type GeofenceMode = (typeof geofenceModes)[number]
+
+/** Verdict geofence yang dicatat di `attendance_records` (hasil evaluasi server). */
+export const geofenceStatuses = ['on_site', 'off_site', 'poor_accuracy', 'unknown'] as const
+export type GeofenceStatusValue = (typeof geofenceStatuses)[number]
+
 export const payrollRunStatuses = ['draft', 'disetujui', 'locked'] as const
 export type PayrollRunStatus = (typeof payrollRunStatuses)[number]
 
@@ -43,6 +55,16 @@ export const businesses = sqliteTable('businesses', {
   nama_bisnis: text('nama_bisnis').notNull(),
   jenis_usaha: text('jenis_usaha', { enum: ['fnb', 'jasa'] }).notNull().default('fnb'),
   alamat: text('alamat'),
+  /** Lokasi kerja untuk geofence absensi (ticket #67) — nullable, fitur opsional. */
+  work_latitude: real('work_latitude'),
+  work_longitude: real('work_longitude'),
+  /** Radius kerja (meter); null = geofence nonaktif untuk bisnis ini. */
+  work_radius_m: integer('work_radius_m'),
+  /** `flag_only` menandai saja; `block_in_radius` menolak absensi di luar radius. */
+  geofence_mode: text('geofence_mode', { enum: geofenceModes }).notNull().default('flag_only'),
+  geofence_min_radius_m: integer('geofence_min_radius_m').notNull().default(20),
+  geofence_max_radius_m: integer('geofence_max_radius_m').notNull().default(5000),
+  geofence_default_radius_m: integer('geofence_default_radius_m').notNull().default(100),
   created_at: integer('created_at', { mode: 'timestamp' })
     .notNull()
     .default(sql`(unixepoch())`),
@@ -342,6 +364,18 @@ export const attendanceRecords = sqliteTable(
     overtime_minutes: integer('overtime_minutes').notNull().default(0),
     /** Koreksi manual jam lembur (menit) yang menang atas nilai turunan; null = pakai turunan. */
     overtime_override_minutes: integer('overtime_override_minutes'),
+    /** Koordinat clock-in persis seperti dilaporkan klien + jarak ke lokasi kerja (ticket #67). */
+    clock_in_latitude: real('clock_in_latitude'),
+    clock_in_longitude: real('clock_in_longitude'),
+    clock_in_accuracy_m: real('clock_in_accuracy_m'),
+    clock_in_distance_m: real('clock_in_distance_m'),
+    /** Koordinat clock-out + jarak terhitung (clock-out juga dievaluasi geofence). */
+    clock_out_latitude: real('clock_out_latitude'),
+    clock_out_longitude: real('clock_out_longitude'),
+    clock_out_accuracy_m: real('clock_out_accuracy_m'),
+    clock_out_distance_m: real('clock_out_distance_m'),
+    /** Verdict geofence (on_site/off_site/poor_accuracy/unknown) — hasil evaluasi server, bukan klaim klien. */
+    geofence_status: text('geofence_status', { enum: geofenceStatuses }).notNull().default('unknown'),
   },
   (table) => [
     index('attendance_records_employee_idx').on(table.employee_id),

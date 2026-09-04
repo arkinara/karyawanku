@@ -19,6 +19,7 @@ export const capabilities = [
   'salary.write',
   'settings.write',
   'users.manage',
+  'business.manage',
 ] as const
 
 export type Capability = (typeof capabilities)[number]

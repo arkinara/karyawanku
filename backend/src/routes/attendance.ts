@@ -5,10 +5,12 @@ import { getDb } from '../db/index.js'
 import {
   attendanceRecords,
   attendanceSubmissionMethods,
+  businesses,
   employees,
   shiftAssignments,
   shifts,
   type AttendanceSubmissionMethod,
+  type Business,
 } from '../db/schema.js'
 import { currentUser, requireAuth, requireCapability } from '../lib/auth.js'
 import { hasCapability } from '../lib/capabilities.js'
@@ -17,6 +19,8 @@ import { ApiError, ConflictError, ForbiddenError } from '../lib/errors.js'
 import { computeAttendanceStatus, DEFAULT_SCHEDULE_START } from '../lib/attendance-status.js'
 import { findIdempotentResult, recordIdempotency } from '../lib/attendance-idem.js'
 import { offsetOf, paginateResult, parsePagination } from '../lib/pagination.js'
+import { evaluateGeofence, type GeofenceStatus } from '../lib/geofence.js'
+import { parseCoordinates, type ParsedCoordinates } from '../lib/geofence-input.js'
 import {
   computeOvertimeMinutes,
   DEFAULT_GRACE_MINUTES,
@@ -32,17 +36,34 @@ import {
  */
 export const TIMESTAMP_TOLERANCE_MS = 5 * 60 * 1000
 
+/**
+ * Field koordinat pada body clock-in/out (ticket #67). Diterima sebagai angka,
+ * string numerik, atau null (klien mengirim null saat tidak ada fix GPS).
+ * Validasi range sebenarnya dilakukan di `parseCoordinates` (`geofence-input.ts`).
+ */
+const coordField = z.union([z.number(), z.string(), z.null()]).optional()
+
 const clockInSchema = z.object({
   employee_id: z.string().optional(),
   catatan: z.string().optional(),
   client_timestamp: z.string().optional(),
   submission_method: z.enum(attendanceSubmissionMethods).optional(),
+  latitude: coordField,
+  longitude: coordField,
+  accuracy_m: coordField,
+  lat: coordField,
+  lng: coordField,
 })
 
 const clockOutSchema = z.object({
   employee_id: z.string().optional(),
   client_timestamp: z.string().optional(),
   submission_method: z.enum(attendanceSubmissionMethods).optional(),
+  latitude: coordField,
+  longitude: coordField,
+  accuracy_m: coordField,
+  lat: coordField,
+  lng: coordField,
 })
 
 const manualSchema = z.object({
@@ -196,6 +217,69 @@ function resolveTargetEmployee(
   return selfId
 }
 
+export interface AttendanceGeofenceResult {
+  status: GeofenceStatus
+  distanceM: number | null
+  lat: number | null
+  lon: number | null
+  accuracyM: number | null
+}
+
+/**
+ * Evaluasi geofence untuk sebuah tindakan absensi (ticket #67). Selalu
+ * server-side: koordinat dicatat persis seperti dilaporkan klien, verdict
+ * ditentukan di sini, dan untuk bisnis dengan `mode = 'block_in_radius'` yang
+ * lokasinya aktif, pelanggaran menolak request 422 (tidak ada record dibuat).
+ *
+ * - Bisnis tanpa lokasi yang dikonfigurasi → `unknown`, tanpa blok (persis
+ *   seperti perilaku lama).
+ * - `mode = 'block_in_radius'` TIDAK pernah diam-diam turun ke `flag_only`
+ *   saat radius diset: selama lokasi aktif, off-site / poor-accuracy /
+ *   koordinat hilang semuanya menolak.
+ */
+function evaluateAttendanceGeofence(
+  business: Business,
+  coords: ParsedCoordinates | null,
+): AttendanceGeofenceResult {
+  const workLat = business.work_latitude
+  const workLon = business.work_longitude
+  const radiusM = business.work_radius_m
+  const mode = business.geofence_mode ?? 'flag_only'
+
+  const verdict = evaluateGeofence(
+    { lat: coords?.lat ?? null, lon: coords?.lon ?? null, accuracyM: coords?.accuracy ?? null },
+    { workLat, workLon, radiusM, mode },
+  )
+
+  const geofenceActive = workLat != null && workLon != null && radiusM != null
+  if (geofenceActive && mode === 'block_in_radius') {
+    if (!coords) {
+      throw new ApiError(422, 'coordinates_required_for_blocking_business')
+    }
+    if (verdict.status === 'off_site') {
+      throw new ApiError(422, 'outside_geofence', {
+        distance_m: verdict.distanceM,
+        radius_m: radiusM,
+        business_id: business.id,
+      })
+    }
+    if (verdict.status === 'poor_accuracy') {
+      throw new ApiError(422, 'accuracy_too_poor', {
+        accuracy_m: coords.accuracy,
+        radius_m: radiusM,
+      })
+    }
+  }
+
+  return {
+    status: verdict.status,
+    distanceM: verdict.distanceM,
+    lat: coords?.lat ?? null,
+    lon: coords?.lon ?? null,
+    accuracyM: coords?.accuracy ?? null,
+  }
+}
+
 /** Jam mulai shift aktif untuk employee pada tanggal tsb, atau null bila tak ada. */
 function getScheduleStart(employeeId: string, tanggal: string): string | null {
   const { db } = getDb()
@@ -329,6 +413,13 @@ export default async function attendanceRoutes(app: FastifyInstance): Promise<vo
       return { record: replayed.record, schedule_start: replayed.scheduleStart }
     }
 
+    // Geofence (ticket #67): evaluasi server-side terhadap lokasi kerja bisnis.
+    // Untuk bisnis `block_in_radius` yang aktif, pelanggaran melempar 422 di
+    // sini (sebelum insert) sehingga tidak ada record yang dibuat.
+    const business = db.select().from(businesses).where(eq(businesses.id, user.business_id)).get()
+    if (!business) throw new ApiError(404, 'Bisnis tidak ditemukan')
+    const geofence = evaluateAttendanceGeofence(business, parseCoordinates(body))
+
     const submissionMethod = body.submission_method ?? 'live'
     const clock = parseClientTimestamp(body.client_timestamp, submissionMethod)
     const tanggal = clock.tanggal
@@ -358,6 +449,11 @@ export default async function attendanceRoutes(app: FastifyInstance): Promise<vo
           catatan: body.catatan ?? null,
           status,
           late_minutes: lateMinutes,
+          clock_in_latitude: geofence.lat,
+          clock_in_longitude: geofence.lon,
+          clock_in_accuracy_m: geofence.accuracyM,
+          clock_in_distance_m: geofence.distanceM,
+          geofence_status: geofence.status,
         })
         .returning()
         .get()
@@ -425,6 +521,13 @@ export default async function attendanceRoutes(app: FastifyInstance): Promise<vo
       return { record: replayed.record }
     }
 
+    // Geofence clock-out (ticket #67): bisnis `block_in_radius` menolak
+    // clock-out di luar radius / akurasi jelek / tanpa koordinat (422, tanpa
+    // menulis clock_out). Bisnis tanpa lokasi aktif → `unknown`, tanpa blok.
+    const business = db.select().from(businesses).where(eq(businesses.id, user.business_id)).get()
+    if (!business) throw new ApiError(404, 'Bisnis tidak ditemukan')
+    const geofence = evaluateAttendanceGeofence(business, parseCoordinates(body))
+
     const submissionMethod = body.submission_method ?? 'live'
     const clock = parseClientTimestamp(body.client_timestamp, submissionMethod)
     const tanggal = clock.tanggal
@@ -462,6 +565,11 @@ export default async function attendanceRoutes(app: FastifyInstance): Promise<vo
           time_drift_detected: Boolean(existing.time_drift_detected) || clock.timeDriftDetected,
           submission_method: submissionMethod,
           overtime_minutes: overtimeMinutes,
+          clock_out_latitude: geofence.lat,
+          clock_out_longitude: geofence.lon,
+          clock_out_accuracy_m: geofence.accuracyM,
+          clock_out_distance_m: geofence.distanceM,
+          geofence_status: geofence.status,
         })
         .where(eq(attendanceRecords.id, existing.id))
         .returning()

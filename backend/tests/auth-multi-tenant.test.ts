@@ -3,10 +3,11 @@ import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:f
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
+import { randomUUID } from 'node:crypto'
 import type { TestCtx } from './helpers.js'
 import { setupTest } from './helpers.js'
 import { createDb } from '../src/db/index.js'
-import { businesses, users } from '../src/db/schema.js'
+import { users } from '../src/db/schema.js'
 
 let ctx: TestCtx
 
@@ -117,10 +118,17 @@ describe('migrasi keunikan email global', () => {
     migrate(db, { migrationsFolder: partialFolder })
 
     // Email yang sama di dua bisnis sah di bawah unique (business_id, email) lama.
-    const b1 = db.insert(businesses).values({ nama_bisnis: 'Bisnis A' }).returning().get()
-    const b2 = db.insert(businesses).values({ nama_bisnis: 'Bisnis B' }).returning().get()
-    db.insert(users).values({ business_id: b1.id, email: 'dup@demo.com', nama: 'X', password_hash: 'x' }).run()
-    db.insert(users).values({ business_id: b2.id, email: 'dup@demo.com', nama: 'Y', password_hash: 'x' }).run()
+    // Insert via SQL mentah: tabel `businesses` pada skema 0000–0006 belum punya
+    // kolom geofence (ticket #67), jadi tidak boleh memakai mapper skema penuh.
+    const seedBusiness = sqlite.prepare(
+      'INSERT INTO businesses (id, nama_bisnis, jenis_usaha) VALUES (?, ?, ?)',
+    )
+    const b1Id = randomUUID()
+    const b2Id = randomUUID()
+    seedBusiness.run(b1Id, 'Bisnis A', 'fnb')
+    seedBusiness.run(b2Id, 'Bisnis B', 'fnb')
+    db.insert(users).values({ business_id: b1Id, email: 'dup@demo.com', nama: 'X', password_hash: 'x' }).run()
+    db.insert(users).values({ business_id: b2Id, email: 'dup@demo.com', nama: 'Y', password_hash: 'x' }).run()
 
     let thrown: unknown
     try {
